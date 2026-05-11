@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+dist/
+build/
+.pnp
+.pnp.js
+
+# Environments
+.env
+.env.*
+!.env.example
+
+# Sensitive folders
+docs/
+.ai/
+Phase*_slices/
+
+# Markdown files (ignore all except Readme)
+*.md
+!README.md
+!Readme.md
+!readme.md
+
+# Database schemas and SQL
+*.sql
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
