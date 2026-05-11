@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  slug       String   @unique
+  created_at DateTime @default(now())
+
+  users User[]
+
+  @@map("tenants")
+}
+
+model Role {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  description String
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenant_id        String    @db.Uuid
+  role_id          String    @db.Uuid
+  auth_user_id     String    @unique @db.Uuid
+  email            String
+  full_name        String
+  avatar_url       String?
+  is_active        Boolean   @default(true)
+  last_login       DateTime?
+  hourly_cost_rate Decimal?
+  billable_rate    Decimal?
+  created_by       String?   @db.Uuid
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+  role   Role   @relation(fields: [role_id], references: [id])
+
+  @@index([tenant_id])
+  @@map("users")
+}
