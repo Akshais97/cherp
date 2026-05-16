@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../../lib/auth/supabase'
+import { normalizeSupabaseAuthError } from '../../lib/auth/errors'
 import type { CurrentUser, UserRole } from '../../types/auth'
 import { AuthContext, type AuthContextValue } from './auth-context'
 
@@ -22,7 +23,7 @@ function getCurrentUser(user: User): CurrentUser {
       metadata.full_name ??
       metadata.name ??
       user.email?.split('@')[0] ??
-      'Agency User',
+      'CHERP User',
     role: allowedRoles.has(role) ? role : 'team_member',
     avatar_url: metadata.avatar_url,
   }
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
 
         if (error) {
-          throw new Error(error.message)
+          throw normalizeSupabaseAuthError(error)
         }
       },
       signOut: async () => {

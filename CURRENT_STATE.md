@@ -1,0 +1,30 @@
+# CURRENT_STATE.md
+
+- Current phase: Phase 1 MVP implementation/closeout.
+- Slices 1-6 are marked complete in `docs/current/progress.md` for current slice scope.
+- Recently completed:
+  - App-level React error boundary and dashboard recent-activity normalization.
+  - Super Admin user management UI: create users, assign roles, toggle active state.
+  - Backend `POST /api/users` wired to Supabase Auth + ERP user creation + metadata sync.
+  - Team-member data visibility tightened: assigned clients/workflows/tasks/blockers/dashboard data only.
+  - Team-member UI hides client onboarding, task creation, task assignment, task reorder, and user management.
+  - Team members no longer receive sensitive client financial fields from client detail.
+  - `docs/current/user_stories.md` created from verified implementation reality.
+- Implemented Phase 1 areas:
+  - Auth/JWT/ERP user context/RBAC.
+  - Client onboarding/edit/status/archive/search.
+  - Scope templates and explicit template seeding.
+  - Month 1 workflow/task generation, checklist editing, drag reorder, blockers, activity logs.
+  - Dashboard summary, client health, deadlines, open blockers, filters, recent activity infinite scroll.
+- Known current issue:
+  - Browser UI verification was not completed because the local Browser plugin runtime file was missing.
+  - Supabase must have latest SQL applied before DB-backed flows work fully.
+- Important DB/setup files:
+  - `prisma/supabase_schema.sql`
+  - `prisma/phase1_client_contract_fields.sql`
+  - `prisma/phase1_ppc_seo_demo_seed.sql`
+  - `prisma/slice5_dashboard_indexes.sql`
+- Latest verified commands:
+  - `cd backend; npm run build` passed.
+  - `cd frontend; npm run build` passed.
+  - `cd backend; npm run test:phase1` passed.

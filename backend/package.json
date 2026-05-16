@@ -6,7 +6,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
-    "start:dev": "ts-node src/main.ts"
+    "start:dev": "ts-node src/main.ts",
+    "test:auth": "ts-node scripts/auth-header.test.ts",
+    "test:slice3": "ts-node scripts/slice3-workflows-tasks.test.ts",
+    "test:slice4": "ts-node scripts/slice4-blockers.test.ts",
+    "test:slice5": "ts-node scripts/slice5-dashboard.test.ts",
+    "test:slice6": "ts-node scripts/slice6-phase1-closeout.test.ts",
+    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6",
+    "perf:phase1": "ts-node scripts/measure-phase1-performance.ts"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +25,7 @@
     "@nestjs/core": "^11.1.19",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/swagger": "^11.4.2",
+    "@prisma/client": "^6.19.3",
     "@supabase/supabase-js": "^2.105.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -28,6 +36,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.2",
+    "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

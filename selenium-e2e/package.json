@@ -1,0 +1,14 @@
+{
+  "name": "cherp-selenium-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Selenium E2E tests and reports for the Phase 1 ERP flow.",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/phase1-flow.test.js"
+  },
+  "dependencies": {
+    "selenium-webdriver": "^4.38.0"
+  },
+  "devDependencies": {}
+}

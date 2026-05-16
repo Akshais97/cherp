@@ -1,0 +1,32 @@
+<instruction>
+    <task>Implement Phase 1, Slice 5 of the Agency Command Center ERP.</task>
+    <objective>Replace dashboard stubs with derived tenant-safe dashboard APIs and operational dashboard UI.</objective>
+    <requirements>
+        <section title="1. Dashboard Aggregation APIs">
+            <requirement id="DSH-01" title="Metric Summary">Implement GET /api/dashboard/summary deriving Active Clients, Active Workflows, Average Completion Percentage, Open Blockers, and Team Utilization placeholder if source data is insufficient.</requirement>
+            <requirement id="DSH-02" title="Client Health">Implement GET /api/dashboard/client-health deriving health status from workflow completion: on_track, at_risk, off_track.</requirement>
+            <requirement id="DSH-03" title="Upcoming Deadlines">Implement GET /api/dashboard/upcoming-deadlines for incomplete tasks due within 7 days and overdue tasks.</requirement>
+            <requirement id="DSH-04" title="Open Blockers">Implement GET /api/dashboard/open-blockers sorted by severity then flagged_at.</requirement>
+            <requirement id="DSH-ACTIVITY" title="Recent Activity">Implement recent activity feed from append-only activity_logs, limited to last 20 records.</requirement>
+        </section>
+        <section title="2. Dashboard UI Completion">
+            <requirement id="DSH-UI-METRICS" title="Metric Cards">Connect metric cards to dashboard APIs and remove hard-coded production-looking stubs.</requirement>
+            <requirement id="DSH-UI-HEALTH" title="Client Health Table">Show client, current workflow/month, progress, health badge, and blocker count.</requirement>
+            <requirement id="DSH-UI-DEADLINES" title="Deadline Panel">Show upcoming and overdue task deadlines with visual urgency.</requirement>
+            <requirement id="DSH-UI-BLOCKERS" title="Open Blocker Panel">Show open blockers with severity badges and client/task context.</requirement>
+            <requirement id="DSH-UI-NAV" title="Navigation Links">Clicking client or workflow rows navigates to relevant detail screens.</requirement>
+        </section>
+    </requirements>
+    <critical_logic_constraints>
+        <logic id="DERIVED-ONLY" importance="High"><description>Dashboard data must be derived from clients, workflows, tasks, blockers, and activity logs. Do not create dashboard source-of-truth tables.</description></logic>
+        <logic id="TENANT-AGG" importance="High"><description>No cross-tenant aggregate query is allowed.</description></logic>
+        <logic id="NO-REALTIME" importance="Medium"><description>Realtime/websocket behavior is not active in Phase 1. Use TanStack Query invalidation/refetch.</description></logic>
+    </critical_logic_constraints>
+    <scope_summary_table>
+        <item category="Dashboard" req="Summary, health, deadlines, blockers, activity" ref="2.6" />
+        <item category="UI" req="Connected dashboard panels and navigation" ref="frontend.md" />
+        <item category="Data" req="Derived values only" ref="Workflow.md" />
+        <item category="Performance" req="Load within Phase 1 targets for 50 active clients" ref="Phase1_MVP.md" />
+    </scope_summary_table>
+    <first_principles_check>The dashboard observes operational truth. It must not become operational truth.</first_principles_check>
+</instruction>

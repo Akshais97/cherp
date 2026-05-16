@@ -1,0 +1,34 @@
+<instruction>
+    <task>Implement Phase 1, Slice 6 closeout for the Agency Command Center ERP.</task>
+    <objective>Complete Phase 1 quality, security, documentation, and acceptance coverage without adding future-scope features.</objective>
+    <requirements>
+        <section title="1. Phase 1 Acceptance Testing">
+            <requirement id="QA-AUTH" title="Auth and RBAC Tests">Add focused tests for bearer parsing, role guards, inactive users, missing ERP users, and forbidden access.</requirement>
+            <requirement id="QA-ONBOARDING" title="Onboarding Transaction Tests">Verify client onboarding rolls back if workflow or task generation fails.</requirement>
+            <requirement id="QA-TASKS" title="Task Transition Tests">Verify allowed transitions, blocked-task completion rejection, completion percentage recalculation, and activity logs.</requirement>
+            <requirement id="QA-BLOCKERS" title="Blocker Transaction Tests">Verify blocker creation blocks tasks and resolution restores only when no open blockers remain.</requirement>
+            <requirement id="QA-DASHBOARD" title="Dashboard Derivation Tests">Verify health status, open blocker count, overdue tasks, and tenant-filtered aggregation.</requirement>
+        </section>
+        <section title="2. Security and Tenant Hardening">
+            <requirement id="SEC-TENANT" title="Tenant Safety Review">Audit all repository queries for tenant_id filters and relationship ownership checks.</requirement>
+            <requirement id="SEC-BODY" title="System-Controlled Fields">Verify no endpoint accepts tenant_id, user_id, created_by, completed_by, resolved_by, or status side effects from untrusted bodies.</requirement>
+            <requirement id="SEC-ERRORS" title="Error Normalization">Ensure raw Prisma/Supabase/database errors are not exposed to frontend users.</requirement>
+        </section>
+        <section title="3. Documentation and Runbook">
+            <requirement id="DOC-FEATURES" title="Feature Map">Keep docs/current/features.md aligned with all Phase 1 slices and implemented modules.</requirement>
+            <requirement id="DOC-SETUP" title="Local/Supabase Setup">Document env variables, Supabase SQL setup, tenant/user bootstrap, template seeding, and dev server startup.</requirement>
+            <requirement id="DOC-API" title="Swagger Verification">Ensure Swagger documents implemented endpoints only.</requirement>
+        </section>
+    </requirements>
+    <critical_logic_constraints>
+        <logic id="NO-FUTURE-SCOPE" importance="High"><description>Do not implement notifications, realtime, CRM sync, billing, AI, dependency engine, Kanban, Gantt, or mobile features.</description></logic>
+        <logic id="NO-HALF-PHASE" importance="High"><description>Phase 1 closeout must verify the full path from login to client onboarding to workflow/task execution to blocker resolution to dashboard derivation.</description></logic>
+    </critical_logic_constraints>
+    <scope_summary_table>
+        <item category="Quality" req="Focused backend and frontend tests for Phase 1 behavior" ref="Workflow.md" />
+        <item category="Security" req="Tenant and RBAC hardening" ref="permissions_matrix.md" />
+        <item category="Documentation" req="Feature map, setup runbook, Swagger review" ref="backend.md, frontend.md" />
+        <item category="Closeout" req="End-to-end Phase 1 acceptance path" ref="Phase1_MVP.md" />
+    </scope_summary_table>
+    <first_principles_check>Phase 1 is complete only when the system can be trusted as a tenant-safe operational record for onboarding, workflows, tasks, blockers, and dashboard visibility.</first_principles_check>
+</instruction>

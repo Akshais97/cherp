@@ -1,0 +1,35 @@
+<instruction>
+    <task>Implement Phase 1, Slice 4 of the Agency Command Center ERP.</task>
+    <objective>Add blocker logging and resolution so task execution can represent real operational impediments without hidden status changes.</objective>
+    <requirements>
+        <section title="1. Blocker Creation">
+            <requirement id="BLK-01" title="Log Blocker">Implement POST /api/blockers with task_id, title, description, severity, and impact.</requirement>
+            <requirement id="BLK-03" title="Task Link">Validate the task belongs to a workflow/client inside the authenticated tenant.</requirement>
+            <requirement id="BLK-TASK-STATUS" title="Block Task">Creating a blocker must set the linked task status to blocked in the same transaction.</requirement>
+            <requirement id="BLK-AUDIT" title="Creation Audit">Write activity logs for blocker creation and task status change.</requirement>
+        </section>
+        <section title="2. Blocker List and Detail">
+            <requirement id="BLK-04" title="Blocker List">Implement GET /api/blockers with filters for status, severity, client, and task.</requirement>
+            <requirement id="BLK-DETAIL" title="Blocker Detail">Implement GET /api/blockers/:id returning linked client, linked task, impact, status, and resolution fields.</requirement>
+            <requirement id="BLK-LIST-UI" title="Blocker List UI">Build blocker list screen with open/resolved filters and severity styling.</requirement>
+            <requirement id="BLK-DETAIL-UI" title="Blocker Detail UI">Build blocker detail screen showing impact and resolution tracking.</requirement>
+        </section>
+        <section title="3. Blocker Resolution">
+            <requirement id="BLK-05" title="Resolve Blocker">Implement PATCH /api/blockers/:id/resolve with resolution_notes.</requirement>
+            <requirement id="BLK-UNBLOCK" title="Restore Task">On resolution, restore task to in_progress only if no open blockers remain for that task.</requirement>
+            <requirement id="BLK-RESOLVE-AUDIT" title="Resolution Audit">Set resolved_at, resolved_by, and write activity logs for blocker and task updates.</requirement>
+        </section>
+    </requirements>
+    <critical_logic_constraints>
+        <logic id="TX-BLK" importance="High"><description>Blocker creation and resolution must be transactional with task status updates.</description></logic>
+        <logic id="ASSIGNED-ONLY" importance="High"><description>Team Members may create blockers only on assigned tasks. PM/Admin may create and resolve blockers.</description></logic>
+        <logic id="MULTI-BLOCKER" importance="High"><description>Resolving one blocker must not unblock a task if another open blocker remains.</description></logic>
+    </critical_logic_constraints>
+    <scope_summary_table>
+        <item category="Blockers" req="Create, list, detail, resolve" ref="2.5" />
+        <item category="Tasks" req="Blocked status transition and restore logic" ref="Workflow.md" />
+        <item category="UI" req="Blocker list and detail screens" ref="frontend.md" />
+        <item category="Audit" req="Activity logs for blocker lifecycle" ref="Workflow.md" />
+    </scope_summary_table>
+    <first_principles_check>A blocker is not a note. It is a stateful operational entity that blocks a task, affects dashboard risk, and requires explicit resolution.</first_principles_check>
+</instruction>

@@ -1,0 +1,36 @@
+<instruction>
+    <task>Complete remaining Phase 1 gaps from Slice 1 and Slice 2.</task>
+    <objective>Close foundational gaps before deeper workflow execution: user administration, full client lifecycle, template CRUD, and contract/template resolution behavior.</objective>
+    <requirements>
+        <section title="1. Auth and User Administration Completion">
+            <requirement id="AUTH-01" title="Admin User Creation">Implement Admin-only user creation backed by Supabase Auth and ERP user records. Do not store passwords in ERP tables.</requirement>
+            <requirement id="USR-01" title="Users API">Implement GET /api/users and PATCH /api/users/:id for PM/Admin visibility and Super Admin role-sensitive updates.</requirement>
+            <requirement id="AUTH-04" title="Password Reset Delegation">Add frontend/backend hooks for Supabase password reset email flow where required. Do not implement custom password hashing.</requirement>
+            <requirement id="AUTH-ERR" title="Auth Error Clarity">Normalize auth errors for missing bearer, expired token, inactive user, missing ERP user, and forbidden role.</requirement>
+        </section>
+        <section title="2. Client Lifecycle Completion">
+            <requirement id="CLT-DETAIL" title="Client Detail">Implement GET /api/clients/:id and frontend client detail screen showing profile and linked Month 1 workflow summary.</requirement>
+            <requirement id="CLT-UPDATE" title="Client Edit">Implement PATCH /api/clients/:id with DTO validation, tenant ownership checks, and activity logging.</requirement>
+            <requirement id="CLT-STATUS" title="Client Status Management">Implement PATCH /api/clients/:id/status using canonical values active, paused, completed, archived.</requirement>
+            <requirement id="CLT-ARCHIVE" title="Client Archive">Implement DELETE /api/clients/:id as soft archive. Archived clients must be hidden from default client lists.</requirement>
+            <requirement id="CLT-SEARCH" title="Client Search and Filters">Add client list search/filter by name, industry, service type, and status.</requirement>
+        </section>
+        <section title="3. Scope Template Completion">
+            <requirement id="TPL-CRUD" title="Template CRUD">Implement create, update, list, detail, and deactivate endpoints for active tenant scope templates.</requirement>
+            <requirement id="TPL-RESOLVE" title="Template Resolution">Implement exact industry + service_type resolution, same-industry fallback, same-service fallback, and manual PM selection.</requirement>
+            <requirement id="TPL-KPI" title="Template KPI Preview">Show KPI framework and duration in frontend preview, not only task list.</requirement>
+        </section>
+    </requirements>
+    <critical_logic_constraints>
+        <logic id="NO-PASSWORD-HASH" importance="High"><description>Supabase Auth owns password storage and reset. ERP users store identity/profile/role only.</description></logic>
+        <logic id="TENANT-OWNERSHIP" importance="High"><description>Every user, client, and template query must filter by authenticated tenant_id.</description></logic>
+        <logic id="AUDIT-MUTATIONS" importance="High"><description>Every user, client, and template mutation must append an activity log.</description></logic>
+    </critical_logic_constraints>
+    <scope_summary_table>
+        <item category="Identity" req="Admin user creation, user listing/update, password reset delegation" ref="2.1" />
+        <item category="Clients" req="Detail, edit, status change, archive, search/filter" ref="2.2" />
+        <item category="Templates" req="CRUD, deactivate, resolution fallback, KPI preview" ref="2.3" />
+        <item category="Permissions" req="Super Admin and PM allowlists from permissions_matrix.md" ref="permissions_matrix.md" />
+    </scope_summary_table>
+    <first_principles_check>A user must be a Supabase Auth user plus ERP user row. A client must remain tenant-owned, auditable, and lifecycle-controlled. A template must be active, tenant-owned, and explicitly selected or resolved before operational work starts.</first_principles_check>
+</instruction>

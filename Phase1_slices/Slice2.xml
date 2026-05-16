@@ -1,0 +1,64 @@
+<instruction>
+    <task>Implement Phase 1, Slice 2 of the Agency Command Center ERP.</task>
+    <objective>
+        Establish the "Core Business Entity" by linking standardized Scope Templates to active Client Onboarding, enabling the transition from sales to operational execution.
+    </objective>
+
+    <requirements>
+        <section title="1. Scope Template Engine (Module 2.3)">
+            <requirement id="TPL-01" title="JSONB Template Library">
+                Implement the Scope Template schema. Use JSONB for 'default_tasks' (grouped by Month/Milestone) and 'kpi_framework' to allow for schema flexibility per industry.
+            </requirement>
+            <requirement id="TPL-02" title="Industry Pre-sets">
+                Seed the database with the 7+ mandatory industries (Real Estate, SaaS, E-commerce, etc.) and their specific service types as defined in the PRD.
+            </requirement>
+        </section>
+
+        <section title="2. Client Onboarding (Module 2.2)">
+            <requirement id="CLT-01" title="Two-Column Onboarding UI">
+                Create the onboarding form. 
+                - Left: Metadata (Contact info, Monthly Retainer, Currency). 
+                - Right: Template Selector with a live 'Task Preview' from the selected blueprint.
+            </requirement>
+            <requirement id="CLT-DATE" title="Contract Intelligence">
+                Implement auto-calculation logic: contract_end = contract_start + duration_months. (AC-07).
+            </requirement>
+            <requirement id="CLT-LIST" title="Client Directory">
+                Implement the high-level sortable table displaying Name, Industry, Service Type, and Status (Active/Paused/Completed).
+            </requirement>
+        </section>
+
+        <section title="3. The Operational Trigger">
+            <requirement id="WRK-01" title="Automated Workflow Initialization">
+                On successful Client creation, the system must automatically generate the 'Month 1' Workflow record linked to that client, pulling task data from the assigned template.
+            </requirement>
+            <requirement id="OWN-01" title="Ownership Assignment">
+                Automatically link the creating User (if PM/Admin) as the 'pm_id' for the Client and its initial Workflow.
+            </requirement>
+        </section>
+    </requirements>
+
+    <critical_logic_constraints>
+        <logic id="TX-CLT" importance="High">
+            <description>Atomic Transactions: Client creation and the generation of the first Workflow shell must be atomic. Fail the entire process if the Workflow shell cannot be instantiated.</description>
+        </logic>
+        <logic id="IMM-TPL" importance="High">
+            <description>Data Snapshotting: When creating a Workflow from a Template, COPY the data. Do not link. If a Template is updated later, it must not retroactively change a Client's active tasks.</description>
+        </logic>
+        <logic id="RBAC-CLT" importance="Medium">
+            <description>Role Enforcement: Restrict Client creation (POST) to 'super_admin' and 'project_manager' roles only as established in Slice 1.</description>
+        </logic>
+    </critical_logic_constraints>
+
+    <scope_summary_table>
+        <item category="Entities" req="Clients, Scope Templates, Initial Workflow" ref="2.2.4, 2.3.4" />
+        <item category="Permissions" req="PM/Admin Write Access" ref="AUTH-03" />
+        <item category="Data" req="JSONB Task Blueprints + Contract Logic" ref="AC-07, TPL-01" />
+        <item category="UI" req="Onboarding Form + Template Preview" ref="2.2.7" />
+        <item category="Infrastructure" req="DB Transactions + Ownership Propagation" ref="2.1.4, WRK-01" />
+    </scope_summary_table>
+
+    <first_principles_check>
+        The "Entity Boundary" check: Does a Client exist without an assigned Template? No. Does a Client exist without a PM owner? No. This slice ensures the system remains a rigid 'System of Record' for agency operations.
+    </first_principles_check>
+</instruction>

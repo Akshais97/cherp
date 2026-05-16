@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import 'reflect-metadata'
 import { AppModule } from './app.module'
+import { ApiExceptionFilter } from './common/filters/api-exception.filter'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -11,6 +12,8 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
     credentials: true,
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   })
   app.useGlobalPipes(
     new ValidationPipe({
@@ -19,6 +22,7 @@ async function bootstrap() {
       transform: true,
     }),
   )
+  app.useGlobalFilters(new ApiExceptionFilter())
 
   const config = new DocumentBuilder()
     .setTitle('Agency Command Center ERP')

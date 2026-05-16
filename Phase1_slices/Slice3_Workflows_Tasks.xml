@@ -1,0 +1,36 @@
+<instruction>
+    <task>Implement Phase 1, Slice 3 of the Agency Command Center ERP.</task>
+    <objective>Build the operational checklist layer: workflows, tasks, assignment, status updates, completion calculation, and workflow detail UI.</objective>
+    <requirements>
+        <section title="1. Workflow Detail and Listing">
+            <requirement id="WRK-LIST" title="Workflow List">Implement GET /api/workflows with tenant filters by client, status, and project manager.</requirement>
+            <requirement id="WRK-DETAIL" title="Workflow Detail">Implement GET /api/workflows/:id returning workflow, client summary, tasks, completion percentage, and open blocker count.</requirement>
+            <requirement id="CLT-WORKFLOWS" title="Client Workflows">Implement GET /api/clients/:id/workflows with tenant ownership validation.</requirement>
+            <requirement id="WRK-UI" title="Workflow Detail UI">Build workflow detail screen with checklist, assignee, due date, priority, status badge, blocker indicator, and progress bar.</requirement>
+        </section>
+        <section title="2. Task Management">
+            <requirement id="TSK-CREATE" title="Custom Task Creation">Implement POST /api/workflows/:id/tasks for PM/Admin custom tasks with DTO validation.</requirement>
+            <requirement id="TSK-UPDATE" title="Task Update">Implement PATCH /api/tasks/:id for status, assignee, due_date, priority, title, and description updates.</requirement>
+            <requirement id="TSK-COMPLETE" title="Task Completion">Implement PATCH /api/tasks/:id/complete. Set completed_at and completed_by.</requirement>
+            <requirement id="TSK-ASSIGN" title="Assignment Rules">PM/Admin may assign tasks. Team Members may update only assigned tasks.</requirement>
+            <requirement id="TSK-UI" title="Task Update UI">Build task update controls for allowed users using React Hook Form + Zod where editing is form-based.</requirement>
+        </section>
+        <section title="3. Completion and Deadline Logic">
+            <requirement id="WRK-COMP" title="Completion Calculation">Recalculate workflow completion as completed_tasks / total_tasks * 100 after task mutations.</requirement>
+            <requirement id="TSK-DUE" title="Due Date Display">Highlight overdue tasks in red and due-soon tasks in amber in checklist UI.</requirement>
+            <requirement id="TSK-AUDIT" title="Task Activity Logs">Write activity logs for task creation, assignment, update, completion, and status changes.</requirement>
+        </section>
+    </requirements>
+    <critical_logic_constraints>
+        <logic id="NO-BLOCKED-COMPLETE" importance="High"><description>A blocked task cannot be completed directly.</description></logic>
+        <logic id="TENANT-TASKS" importance="High"><description>Task access must verify Task to Workflow to Client to Tenant ownership.</description></logic>
+        <logic id="NO-DRAG-FIRST" importance="Medium"><description>Drag-and-drop reorder is Should priority only; implement stable sort_order editing before complex drag UI.</description></logic>
+    </critical_logic_constraints>
+    <scope_summary_table>
+        <item category="Workflows" req="List, detail, client workflows, completion calculation" ref="2.4" />
+        <item category="Tasks" req="Create, update, assign, complete, due dates, priority" ref="2.4" />
+        <item category="UI" req="Workflow detail and task update UI" ref="frontend.md" />
+        <item category="Audit" req="Activity logs for task/workflow mutations" ref="Workflow.md" />
+    </scope_summary_table>
+    <first_principles_check>A workflow is the operational container. A task is the smallest executable unit. All status changes must be tenant-safe, role-safe, transition-safe, and auditable.</first_principles_check>
+</instruction>

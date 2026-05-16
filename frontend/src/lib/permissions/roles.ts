@@ -10,3 +10,19 @@ export const roleLabels: Record<UserRole, string> = {
 export function canViewInternalDashboard(role: UserRole) {
   return role === 'super_admin' || role === 'project_manager' || role === 'team_member'
 }
+
+export function canManageUsers(role: UserRole) {
+  return role === 'super_admin'
+}
+
+export function canManageClients(role: UserRole) {
+  return role === 'super_admin' || role === 'project_manager'
+}
+
+export function canArchiveClients(role: UserRole) {
+  return role === 'super_admin'
+}
+
+export function canManageTasks(role: UserRole) {
+  return role === 'super_admin' || role === 'project_manager'
+}

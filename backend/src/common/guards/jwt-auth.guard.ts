@@ -5,8 +5,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient } from '@supabase/supabase-js'
 import { Request } from 'express'
+import { PrismaService } from '../../prisma/prisma.service'
+import { getBearerTokenFromRequest } from '../auth/bearer-token'
+import { createSupabaseAdminClient } from '../auth/supabase-admin-client'
 import { UserRole } from '../enums/user-role.enum'
 import { RequestUser } from '../types/request-user.type'
 
@@ -18,22 +21,16 @@ type RequestWithUser = Request & {
 export class JwtAuthGuard implements CanActivate {
   private readonly supabase: SupabaseClient
 
-  constructor(private readonly configService: ConfigService) {
-    const url = this.configService.get<string>('SUPABASE_URL')
-    const serviceKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY')
-
-    if (!url || !serviceKey) {
-      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.')
-    }
-
-    this.supabase = createClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
+    this.supabase = createSupabaseAdminClient(this.configService)
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>()
-    const token = this.getBearerToken(request)
+    const token = getBearerTokenFromRequest(request)
 
     const { data, error } = await this.supabase.auth.getUser(token)
 
@@ -41,40 +38,39 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired access token.')
     }
 
-    const metadata = data.user.user_metadata
-    const role = this.toRole(metadata.role)
-    const tenantId = metadata.tenant_id
+    const erpUser = await this.prisma.user.findUnique({
+      where: { auth_user_id: data.user.id },
+      select: {
+        id: true,
+        tenant_id: true,
+        email: true,
+        full_name: true,
+        avatar_url: true,
+        is_active: true,
+        role: { select: { name: true } },
+      },
+    })
 
-    if (!tenantId || metadata.is_active === false) {
-      throw new UnauthorizedException('User is inactive or missing tenant context.')
+    if (!erpUser) {
+      throw new UnauthorizedException('ERP user record not found for this Supabase user.')
+    }
+
+    if (!erpUser.is_active) {
+      throw new UnauthorizedException('User is inactive.')
     }
 
     request.user = {
-      id: metadata.erp_user_id ?? data.user.id,
+      id: erpUser.id,
       authUserId: data.user.id,
-      tenantId,
-      email: data.user.email ?? '',
-      fullName:
-        metadata.full_name ??
-        metadata.name ??
-        data.user.email?.split('@')[0] ??
-        'Agency User',
-      role,
-      avatarUrl: metadata.avatar_url,
-      isActive: metadata.is_active !== false,
+      tenantId: erpUser.tenant_id,
+      email: erpUser.email,
+      fullName: erpUser.full_name,
+      role: this.toRole(erpUser.role.name),
+      avatarUrl: erpUser.avatar_url ?? undefined,
+      isActive: erpUser.is_active,
     }
 
     return true
-  }
-
-  private getBearerToken(request: Request): string {
-    const authorization = request.headers.authorization
-
-    if (!authorization?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Bearer token is required.')
-    }
-
-    return authorization.slice('Bearer '.length)
   }
 
   private toRole(value: unknown): UserRole {
