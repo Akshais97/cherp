@@ -12,7 +12,8 @@
     "test:slice4": "ts-node scripts/slice4-blockers.test.ts",
     "test:slice5": "ts-node scripts/slice5-dashboard.test.ts",
     "test:slice6": "ts-node scripts/slice6-phase1-closeout.test.ts",
-    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6",
+    "test:user-stories": "ts-node scripts/phase1-user-stories-workflow.test.ts",
+    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6 && npm run test:user-stories",
     "perf:phase1": "ts-node scripts/measure-phase1-performance.ts"
   },
   "keywords": [],

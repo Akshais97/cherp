@@ -105,7 +105,7 @@ export class ClientsService {
       userId: user.id,
       templateId: template.id,
       client: clientData,
-      workflowTitle: `${dto.name} - Month 1 Workflow`,
+      workflowTitle: `${dto.name} — Month 1`,
       workflowStartDate: startDate,
       workflowEndDate: endDate,
       tasks,

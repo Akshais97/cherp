@@ -47,7 +47,7 @@ This file maps all Phase 1 features to implementation slices. It is planning sco
 - Implemented: Custom task creation from workflow detail.
 - Implemented: Task update, assignment, status change, priority change, and completion APIs.
 - Implemented: Task edit UI for title, description, due date, and priority using React Hook Form + Zod.
-- Implemented: Checklist task reorder via drag handles backed by persisted `sort_order`.
+- Implemented: Checklist task reorder via pointer-based full-card drag preview, 5px drag buffer, click suppression, and optimistic persisted `sort_order`.
 - Implemented: Task status transition validation, including no direct blocked-to-completed completion.
 - Implemented: Due date highlighting for overdue and due-soon tasks.
 - Implemented: Workflow completion recalculation after task creation/update/completion.

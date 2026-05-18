@@ -207,7 +207,9 @@ async function main() {
     await clickTaskCardButton(taskTitle, 'button-save-task')
     await waitForTaskCardText(editedTaskTitle, 'Edited by Slice 3 Selenium coverage', 30000)
     await waitForTaskCardText(editedTaskTitle, 'High', 30000)
+    await setTaskCardExpanded(editedTaskTitle, false)
     await dragTaskToFirstAvailable(editedTaskTitle)
+    await waitForTaskCardExpanded(editedTaskTitle, false, 30000)
     await selectTaskCardOption(editedTaskTitle, 'select-task-status', 'In progress')
     await waitForTaskCardText(editedTaskTitle, 'In progress', 30000)
     await typeTaskCardField(editedTaskTitle, 'input-blocker-title', createdBlockerTitle)
@@ -747,19 +749,15 @@ async function dragTaskToFirstAvailable(taskTitle) {
 
     try {
       const handle = await source.findElement(cssTestId('button-task-drag-handle'))
-      await driver.executeScript(
-        `
-          const handle = arguments[0];
-          const target = arguments[1];
-          const dataTransfer = new DataTransfer();
-          handle.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
-          target.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer }));
-          target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer }));
-          handle.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
-        `,
-        handle,
-        target,
-      )
+      await driver
+        .actions({ async: true })
+        .move({ origin: handle })
+        .press()
+        .pause(120)
+        .move({ origin: target })
+        .pause(120)
+        .release()
+        .perform()
       await sleep(1000)
       return true
     } catch (error) {
@@ -796,6 +794,31 @@ async function ensureTaskCardOpen(taskTitle) {
   await buttons[0].click()
   await sleep(250)
   return true
+}
+
+async function setTaskCardExpanded(taskTitle, shouldExpand) {
+  await driver.wait(async () => {
+    const card = await findTaskCard(taskTitle)
+    if (!card) return false
+    const buttons = await card.findElements(cssTestId('button-task-accordion'))
+    if (buttons.length === 0) return true
+    const expanded = (await buttons[0].getAttribute('aria-expanded')) === 'true'
+    if (expanded === shouldExpand) return true
+    await buttons[0].click()
+    return false
+  }, 30000)
+
+  await waitForTaskCardExpanded(taskTitle, shouldExpand, 30000)
+}
+
+async function waitForTaskCardExpanded(taskTitle, shouldExpand, timeoutMs) {
+  await driver.wait(async () => {
+    const card = await findTaskCard(taskTitle)
+    if (!card) return false
+    const buttons = await card.findElements(cssTestId('button-task-accordion'))
+    if (buttons.length === 0) return shouldExpand
+    return ((await buttons[0].getAttribute('aria-expanded')) === 'true') === shouldExpand
+  }, timeoutMs)
 }
 
 async function clickBlockerRow(blockerText, timeoutMs) {

@@ -10,7 +10,7 @@ import {
   Save,
   UserRound,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
@@ -62,6 +62,25 @@ const priorityLabels: Record<TaskPriority, string> = {
   high: 'High',
   medium: 'Medium',
   low: 'Low',
+}
+
+const DRAG_START_THRESHOLD_PX = 5
+const POST_DRAG_CLICK_SUPPRESSION_MS = 250
+
+type TaskDragState = {
+  taskId: string
+  pointerId: number
+  offsetX: number
+  offsetY: number
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+type PendingTaskPointerState = TaskDragState & {
+  startX: number
+  startY: number
 }
 
 export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: string | null }) {
@@ -186,7 +205,12 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
   const canManage = currentUser ? canManageTasks(currentUser.role) : false
   const [panelError, setPanelError] = useState<string | null>(null)
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
-  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragState, setDragState] = useState<TaskDragState | null>(null)
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
+  const dragStateRef = useRef<TaskDragState | null>(null)
+  const dragOverTaskIdRef = useRef<string | null>(null)
+  const pendingPointerRef = useRef<PendingTaskPointerState | null>(null)
+  const suppressClickUntilRef = useRef(0)
   const workflowQuery = useQuery({
     queryKey: ['workflow', workflowId],
     queryFn: () => getWorkflow(workflowId ?? ''),
@@ -229,12 +253,52 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
         ),
       )
     },
+    onMutate: async ({ sourceTaskId, targetTaskId }) => {
+      if (!workflowId || sourceTaskId === targetTaskId) return undefined
+
+      await queryClient.cancelQueries({ queryKey: ['workflow', workflowId] })
+      const previousWorkflow = queryClient.getQueryData<WorkflowDetail>([
+        'workflow',
+        workflowId,
+      ])
+
+      queryClient.setQueryData<WorkflowDetail>(['workflow', workflowId], (current) => {
+        if (!current) return current
+        const reordered = reorderTasks(current.tasks, sourceTaskId, targetTaskId)
+        if (reordered === current.tasks) return current
+
+        return {
+          ...current,
+          tasks: reordered.map((task, index) => ({
+            ...task,
+            sort_order: index + 1,
+          })),
+        }
+      })
+
+      return { previousWorkflow }
+    },
     onSuccess: () => {
       setPanelError(null)
-      refreshWorkflow()
     },
-    onError: (error) => setPanelError(normalizeApiError(error).message),
+    onSettled: () => refreshWorkflow(),
+    onError: (error, _variables, context) => {
+      if (context?.previousWorkflow && workflowId) {
+        queryClient.setQueryData(['workflow', workflowId], context.previousWorkflow)
+      }
+      setPanelError(normalizeApiError(error).message)
+    },
   })
+
+  const draggedTask = workflow?.tasks.find((task) => task.id === dragState?.taskId)
+
+  useEffect(() => {
+    dragStateRef.current = dragState
+  }, [dragState])
+
+  useEffect(() => {
+    dragOverTaskIdRef.current = dragOverTaskId
+  }, [dragOverTaskId])
 
   useEffect(() => {
     if (!workflow?.tasks.length || !openTaskId) {
@@ -249,6 +313,152 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
   const refreshWorkflow = () => {
     queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
     queryClient.invalidateQueries({ queryKey: ['workflows'] })
+  }
+
+  const finishDrag = () => {
+    const current = dragStateRef.current
+    const targetTaskId = dragOverTaskIdRef.current
+
+    pendingPointerRef.current = null
+    setDragState(null)
+    setDragOverTaskId(null)
+    suppressClickUntilRef.current = Date.now() + POST_DRAG_CLICK_SUPPRESSION_MS
+
+    if (!current || !targetTaskId || targetTaskId === current.taskId) return
+    reorderMutation.mutate({
+      sourceTaskId: current.taskId,
+      targetTaskId,
+    })
+  }
+
+  const cancelDragInteraction = () => {
+    pendingPointerRef.current = null
+    if (dragStateRef.current) {
+      suppressClickUntilRef.current = Date.now() + POST_DRAG_CLICK_SUPPRESSION_MS
+    }
+    setDragState(null)
+    setDragOverTaskId(null)
+  }
+
+  const handleTaskDragStart = (
+    task: WorkflowTask,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) => {
+    if (!canManage || event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+
+    const card = event.currentTarget.closest<HTMLElement>('[data-task-id]')
+    if (!card) return
+
+    const rect = card.getBoundingClientRect()
+    const nextPointerState = {
+      taskId: task.id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      x: event.clientX,
+      y: event.clientY,
+      width: rect.width,
+      height: rect.height,
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+    pendingPointerRef.current = nextPointerState
+    setDragOverTaskId(null)
+  }
+
+  const handleTaskDragMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const pending = pendingPointerRef.current
+    if (!pending || pending.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+
+    const deltaX = event.clientX - pending.startX
+    const deltaY = event.clientY - pending.startY
+    const hasPassedDragThreshold =
+      Math.hypot(deltaX, deltaY) >= DRAG_START_THRESHOLD_PX
+
+    if (!dragStateRef.current && !hasPassedDragThreshold) return
+
+    if (!dragStateRef.current) {
+      const nextDragState = {
+        taskId: pending.taskId,
+        pointerId: pending.pointerId,
+        offsetX: pending.offsetX,
+        offsetY: pending.offsetY,
+        x: event.clientX,
+        y: event.clientY,
+        width: pending.width,
+        height: pending.height,
+      }
+
+      dragStateRef.current = nextDragState
+      setDragState(nextDragState)
+      setDragOverTaskId(pending.taskId)
+    } else {
+      setDragState((value) =>
+        value ? { ...value, x: event.clientX, y: event.clientY } : value,
+      )
+    }
+
+    suppressClickUntilRef.current = Date.now() + POST_DRAG_CLICK_SUPPRESSION_MS
+
+    const element = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-task-id]')
+    const nextTargetId = element?.dataset.taskId ?? pending.taskId
+
+    if (nextTargetId !== dragOverTaskIdRef.current) {
+      setDragOverTaskId(nextTargetId)
+    }
+  }
+
+  const handleTaskDragEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const pending = pendingPointerRef.current
+    if (!pending || pending.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    if (dragStateRef.current) {
+      finishDrag()
+      return
+    }
+
+    pendingPointerRef.current = null
+    setDragOverTaskId(null)
+  }
+
+  const handleTaskDragCancel = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const pending = pendingPointerRef.current
+    if (!pending || pending.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    cancelDragInteraction()
+  }
+
+  const handleTaskToggle = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    taskId: string,
+  ) => {
+    if (Date.now() < suppressClickUntilRef.current || dragStateRef.current) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    setOpenTaskId((current) => (current === taskId ? null : taskId))
   }
 
   if (!workflowId) {
@@ -322,32 +532,14 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
             users={users}
             canManage={canManage}
             isOpen={openTaskId === task.id}
-            isDragging={draggedTaskId === task.id}
+            isDragging={dragState?.taskId === task.id}
+            isDropTarget={dragOverTaskId === task.id && dragState?.taskId !== task.id}
             onError={setPanelError}
-            onDragEnd={() => setDraggedTaskId(null)}
-            onDragOver={(event) => {
-              if (canManage) event.preventDefault()
-            }}
-            onDragStart={(event) => {
-              if (!canManage) return
-              event.dataTransfer.effectAllowed = 'move'
-              event.dataTransfer.setData('text/plain', task.id)
-              setDraggedTaskId(task.id)
-            }}
-            onDrop={(event) => {
-              if (!canManage) return
-              const sourceTaskId =
-                event.dataTransfer.getData('text/plain') || draggedTaskId
-              if (!sourceTaskId) return
-              reorderMutation.mutate({
-                sourceTaskId,
-                targetTaskId: task.id,
-              })
-              setDraggedTaskId(null)
-            }}
-            onToggle={() =>
-              setOpenTaskId((current) => (current === task.id ? null : task.id))
-            }
+            onDragCancel={handleTaskDragCancel}
+            onDragEnd={handleTaskDragEnd}
+            onDragMove={handleTaskDragMove}
+            onDragStart={(event) => handleTaskDragStart(task, event)}
+            onToggle={(event) => handleTaskToggle(event, task.id)}
             onSuccess={() => {
               setPanelError(null)
               refreshWorkflow()
@@ -355,6 +547,9 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
           />
         ))}
       </div>
+      {dragState && draggedTask ? (
+        <TaskDragOverlay dragState={dragState} task={draggedTask} />
+      ) : null}
     </section>
   )
 }
@@ -469,11 +664,12 @@ function TaskCard({
   canManage,
   isOpen,
   isDragging,
+  isDropTarget,
   onError,
+  onDragCancel,
   onDragEnd,
-  onDragOver,
+  onDragMove,
   onDragStart,
-  onDrop,
   onToggle,
   onSuccess,
 }: {
@@ -482,12 +678,13 @@ function TaskCard({
   canManage: boolean
   isOpen: boolean
   isDragging: boolean
+  isDropTarget: boolean
   onError: (message: string | null) => void
-  onDragEnd: () => void
-  onDragOver: (event: React.DragEvent<HTMLElement>) => void
-  onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void
-  onDrop: (event: React.DragEvent<HTMLElement>) => void
-  onToggle: () => void
+  onDragCancel: (event: React.PointerEvent<HTMLButtonElement>) => void
+  onDragEnd: (event: React.PointerEvent<HTMLButtonElement>) => void
+  onDragMove: (event: React.PointerEvent<HTMLButtonElement>) => void
+  onDragStart: (event: React.PointerEvent<HTMLButtonElement>) => void
+  onToggle: (event: React.MouseEvent<HTMLButtonElement>) => void
   onSuccess: () => void
 }) {
   const updateMutation = useMutation({
@@ -523,19 +720,23 @@ function TaskCard({
 
   return (
     <article
-      className={`task-card priority-${task.priority} ${dueTone}${isOpen ? ' open' : ''}${isDragging ? ' dragging' : ''}`}
+      className={`task-card priority-${task.priority} ${dueTone}${isOpen ? ' open' : ''}${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}`}
+      data-task-id={task.id}
       data-testid="task-card"
-      onDragOver={onDragOver}
-      onDrop={onDrop}
     >
       {canManage ? (
         <button
           aria-label={`Reorder ${task.title}`}
           className="task-drag-handle"
           data-testid="button-task-drag-handle"
-          draggable
-          onDragEnd={onDragEnd}
-          onDragStart={onDragStart}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onPointerCancel={onDragCancel}
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
           type="button"
         >
           <GripVertical size={16} />
@@ -693,6 +894,59 @@ function TaskCard({
       ) : null}
     </article>
   )
+}
+
+function TaskDragOverlay({
+  dragState,
+  task,
+}: {
+  dragState: TaskDragState
+  task: WorkflowTask
+}) {
+  const left = dragState.x - dragState.offsetX
+  const top = dragState.y - dragState.offsetY
+
+  return (
+    <article
+      className={`task-card task-drag-preview priority-${task.priority} ${getDueTone(task)}`}
+      style={{
+        height: dragState.height,
+        left,
+        top,
+        width: dragState.width,
+      }}
+    >
+      <div className="task-accordion-header">
+        <span className="task-main">
+          <span>
+            <h3>{task.title}</h3>
+            <p>{task.description || 'No description'}</p>
+          </span>
+          <span className={`status-badge ${task.status}`}>
+            {taskStatusLabels[task.status]}
+          </span>
+        </span>
+      </div>
+    </article>
+  )
+}
+
+function reorderTasks(
+  tasks: WorkflowTask[],
+  sourceTaskId: string,
+  targetTaskId: string,
+) {
+  const sourceIndex = tasks.findIndex((task) => task.id === sourceTaskId)
+  const targetIndex = tasks.findIndex((task) => task.id === targetTaskId)
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return tasks
+  }
+
+  const reordered = [...tasks]
+  const [movedTask] = reordered.splice(sourceIndex, 1)
+  reordered.splice(targetIndex, 0, movedTask)
+  return reordered
 }
 
 function CreateBlockerForm({
