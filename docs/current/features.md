@@ -28,8 +28,16 @@ This file maps all Phase 1 features to implementation slices. It is planning sco
 
 ## RestOfSlide1&2 — Foundation and Onboarding Gaps
 
+- Implemented: Client Directory is now a separate app-shell navigation tab from Client Onboarding.
+- Implemented: Client Onboarding now uses a three-step workflow: Client Details, Scope Templates, and Review/Confirm.
+- Implemented: Client Onboarding step layouts use the available page width, and Client Directory uses a desktop master-detail list/detail layout.
+- Implemented: Client Onboarding Review spans the full step area, and client creation shows pending, success, and readable failure alerts.
+- Implemented: Client Directory list containment keeps the Status column visible while preserving the desktop master-detail layout.
+- Implemented: E2E/static test coverage updated for the onboarding step workflow, directory split, and role-based onboarding nav visibility.
 - Implemented: Admin user creation using Supabase Auth plus ERP user row.
 - Implemented: Users list/update endpoints.
+- Implemented: Super Admin user deletion via backend `DELETE /api/users/:id` with protected-reference conflict handling.
+- Implemented: Team Members tab with searchable team-member list, assigned task summary, and related blocker summary.
 - Implemented: Protected user creation endpoint backed by Supabase Auth and ERP user metadata sync.
 - Implemented: Password reset delegation to Supabase Auth.
 - Implemented: Clear auth error handling.

@@ -39,7 +39,7 @@ Map Phase 1 user stories to the implemented CHERP product flows. This file refle
 ## System Administrator Flow
 
 - UI: `frontend/src/features/users/UserManagementPage.tsx`.
-- API: `POST /api/users`, `GET /api/users`, `PATCH /api/users/:id`.
+- API: `POST /api/users`, `GET /api/users`, `PATCH /api/users/:id`, `DELETE /api/users/:id`, `GET /api/users/team-members`, `GET /api/users/team-members/:id/workload`.
 - Backend: `UsersController`, `UsersService`, `UsersRepository`.
 - Permissions: create/update users require `super_admin`; user list allows `super_admin`/`project_manager`.
 - Behavior:
@@ -114,7 +114,7 @@ Map Phase 1 user stories to the implemented CHERP product flows. This file refle
 
 | User Story ID | Actor | User Story | Status | Implemented UI Flow | Backend/API Support | Permission Rules | Notes |
 |---|---|---|---|---|---|---|---|
-| US-001 | System Administrator | Create user accounts with roles | Fixed Now | Users page create form + directory | `POST /api/users`, `GET /api/users`, `PATCH /api/users/:id` | Create/update admin-only | Supabase Auth user + ERP row + metadata sync |
+| US-001 | System Administrator | Create user accounts with roles | Fixed Now | Users page create form + directory + delete action | `POST /api/users`, `GET /api/users`, `PATCH /api/users/:id`, `DELETE /api/users/:id` | Create/update/delete admin-only | Supabase Auth user + ERP row + metadata sync; delete guarded by protected-reference checks |
 | US-002 | Team Member | Login and see only assigned clients/tasks | Fixed Now | Assigned work through Dashboard/Clients/Workflows/Blockers | Clients/workflows/tasks/blockers/dashboard scoping | Team member assigned-work filters server-side | Recent activity limited to own activity |
 | US-003 | Agency Owner | Define permission levels / protect financials | Partial | Fixed RBAC behavior, Users role assignment | Guards + role enum + permission matrix | Static roles; financial fields hidden from team members | Dynamic permission editor is not Phase 1 implemented |
 | US-004 | Project Manager | Onboard client and auto-create workflow/tasks/KPIs | Complete | Clients onboarding form + template preview | `POST /api/clients`, scope template lookup, transaction | PM/admin only | Month 1 workflow generated from active template |
@@ -139,4 +139,3 @@ Map Phase 1 user stories to the implemented CHERP product flows. This file refle
 - Client portal user journey is not active in Phase 1 internal MVP.
 - "Logout from all devices" remains deferred; current logout is local Supabase session sign-out.
 - Sub-200ms performance requires measured API timings and `EXPLAIN ANALYZE`; indexes alone are not proof.
-

@@ -1193,6 +1193,20 @@ button.dashboard-list-item:hover {
   min-width: 0;
 }
 
+.onboarding-grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+}
+
+.client-directory-layout {
+  display: grid;
+  grid-template-columns: minmax(560px, 1.1fr) minmax(340px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+
 .client-side-stack {
   display: grid;
   align-content: start;
@@ -1221,6 +1235,91 @@ button.dashboard-list-item:hover {
 
 .onboarding-panel {
   align-self: start;
+  width: 100%;
+  min-height: calc(100vh - 176px);
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--secondary);
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stepper-item span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--secondary);
+  background: var(--card);
+  font-size: 11px;
+}
+
+.stepper-item.active {
+  color: var(--blue);
+  border-color: rgba(59, 109, 214, 0.28);
+  background: var(--blue-light);
+}
+
+.stepper-item.active span,
+.stepper-item.complete span {
+  color: #fff;
+  background: var(--blue);
+}
+
+.stepper-item.complete {
+  color: var(--text);
+}
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 4px 16px;
+  min-height: calc(100vh - 300px);
+}
+
+.onboarding-step > .panel-header,
+.onboarding-step > .computed-date,
+.onboarding-step > .onboarding-actions {
+  grid-column: 1 / -1;
+}
+
+.onboarding-step > .form-pair {
+  grid-column: 1 / -1;
+}
+
+.onboarding-step > .field,
+.onboarding-step .form-pair .field {
+  margin-top: 0;
+}
+
+.onboarding-step > .template-preview {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.onboarding-step > .review-grid {
+  grid-column: 1 / -1;
 }
 
 .onboarding-columns {
@@ -1264,6 +1363,10 @@ button.dashboard-list-item:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
+}
+
+.onboarding-step > .template-preview .template-card {
+  min-height: 320px;
 }
 
 .template-meta,
@@ -1342,8 +1445,115 @@ button.dashboard-list-item:hover {
   padding: 0 14px;
 }
 
+.onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.onboarding-actions.spread {
+  justify-content: space-between;
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 14px;
+}
+
+.review-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.review-card h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.review-card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.review-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-card dl div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.review-card dt,
+.review-card dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.review-card dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.review-card dd {
+  max-width: 60%;
+  color: var(--text);
+  text-align: right;
+  word-break: break-word;
+}
+
 .directory-panel {
   align-self: start;
+  overflow: hidden;
+}
+
+.client-directory-layout .directory-panel table {
+  table-layout: fixed;
+}
+
+.client-directory-layout .directory-panel th,
+.client-directory-layout .directory-panel td {
+  padding-inline: 10px;
+}
+
+.client-directory-layout .directory-panel th:nth-child(1),
+.client-directory-layout .directory-panel td:nth-child(1) {
+  width: 30%;
+}
+
+.client-directory-layout .directory-panel th:nth-child(2),
+.client-directory-layout .directory-panel td:nth-child(2) {
+  width: 24%;
+}
+
+.client-directory-layout .directory-panel th:nth-child(3),
+.client-directory-layout .directory-panel td:nth-child(3) {
+  width: 25%;
+}
+
+.client-directory-layout .directory-panel th:nth-child(4),
+.client-directory-layout .directory-panel td:nth-child(4) {
+  width: 21%;
+}
+
+.client-directory-layout .directory-panel td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-directory-layout .directory-panel .status-badge {
+  max-width: 100%;
+  white-space: nowrap;
 }
 
 .client-filters {
@@ -1368,6 +1578,10 @@ tbody tr.selected-row {
 
 .client-detail-panel .panel-header {
   align-items: flex-start;
+}
+
+.client-detail-panel {
+  align-self: start;
 }
 
 .client-detail-panel .panel-header h2 {
@@ -1449,6 +1663,141 @@ tbody tr.selected-row {
   grid-template-columns: minmax(280px, 0.56fr) minmax(0, 1.44fr);
   gap: 16px;
   min-width: 0;
+}
+
+.team-member-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.48fr) minmax(0, 1.52fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.team-member-list-panel,
+.team-member-detail-panel {
+  min-width: 0;
+  align-self: start;
+}
+
+.team-member-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.team-member-list-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--bg);
+  text-align: left;
+}
+
+.team-member-list-item.active,
+.team-member-list-item:hover {
+  border-color: rgba(59, 109, 214, 0.32);
+  background: var(--blue-light);
+}
+
+.team-member-list-item svg {
+  margin-top: 2px;
+  color: var(--blue);
+}
+
+.team-member-list-item strong,
+.team-member-list-item small {
+  display: block;
+}
+
+.team-member-list-item small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-member-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.team-summary-tile {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.team-summary-tile svg {
+  color: var(--blue);
+}
+
+.team-summary-tile span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.team-summary-tile strong {
+  font-size: 22px;
+}
+
+.team-work-section + .team-work-section {
+  margin-top: 20px;
+}
+
+.team-work-list {
+  display: grid;
+  gap: 10px;
+}
+
+.team-work-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.team-work-item strong,
+.team-work-item p {
+  margin: 0;
+}
+
+.team-work-item strong {
+  font-size: 13px;
+}
+
+.team-work-item p {
+  margin-top: 4px;
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.team-work-meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .blocker-layout {
@@ -1994,9 +2343,21 @@ tbody tr.selected-row {
   }
 
   .slice-grid,
+  .client-directory-layout,
+  .team-member-layout,
+  .review-grid,
   .onboarding-columns,
   .workflow-layout,
   .blocker-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-panel,
+  .onboarding-step {
+    min-height: auto;
+  }
+
+  .onboarding-step > .template-preview {
     grid-template-columns: 1fr;
   }
 
@@ -2004,6 +2365,7 @@ tbody tr.selected-row {
   .task-controls,
   .task-edit-primary,
   .task-edit-secondary,
+  .team-member-summary,
   .blocker-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2103,12 +2465,29 @@ tbody tr.selected-row {
     grid-template-columns: 1fr;
   }
 
+  .onboarding-step {
+    grid-template-columns: 1fr;
+  }
+
+  .stepper {
+    grid-template-columns: 1fr;
+  }
+
   .task-form-grid,
   .task-controls,
   .task-edit-primary,
   .task-edit-secondary,
+  .team-member-summary,
   .blocker-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .team-work-item {
+    display: grid;
+  }
+
+  .team-work-meta {
+    justify-content: flex-start;
   }
 
   .page-heading {

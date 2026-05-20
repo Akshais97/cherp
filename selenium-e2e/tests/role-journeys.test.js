@@ -80,6 +80,13 @@ async function main() {
       fullName: `E2E Client ${suffix}`,
       role: 'client',
     },
+    disposable: {
+      label: 'Disposable Team Member',
+      email: plusEmail(config.superAdminEmail, `delete-e2e-${suffix}`),
+      password: config.rolePassword,
+      fullName: `E2E Disposable ${suffix}`,
+      role: 'team_member',
+    },
   }
 
   await runJourney('super_admin', users.super_admin, async (ctx) => {
@@ -103,6 +110,13 @@ async function main() {
       await assertElementPresent(ctx.driver, 'user-directory')
       await assertNoHorizontalOverflow(ctx.driver)
     })
+    await step(ctx, 'Super Admin can delete a user through the backend API', async () => {
+      await createUser(ctx.driver, users.disposable)
+      await waitForUserRow(ctx.driver, users.disposable.email, 45000)
+      await deleteUserRow(ctx.driver, users.disposable.email, 45000)
+      await waitForUserRowAbsent(ctx.driver, users.disposable.email, 45000)
+      await screenshot(ctx, 'deleted-disposable-user')
+    })
     await logout(ctx)
   })
 
@@ -118,9 +132,10 @@ async function main() {
       await clickByTestId(ctx.driver, 'nav-clients')
       await waitForTestId(ctx.driver, 'clients-page', 30000)
       await seedTemplatesIfAvailable(ctx.driver)
-      await waitForNonEmptySelect(ctx.driver, 'select-scope-template', 45000)
       shared.clientName = `PM Role Client ${Date.now()}`
       await createClient(ctx.driver, shared.clientName)
+      await clickByTestId(ctx.driver, 'nav-client-directory')
+      await waitForTestId(ctx.driver, 'client-directory-page', 30000)
       await waitForClientRow(ctx.driver, shared.clientName, 45000)
       await screenshot(ctx, 'client-onboarded')
     })
@@ -151,6 +166,18 @@ async function main() {
       await sleep(1500)
       await screenshot(ctx, 'task-blocked')
     })
+    await step(ctx, 'Project Manager can review Team Member tasks and blockers', async () => {
+      await clickByTestId(ctx.driver, 'nav-team-members')
+      await waitForTestId(ctx.driver, 'team-members-page', 30000)
+      await typeByTestId(ctx.driver, 'input-team-member-search', users.team_member.fullName)
+      await clickTeamMemberRow(ctx.driver, users.team_member.fullName, 30000)
+      await waitForTestId(ctx.driver, 'team-member-detail-panel', 30000)
+      await waitForText(ctx.driver, shared.taskTitle, 30000)
+      await waitForText(ctx.driver, shared.blockerTitle, 30000)
+      await assertElementPresent(ctx.driver, 'team-member-task-list')
+      await assertElementPresent(ctx.driver, 'team-member-blocker-list')
+      await screenshot(ctx, 'team-member-workload')
+    })
     await step(ctx, 'Project Manager can resolve blocker', async () => {
       await clickByTestId(ctx.driver, 'nav-blockers')
       await waitForTestId(ctx.driver, 'blockers-page', 30000)
@@ -170,12 +197,15 @@ async function main() {
       await waitForTestId(ctx.driver, 'dashboard-page', 30000)
       await waitForTestId(ctx.driver, 'dashboard-metrics')
       await assertElementAbsent(ctx.driver, 'nav-users')
+      await assertElementAbsent(ctx.driver, 'nav-clients')
+      await assertElementAbsent(ctx.driver, 'nav-team-members')
+      await assertElementPresent(ctx.driver, 'nav-client-directory')
       await screenshot(ctx, 'dashboard')
     })
     await step(ctx, 'Team Member sees client details as read-only', async () => {
-      await clickByTestId(ctx.driver, 'nav-clients')
-      await waitForTestId(ctx.driver, 'clients-page', 30000)
-      await assertElementAbsent(ctx.driver, 'client-onboarding-form')
+      await clickByTestId(ctx.driver, 'nav-client-directory')
+      await waitForTestId(ctx.driver, 'client-directory-page', 30000)
+      await assertElementPresent(ctx.driver, 'client-directory')
       await typeByTestId(ctx.driver, 'input-client-search', shared.clientName)
       await clickClientRow(ctx.driver, shared.clientName, 45000)
       await waitForTestId(ctx.driver, 'client-readonly-detail', 30000)
@@ -330,11 +360,7 @@ async function createUser(driver, user) {
 }
 
 async function createClient(driver, clientName) {
-  const select = await waitForTestId(driver, 'select-scope-template')
-  const options = await select.findElements(By.css('option'))
-  if (options.length < 2) throw new Error('No selectable scope templates were available.')
-  await options[1].click()
-  await waitForTestId(driver, 'template-preview-card', 30000)
+  await waitForTestId(driver, 'onboarding-step-client-details', 30000)
   await typeByTestId(driver, 'input-client-name', clientName)
   await typeByTestId(driver, 'input-client-contact-email', `role.${Date.now()}@example.com`)
   await typeByTestId(driver, 'input-client-contact-name', 'Role Journey Tester')
@@ -343,7 +369,19 @@ async function createClient(driver, clientName) {
   await setValueByTestId(driver, 'input-client-contract-start', today())
   await typeByTestId(driver, 'input-client-payment-terms', 'Net 15')
   await setValueByTestId(driver, 'input-client-renewal-date', datePlusDays(90))
+  await clickByTestId(driver, 'button-onboarding-next-client-details')
+  await waitForTestId(driver, 'onboarding-step-scope-templates', 30000)
+  const select = await waitForTestId(driver, 'select-scope-template')
+  const options = await select.findElements(By.css('option'))
+  if (options.length < 2) throw new Error('No selectable scope templates were available.')
+  await options[1].click()
+  await waitForTestId(driver, 'template-preview-card', 30000)
+  await clickByTestId(driver, 'button-onboarding-next-scope-templates')
+  await waitForTestId(driver, 'onboarding-step-review', 30000)
+  await waitForText(driver, clientName, 30000)
   await clickByTestId(driver, 'button-create-client')
+  await waitForTestId(driver, 'alert-client-creation', 45000)
+  await waitForText(driver, 'Client has been created', 30000)
 }
 
 async function buildDriver() {
@@ -506,9 +544,16 @@ async function waitForNonEmptySelect(driver, id, timeoutMs) {
 
 async function waitUntilNoButtonText(driver, id, text, timeoutMs) {
   await driver.wait(async () => {
-    const buttons = await driver.findElements(cssTestId(id))
-    if (buttons.length === 0) return true
-    return !(await buttons[0].getText()).includes(text)
+    try {
+      const buttons = await driver.findElements(cssTestId(id))
+      if (buttons.length === 0) return true
+      return !(await buttons[0].getText()).includes(text)
+    } catch (error) {
+      if (!String(error?.message || error).includes('stale element')) {
+        throw error
+      }
+      return false
+    }
   }, timeoutMs)
 }
 
@@ -532,12 +577,64 @@ async function waitForUserRow(driver, email, timeoutMs) {
   }, timeoutMs)
 }
 
+async function waitForUserRowAbsent(driver, email, timeoutMs) {
+  await driver.wait(async () => {
+    const rows = await driver.findElements(cssTestId('user-row'))
+    for (const row of rows) {
+      try {
+        if ((await row.getText()).includes(email)) return false
+      } catch (error) {
+        if (!String(error?.message || error).includes('stale element')) throw error
+      }
+    }
+    return true
+  }, timeoutMs)
+}
+
+async function deleteUserRow(driver, email, timeoutMs) {
+  await driver.wait(async () => {
+    const rows = await driver.findElements(cssTestId('user-row'))
+    for (const row of rows) {
+      try {
+        if (!(await row.getText()).includes(email)) continue
+        const button = await row.findElement(cssTestId('button-delete-user'))
+        await driver.executeScript('arguments[0].scrollIntoView({ block: "center", inline: "center" });', button)
+        await button.click()
+        await driver.switchTo().alert().accept()
+        return true
+      } catch (error) {
+        const message = String(error?.message || error)
+        if (message.includes('stale element')) return false
+        throw error
+      }
+    }
+    return false
+  }, timeoutMs)
+}
+
 async function waitForClientRow(driver, clientName, timeoutMs) {
   await driver.wait(async () => {
     const rows = await driver.findElements(cssTestId('client-row'))
     for (const row of rows) {
       try {
         if ((await row.getText()).includes(clientName)) return true
+      } catch (error) {
+        if (!String(error?.message || error).includes('stale element')) throw error
+      }
+    }
+    return false
+  }, timeoutMs)
+}
+
+async function clickTeamMemberRow(driver, memberName, timeoutMs) {
+  await driver.wait(async () => {
+    const rows = await driver.findElements(cssTestId('team-member-row'))
+    for (const row of rows) {
+      try {
+        if ((await row.getText()).includes(memberName)) {
+          await row.click()
+          return true
+        }
       } catch (error) {
         if (!String(error?.message || error).includes('stale element')) throw error
       }

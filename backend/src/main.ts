@@ -7,10 +7,18 @@ import { ApiExceptionFilter } from './common/filters/api-exception.filter'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
+  const configuredOrigins = process.env.FRONTEND_ORIGIN
+    ? process.env.FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : []
+  const allowedOrigins = [
+    ...configuredOrigins,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ]
 
   app.setGlobalPrefix('api')
   app.enableCors({
-    origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
     allowedHeaders: ['Authorization', 'Content-Type'],
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

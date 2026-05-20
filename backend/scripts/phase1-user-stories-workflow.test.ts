@@ -213,7 +213,13 @@ function testFrontendHooksAndApiDataFlow() {
   const apiClient = file('frontend/src/lib/api/client.ts')
   const clientApi = file('frontend/src/features/clients/api.ts')
   const workflowApi = file('frontend/src/features/workflows/api.ts')
+  const usersApi = file('frontend/src/features/users/api.ts')
   const clientsPage = file('frontend/src/features/clients/ClientsPage.tsx')
+  const clientDirectoryPage = file('frontend/src/features/clients/ClientDirectoryPage.tsx')
+  const teamMembersPage = file('frontend/src/features/users/TeamMembersPage.tsx')
+  const userManagementPage = file('frontend/src/features/users/UserManagementPage.tsx')
+  const usersController = file('backend/src/users/users.controller.ts')
+  const usersRepository = file('backend/src/users/users.repository.ts')
   const workflowsPage = file('frontend/src/features/workflows/WorkflowsPage.tsx')
 
   assert.match(apiClient, /axios\.create/)
@@ -223,21 +229,43 @@ function testFrontendHooksAndApiDataFlow() {
   for (const [path, source] of [
     ['frontend/src/features/clients/api.ts', clientApi],
     ['frontend/src/features/workflows/api.ts', workflowApi],
+    ['frontend/src/features/users/api.ts', usersApi],
   ] as const) {
     assert.match(source, /apiClient\./, `${path} must use the central Axios client`)
     assert.doesNotMatch(source, /\bfetch\(/, `${path} must not fetch directly`)
     assert.doesNotMatch(source, /axios\./, `${path} must not create raw axios calls`)
   }
 
-  assert.match(clientsPage, /useQuery\(\{\s*queryKey: \['clients', filters\]/)
+  assert.match(clientsPage, /useQuery\(\{\s*queryKey: \['scope-templates'\]/)
+  assert.match(clientsPage, /data-testid="onboarding-step-client-details"/)
+  assert.match(clientsPage, /data-testid="onboarding-step-scope-templates"/)
+  assert.match(clientsPage, /data-testid="onboarding-step-review"/)
   assert.match(clientsPage, /mutationFn: createClient/)
   assert.match(clientsPage, /invalidateQueries\(\{ queryKey: \['clients'\] \}\)/)
   assert.match(clientsPage, /enabled: canManage/)
+  assert.match(clientDirectoryPage, /useQuery\(\{\s*queryKey: \['clients', filters\]/)
+  assert.match(clientDirectoryPage, /data-testid="client-directory-page"/)
+  assert.match(clientDirectoryPage, /data-testid="client-directory"/)
+  assert.match(usersApi, /apiClient\.delete<UserRow>\(`\/users\/\$\{id\}`\)/)
+  assert.match(usersApi, /apiClient\.get<UserRow\[\]>\('\/users\/team-members'\)/)
+  assert.match(usersApi, /\/users\/team-members\/\$\{id\}\/workload/)
+  assert.match(userManagementPage, /data-testid="button-delete-user"/)
+  assert.match(teamMembersPage, /data-testid="team-members-page"/)
+  assert.match(teamMembersPage, /data-testid="input-team-member-search"/)
+  assert.match(teamMembersPage, /data-testid="team-member-task-list"/)
+  assert.match(teamMembersPage, /data-testid="team-member-blocker-list"/)
+  assert.match(usersController, /@Delete\(':id'\)/)
+  assert.match(usersController, /@Get\('team-members'\)/)
+  assert.match(usersController, /@Get\('team-members\/:id\/workload'\)/)
+  assert.match(usersRepository, /countProtectedDeleteReferences/)
+  assert.match(usersRepository, /findAssignedTasks/)
+  assert.match(usersRepository, /findAssignedTaskBlockers/)
   assert.match(workflowsPage, /useQuery\(\{\s*queryKey: \['workflow', workflowId\]/)
   assert.match(workflowsPage, /enabled: Boolean\(workflowId\)/)
   assert.match(workflowsPage, /mutationFn: \(values: CreateTaskValues\) => createWorkflowTask/)
   assert.match(workflowsPage, /createBlocker\(\{ \.\.\.values, task_id: taskId \}\)/)
   assert.match(workflowsPage, /invalidateQueries\(\{ queryKey: \['workflow', workflowId\] \}\)/)
+  assert.doesNotMatch(workflowsPage, /<Plus size=\{16\} \/>/)
 }
 
 function testUserStoriesAndWorkflowDocsStayInPhaseOneScope() {

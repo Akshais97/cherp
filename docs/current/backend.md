@@ -174,7 +174,10 @@ POST   /api/auth/login
 POST   /api/auth/logout
 POST   /api/users
 GET    /api/users
+GET    /api/users/team-members
+GET    /api/users/team-members/:id/workload
 PATCH  /api/users/:id
+DELETE /api/users/:id
 ```
 
 ### Clients

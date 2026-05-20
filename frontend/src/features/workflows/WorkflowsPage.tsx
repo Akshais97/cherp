@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronDown,
   GripVertical,
-  Plus,
   Save,
   UserRound,
 } from 'lucide-react'
@@ -607,7 +606,6 @@ function CreateTaskForm({
     >
       <div className="panel-header compact-header">
         <h2>Custom task</h2>
-        <Plus size={16} />
       </div>
       <div className="task-form-grid">
         <label className="field">

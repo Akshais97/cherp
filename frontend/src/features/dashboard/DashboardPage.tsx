@@ -21,7 +21,7 @@ import {
   type DashboardOpenBlocker,
 } from './api'
 
-type DashboardRoute = 'clients' | 'workflows' | 'blockers'
+type DashboardRoute = 'client-directory' | 'clients' | 'workflows' | 'blockers'
 
 const statusLabels = {
   on_track: 'On track',
@@ -179,7 +179,7 @@ export function DashboardPage({
         <section className="panel dashboard-health-panel" data-testid="dashboard-client-health-panel">
           <div className="panel-header">
             <h2>Client health</h2>
-            <button className="ghost-button" data-testid="button-dashboard-view-all" onClick={() => onNavigate?.('clients')} type="button">
+            <button className="ghost-button" data-testid="button-dashboard-view-all" onClick={() => onNavigate?.('client-directory')} type="button">
               View all
             </button>
           </div>
@@ -264,7 +264,7 @@ function ClientHealthTableRow({
   row: ClientHealthRow
   onNavigate?: (route: DashboardRoute, ids?: { clientId?: string; workflowId?: string }) => void
 }) {
-  const targetRoute = row.workflowId ? 'workflows' : 'clients'
+  const targetRoute = row.workflowId ? 'workflows' : 'client-directory'
 
   return (
     <tr

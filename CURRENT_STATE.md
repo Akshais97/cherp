@@ -3,6 +3,16 @@
 - Current phase: Phase 1 MVP implementation/closeout.
 - Slices 1-6 are marked complete in `docs/current/progress.md` for current slice scope.
 - Recently completed:
+  - Client Directory split into its own hamburger/sidebar tab separate from Client Onboarding.
+  - Client Onboarding converted to a three-step form: Client Details, Scope Templates, and Review/Confirm.
+  - Client Onboarding step layouts expanded to page-level full-width sections, and Client Directory now uses a desktop master-detail layout.
+  - Client Directory table containment tightened so the status column remains visible in the left master panel.
+  - Client Onboarding Review step now spans the full step width instead of leaving empty right-side space.
+  - Client creation now shows pending, success, and end-user-readable failure alerts.
+  - Users tab now includes Super Admin delete action backed by `DELETE /api/users/:id`, with safe conflict errors for protected historical references.
+  - Team Members tab added for Super Admin/Project Manager to search team members and inspect assigned tasks plus related blockers.
+  - Removed the unused plus icon from the Workflow custom-task panel header.
+  - Updated backend user-story checks and Selenium journeys for the separate Client Directory tab and onboarding step workflow.
   - App-level React error boundary and dashboard recent-activity normalization.
   - Super Admin user management UI: create users, assign roles, toggle active state.
   - Backend `POST /api/users` wired to Supabase Auth + ERP user creation + metadata sync.
@@ -12,7 +22,7 @@
   - `docs/current/user_stories.md` created from verified implementation reality.
 - Implemented Phase 1 areas:
   - Auth/JWT/ERP user context/RBAC.
-  - Client onboarding/edit/status/archive/search.
+  - Client onboarding step workflow plus client directory/edit/status/archive/search.
   - Scope templates and explicit template seeding.
   - Month 1 workflow/task generation, checklist editing, drag reorder, blockers, activity logs.
   - Dashboard summary, client health, deadlines, open blockers, filters, recent activity infinite scroll.
@@ -28,3 +38,6 @@
   - `cd backend; npm run build` passed.
   - `cd frontend; npm run build` passed.
   - `cd backend; npm run test:phase1` passed.
+  - `cd selenium-e2e; npm test` passed with credentials provided in-thread; latest report: `selenium-e2e/reports/2026-05-19T07-37-04-654Z/report.json`.
+  - `cd selenium-e2e; npm run test:roles` passed with credentials provided in-thread; latest report root: `selenium-e2e/reports/role-journeys-2026-05-19T07-40-16-647Z`.
+  - `cd frontend; npm run lint` still fails on existing Blockers/Workflows lint issues unrelated to the onboarding split.

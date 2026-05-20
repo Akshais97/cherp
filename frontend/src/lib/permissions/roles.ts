@@ -19,6 +19,10 @@ export function canManageClients(role: UserRole) {
   return role === 'super_admin' || role === 'project_manager'
 }
 
+export function canViewTeamMembers(role: UserRole) {
+  return role === 'super_admin' || role === 'project_manager'
+}
+
 export function canArchiveClients(role: UserRole) {
   return role === 'super_admin'
 }

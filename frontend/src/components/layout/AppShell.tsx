@@ -1,22 +1,39 @@
 import {
   AlertTriangle,
   BriefcaseBusiness,
+  FolderOpen,
   LayoutDashboard,
   LogOut,
   Menu,
   Search,
+  UserPlus,
+  UserRoundCheck,
   Users,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../app/providers/useAuth'
 import { BlockersPage } from '../../features/blockers/BlockersPage'
-import { canManageUsers, roleLabels } from '../../lib/permissions/roles'
+import {
+  canManageClients,
+  canManageUsers,
+  canViewTeamMembers,
+  roleLabels,
+} from '../../lib/permissions/roles'
 import { DashboardPage } from '../../features/dashboard/DashboardPage'
+import { ClientDirectoryPage } from '../../features/clients/ClientDirectoryPage'
 import { ClientsPage } from '../../features/clients/ClientsPage'
+import { TeamMembersPage } from '../../features/users/TeamMembersPage'
 import { UserManagementPage } from '../../features/users/UserManagementPage'
 import { WorkflowsPage } from '../../features/workflows/WorkflowsPage'
 
-type AppRoute = 'dashboard' | 'clients' | 'workflows' | 'blockers' | 'users'
+type AppRoute =
+  | 'dashboard'
+  | 'clients'
+  | 'workflows'
+  | 'blockers'
+  | 'users'
+  | 'client-directory'
+  | 'team-members'
 
 const baseNavItems: {
   id: AppRoute
@@ -24,33 +41,50 @@ const baseNavItems: {
   icon: React.ReactNode
 }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} /> },
-  { id: 'clients', label: 'Clients', icon: <Users size={17} /> },
+  { id: 'client-directory', label: 'Client Directory', icon: <FolderOpen size={17} /> },
   {
     id: 'workflows',
     label: 'Workflows',
     icon: <BriefcaseBusiness size={17} />,
   },
+  { id: 'team-members', label: 'Team Members', icon: <UserRoundCheck size={17} /> },
   { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={17} /> },
 ]
 
 export function AppShell() {
   const [route, setRoute] = useState<AppRoute>('dashboard')
-  const [targetClientId, setTargetClientId] = useState<string | null>(null)
   const [targetWorkflowId, setTargetWorkflowId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const { currentUser, signOut } = useAuth()
+  const canManageClientRoutes = currentUser?.role ? canManageClients(currentUser.role) : false
+  const canViewTeamMemberRoutes = currentUser?.role ? canViewTeamMembers(currentUser.role) : false
+  const visibleBaseNavItems = canViewTeamMemberRoutes
+    ? baseNavItems
+    : baseNavItems.filter((item) => item.id !== 'team-members')
+  const operationalNavItems = currentUser?.role && canManageClients(currentUser.role)
+    ? [
+        visibleBaseNavItems[0],
+        { id: 'clients' as const, label: 'Client Onboarding', icon: <UserPlus size={17} /> },
+        ...visibleBaseNavItems.slice(1),
+      ]
+    : visibleBaseNavItems
   const navItems = currentUser?.role && canManageUsers(currentUser.role)
     ? [
-        ...baseNavItems,
+        ...operationalNavItems,
         { id: 'users' as const, label: 'Users', icon: <Users size={17} /> },
       ]
-    : baseNavItems
+    : operationalNavItems
   const initials = currentUser?.name
     .split(' ')
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
     .toUpperCase()
+  const activeRoute =
+    (route === 'clients' && !canManageClientRoutes) ||
+    (route === 'team-members' && !canViewTeamMemberRoutes)
+      ? 'dashboard'
+      : route
 
   return (
     <div
@@ -70,11 +104,10 @@ export function AppShell() {
           <p>Operations</p>
           {navItems.map((item) => (
             <button
-              className={route === item.id ? 'active' : ''}
+              className={activeRoute === item.id ? 'active' : ''}
               data-testid={`nav-${item.id}`}
               key={item.id}
               onClick={() => {
-                setTargetClientId(null)
                 setTargetWorkflowId(null)
                 setRoute(item.id)
               }}
@@ -118,19 +151,20 @@ export function AppShell() {
         </header>
 
         <div className="content-area">
-          {route === 'dashboard' ? (
+          {activeRoute === 'dashboard' ? (
             <DashboardPage
               onNavigate={(nextRoute, ids) => {
-                setTargetClientId(ids?.clientId ?? null)
                 setTargetWorkflowId(ids?.workflowId ?? null)
                 setRoute(nextRoute)
               }}
             />
           ) : null}
-          {route === 'clients' ? <ClientsPage initialClientId={targetClientId} /> : null}
-          {route === 'workflows' ? <WorkflowsPage initialWorkflowId={targetWorkflowId} /> : null}
-          {route === 'blockers' ? <BlockersPage /> : null}
-          {route === 'users' ? <UserManagementPage /> : null}
+          {activeRoute === 'clients' ? <ClientsPage /> : null}
+          {activeRoute === 'client-directory' ? <ClientDirectoryPage /> : null}
+          {activeRoute === 'team-members' ? <TeamMembersPage /> : null}
+          {activeRoute === 'workflows' ? <WorkflowsPage initialWorkflowId={targetWorkflowId} /> : null}
+          {activeRoute === 'blockers' ? <BlockersPage /> : null}
+          {activeRoute === 'users' ? <UserManagementPage /> : null}
         </div>
       </main>
     </div>
