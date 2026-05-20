@@ -1556,6 +1556,46 @@ button.dashboard-list-item:hover {
   white-space: nowrap;
 }
 
+.admin-grid .directory-panel table {
+  table-layout: fixed;
+}
+
+.admin-grid .directory-panel th,
+.admin-grid .directory-panel td {
+  padding-inline: 10px;
+}
+
+.admin-grid .directory-panel th:nth-child(1),
+.admin-grid .directory-panel td:nth-child(1) {
+  width: 18%;
+}
+
+.admin-grid .directory-panel th:nth-child(2),
+.admin-grid .directory-panel td:nth-child(2) {
+  width: 28%;
+}
+
+.admin-grid .directory-panel th:nth-child(3),
+.admin-grid .directory-panel td:nth-child(3) {
+  width: 18%;
+}
+
+.admin-grid .directory-panel th:nth-child(4),
+.admin-grid .directory-panel td:nth-child(4) {
+  width: 14%;
+}
+
+.admin-grid .directory-panel th:nth-child(5),
+.admin-grid .directory-panel td:nth-child(5) {
+  width: 22%;
+}
+
+.admin-grid .directory-panel td:nth-child(1),
+.admin-grid .directory-panel td:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .client-filters {
   align-items: end;
   flex-wrap: wrap;
