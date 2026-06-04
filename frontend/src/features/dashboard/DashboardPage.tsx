@@ -264,7 +264,7 @@ function ClientHealthTableRow({
   row: ClientHealthRow
   onNavigate?: (route: DashboardRoute, ids?: { clientId?: string; workflowId?: string }) => void
 }) {
-  const targetRoute = row.workflowId ? 'workflows' : 'client-directory'
+  const targetRoute = 'client-directory'
 
   return (
     <tr
