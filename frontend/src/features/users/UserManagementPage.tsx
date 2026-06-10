@@ -18,7 +18,7 @@ export function UserManagementPage() {
   const queryClient = useQueryClient()
   const [pageError, setPageError] = useState<string | null>(null)
   const usersQuery = useQuery({
-    queryKey: ['users'],
+    queryKey: ['users-admin'],
     queryFn: getUsers,
   })
   const {
@@ -35,7 +35,7 @@ export function UserManagementPage() {
     onSuccess: () => {
       reset({ role: 'team_member', email: '', full_name: '', password: '' })
       setPageError(null)
-      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['users-admin'] })
     },
     onError: (error) => setPageError(normalizeApiError(error).message),
   })
@@ -153,7 +153,7 @@ function UserRowItem({ user }: { user: UserRow }) {
       updateUser(user.id, payload),
     onSuccess: () => {
       setRowError(null)
-      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['users-admin'] })
     },
     onError: (error) => setRowError(normalizeApiError(error).message),
   })
@@ -161,7 +161,7 @@ function UserRowItem({ user }: { user: UserRow }) {
     mutationFn: () => deleteUser(user.id),
     onSuccess: () => {
       setRowError(null)
-      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['users-admin'] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
     },
     onError: (error) => setRowError(normalizeApiError(error).message),

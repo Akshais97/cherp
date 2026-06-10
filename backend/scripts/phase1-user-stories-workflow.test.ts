@@ -205,7 +205,7 @@ function testRepositoryPersistsTheDocumentedOnboardingTransaction() {
   assert.match(source, /month_number: 1/)
   assert.match(source, /completion_percentage: 0/)
   assert.match(source, /auto_generated: true/)
-  assert.match(source, /status: 'pending'/)
+  assert.match(source, /status: 'yet_to_start'/)
   assert.match(source, /is_subtask: false/)
 }
 

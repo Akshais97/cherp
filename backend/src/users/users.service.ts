@@ -36,6 +36,25 @@ export class UsersService {
     return this.usersRepository.findTeamMembersByTenant(user.tenantId)
   }
 
+  async getHistory(
+    targetUserId: string | undefined,
+    query: { startDate?: string; endDate?: string },
+    user: RequestUser,
+  ) {
+    const userIdToQuery = targetUserId || user.id
+
+    if (user.role === 'team_member' && userIdToQuery !== user.id) {
+      throw new ForbiddenException('Team members can only view their own history.')
+    }
+
+    return this.usersRepository.findHistory(
+      user.tenantId,
+      userIdToQuery,
+      query.startDate,
+      query.endDate,
+    )
+  }
+
   async getTeamMemberWorkload(id: string, user: RequestUser) {
     const member = await this.usersRepository.findTeamMemberById(user.tenantId, id)
 
@@ -232,5 +251,34 @@ export class UsersService {
     }
 
     return deleted
+  }
+
+  async getWorkloadSummary(actor: RequestUser) {
+    const users = await this.usersRepository.findTeamMembersByTenant(actor.tenantId)
+
+    const summaryList = await Promise.all(
+      users.map(async (u) => {
+        const clientUsers = await this.usersRepository.findClientUsersForUser(actor.tenantId, u.id)
+        const assignedClients = clientUsers.map((cu: any) => cu.client.name)
+
+        const openTasksCount = await this.usersRepository.countOpenTasksForUser(actor.tenantId, u.id)
+
+        // Workload calculation: 8 open tasks = 100% capacity (12.5% per task)
+        const computedWorkload = Math.min(100, openTasksCount * 12.5)
+
+        return {
+          id: u.id,
+          fullName: u.full_name,
+          email: u.email,
+          designation: u.designation || 'Team Member',
+          availability: u.availability || 'Full-time',
+          assignedClients,
+          openTasksCount,
+          workloadPercentage: computedWorkload,
+        }
+      })
+    )
+
+    return summaryList
   }
 }

@@ -11,10 +11,13 @@ import {
 } from './api'
 
 const taskStatusLabels: Record<TeamMemberTask['status'], string> = {
-  pending: 'Pending',
-  in_progress: 'In progress',
+  yet_to_start: 'Yet to start',
+  ongoing: 'Ongoing',
   blocked: 'Blocked',
   completed: 'Completed',
+  task_approved_by_manager: 'Task Approved By Manager',
+  rework: 'Rework',
+  task_approved_by_client: 'Task Approved by client',
 }
 
 const priorityLabels: Record<TeamMemberTask['priority'], string> = {
@@ -118,6 +121,41 @@ function TeamMemberDetailPanel({ memberId }: { memberId: string | null }) {
     ? normalizeApiError(workloadQuery.error).message
     : null
 
+  const data = workloadQuery.data
+  const tasks = data?.tasks ?? []
+  const blockers = data?.blockers ?? []
+  const member = data?.member ?? null
+
+  const openTasksList = useMemo(() => tasks.filter((task) => task.status !== 'task_approved_by_client'), [tasks])
+  const openTasksCount = openTasksList.length
+  const openBlockers = blockers.filter((blocker) => blocker.status === 'open').length
+
+  const dailyTaskCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    openTasksList.forEach((t) => {
+      if (t.due_date) {
+        const dateStr = t.due_date.slice(0, 10)
+        counts[dateStr] = (counts[dateStr] || 0) + 1
+      }
+    })
+    return counts
+  }, [openTasksList])
+
+  const uniqueDeadlineDays = Object.keys(dailyTaskCounts).length
+  const taskLoadIndex = uniqueDeadlineDays > 0 ? (openTasksCount / uniqueDeadlineDays).toFixed(1) : '0.0'
+
+  const peakDailyLoad = useMemo(() => {
+    const counts = Object.values(dailyTaskCounts)
+    return counts.length > 0 ? Math.max(...counts) : 0
+  }, [dailyTaskCounts])
+
+  const loadCapacityLabel = useMemo(() => {
+    if (peakDailyLoad >= 4) return { label: 'Overloaded', class: 'rework' }
+    if (peakDailyLoad === 3) return { label: 'High Load', class: 'blocked' }
+    if (peakDailyLoad === 2) return { label: 'Optimal Load', class: 'ongoing' }
+    return { label: 'Light Load', class: 'yet_to_start' }
+  }, [peakDailyLoad])
+
   if (!memberId) {
     return (
       <section className="panel muted-card" data-testid="team-member-detail-empty">
@@ -134,17 +172,13 @@ function TeamMemberDetailPanel({ memberId }: { memberId: string | null }) {
     )
   }
 
-  if (workloadError || !workloadQuery.data) {
+  if (workloadError || !data || !member) {
     return (
       <section className="panel muted-card" data-testid="team-member-detail-unavailable">
         {workloadError ?? 'Team member workload unavailable.'}
       </section>
     )
   }
-
-  const { member, tasks, blockers } = workloadQuery.data
-  const openTasks = tasks.filter((task) => task.status !== 'completed').length
-  const openBlockers = blockers.filter((blocker) => blocker.status === 'open').length
 
   return (
     <section className="panel team-member-detail-panel" data-testid="team-member-detail-panel">
@@ -160,9 +194,50 @@ function TeamMemberDetailPanel({ memberId }: { memberId: string | null }) {
 
       <div className="team-member-summary">
         <SummaryTile icon={<ListChecks size={16} />} label="Assigned tasks" value={tasks.length} />
-        <SummaryTile icon={<CheckCircle2 size={16} />} label="Open tasks" value={openTasks} />
+        <SummaryTile icon={<CheckCircle2 size={16} />} label="Open tasks" value={openTasksCount} />
         <SummaryTile icon={<AlertTriangle size={16} />} label="Open blockers" value={openBlockers} />
       </div>
+
+      <div className="panel-header compact-header" style={{ marginTop: '20px' }}>
+        <h2>Task Load Analysis</h2>
+      </div>
+      <div className="team-member-summary" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: '8px', gap: '12px' }}>
+        <div className="team-summary-tile" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>Overall Tasks</span>
+          <strong>{tasks.length}</strong>
+        </div>
+        <div className="team-summary-tile" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>Tasks Load Index</span>
+          <strong>{taskLoadIndex} <small style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 'normal' }}>tasks/day</small></strong>
+        </div>
+        <div className="team-summary-tile" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Load Capacity</span>
+          <span className={`status-badge ${loadCapacityLabel.class}`} style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
+            {loadCapacityLabel.label}
+          </span>
+        </div>
+      </div>
+
+      {uniqueDeadlineDays > 0 ? (
+        <div style={{ marginTop: '14px', padding: '12px', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--muted)', display: 'block', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            Daily Workload Density
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {Object.entries(dailyTaskCounts).map(([date, count]) => {
+              const statusClass = count >= 4 ? 'rework' : count === 3 ? 'blocked' : count === 2 ? 'ongoing' : 'yet_to_start'
+              return (
+                <div key={date} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px' }}>
+                  <strong>{date}</strong>
+                  <span className={`status-badge ${statusClass}`} style={{ fontSize: '11px', padding: '2px 6px' }}>
+                    {count} {count === 1 ? 'task' : 'tasks'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <section className="team-work-section">
         <div className="panel-header compact-header">

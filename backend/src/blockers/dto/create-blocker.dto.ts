@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsIn, IsOptional, IsString, IsUUID, MinLength } from 'class-validator'
+import { IsIn, IsOptional, IsString, IsUUID, MinLength, ValidateIf } from 'class-validator'
 
 const blockerSeverities = ['high', 'medium', 'low'] as const
 
@@ -26,4 +26,12 @@ export class CreateBlockerDto {
   @IsOptional()
   @IsString()
   impact?: string
+
+  @ApiProperty()
+  @IsUUID()
+  assigned_to!: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  notify?: any
 }

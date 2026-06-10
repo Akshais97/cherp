@@ -28,7 +28,7 @@ const baseTask = {
   tenant_id: admin.tenantId,
   workflow_id: '61111111-1111-4111-8111-111111111111',
   assigned_to: teamMember.id,
-  status: 'in_progress',
+  status: 'ongoing',
   title: 'Launch QA',
   workflow: {
     id: '61111111-1111-4111-8111-111111111111',
@@ -56,17 +56,18 @@ const baseBlocker = {
   task: {
     id: baseTask.id,
     workflow_id: baseTask.workflow_id,
-    status: 'blocked',
+    status: 'ongoing',
   },
 }
 
 async function run() {
   await testTeamMemberCanCreateBlockerOnAssignedTask()
   await testTeamMemberCannotCreateBlockerOnUnassignedTask()
-  await testCompletedTaskCannotBeBlocked()
+  await testClientApprovedTaskCannotBeBlocked()
   await testDuplicateOpenBlockerRejected()
   await testListSortsHighMediumLowThenNewest()
   await testResolveDelegatesTransactionalRestore()
+  await testBlockerCreationCreatesNotification()
 
   console.log('Slice 4 blocker tests passed.')
 }
@@ -90,6 +91,7 @@ async function testTeamMemberCanCreateBlockerOnAssignedTask() {
       description: 'The conversion pixel is not installed.',
       severity: 'high',
       impact: 'Launch cannot be verified.',
+      assigned_to: teamMember.id,
     },
     teamMember,
   )
@@ -112,6 +114,7 @@ async function testTeamMemberCannotCreateBlockerOnUnassignedTask() {
           title: 'Blocked',
           description: 'Need PM support.',
           severity: 'medium',
+          assigned_to: admin.id,
         },
         teamMember,
       ),
@@ -119,9 +122,12 @@ async function testTeamMemberCannotCreateBlockerOnUnassignedTask() {
   )
 }
 
-async function testCompletedTaskCannotBeBlocked() {
+async function testClientApprovedTaskCannotBeBlocked() {
   const repository = {
-    findTaskForBlocker: async () => ({ ...baseTask, status: 'completed' }),
+    findTaskForBlocker: async () => ({
+      ...baseTask,
+      status: 'task_approved_by_client',
+    }),
   }
   const service = new BlockersService(repository as never)
 
@@ -133,10 +139,11 @@ async function testCompletedTaskCannotBeBlocked() {
           title: 'Blocked',
           description: 'Need PM support.',
           severity: 'medium',
+          assigned_to: admin.id,
         },
         admin,
       ),
-    /Completed tasks cannot be blocked/,
+    /Client-approved tasks cannot be blocked/,
   )
 }
 
@@ -155,6 +162,7 @@ async function testDuplicateOpenBlockerRejected() {
           title: 'Tracking pixel missing',
           description: 'The conversion pixel is not installed.',
           severity: 'high',
+          assigned_to: admin.id,
         },
         admin,
       ),
@@ -203,6 +211,49 @@ async function testResolveDelegatesTransactionalRestore() {
     (calls[0].payload as { resolutionNotes: string }).resolutionNotes,
     'Pixel installed and verified.',
   )
+}
+
+async function testBlockerCreationCreatesNotification() {
+  const notifications: unknown[] = []
+  const repository = {
+    findTaskForBlocker: async () => baseTask,
+    findDuplicateOpenBlocker: async () => null,
+    createAndBlockTask: async () => ({
+      ...baseBlocker,
+      task: baseTask,
+      client: baseTask.workflow.client,
+    }),
+  }
+  const notificationService = {
+    notifyBlockerCreated: async (payload: unknown) => {
+      notifications.push(payload)
+    },
+  }
+  const service = new BlockersService(repository as never, notificationService as never)
+
+  await service.create(
+    {
+      task_id: baseTask.id,
+      title: 'Tracking pixel missing',
+      description: 'The conversion pixel is not installed.',
+      severity: 'high',
+      assigned_to: teamMember.id,
+    },
+    teamMember,
+  )
+
+  assert.equal(notifications.length, 1)
+  assert.deepEqual(notifications[0], {
+    tenantId: teamMember.tenantId,
+    actorId: teamMember.id,
+    blockerId: baseBlocker.id,
+    blockerTitle: baseBlocker.title,
+    taskId: baseTask.id,
+    taskTitle: baseTask.title,
+    assigneeId: teamMember.id,
+    projectManagerId: undefined,
+    clientName: 'Acme',
+  })
 }
 
 run().catch((error) => {

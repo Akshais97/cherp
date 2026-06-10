@@ -47,6 +47,10 @@ async function run() {
   await testBlockedTaskCannotComplete()
   await testCompleteSetsCompletionFields()
   await testCompletedWorkflowCannotReceiveCustomTask()
+  await testTaskApprovalStatusTransition()
+  await testProjectManagerCanDeleteTask()
+  await testTeamMemberCannotDeleteTask()
+  await testTaskStatusChangeCreatesNotification()
 
   console.log('Slice 3 workflow/task tests passed.')
 }
@@ -82,7 +86,7 @@ async function testTeamMemberCannotUpdateUnassignedTask() {
   const service = new TasksService(repository as never)
 
   await assert.rejects(
-    () => service.update(baseTask.id, { status: 'in_progress' }, teamMember),
+    () => service.update(baseTask.id, { status: 'ongoing' }, teamMember),
     /Team members can only update assigned tasks/,
   )
   assert.equal(calls.length, 0)
@@ -110,7 +114,7 @@ async function testBlockedTaskCannotComplete() {
   const repository = {
     findTaskForAccess: async () => ({
       ...baseTask,
-      status: 'blocked',
+      status: 'ongoing',
       _count: { blockers: 1 },
     }),
   }
@@ -118,14 +122,18 @@ async function testBlockedTaskCannotComplete() {
 
   await assert.rejects(
     () => service.complete(baseTask.id, admin),
-    /Blocked tasks cannot be completed directly/,
+    /Tasks with open blockers cannot be completed/,
   )
 }
 
 async function testCompleteSetsCompletionFields() {
   const calls: Call[] = []
   const repository = {
-    findTaskForAccess: async () => ({ ...baseTask, status: 'in_progress' }),
+    findTaskForAccess: async () => ({
+      ...baseTask,
+      assigned_to: teamMember.id,
+      status: 'ongoing',
+    }),
     updateWithCompletion: async (payload: unknown) => {
       calls.push({ name: 'updateWithCompletion', payload })
       return payload
@@ -143,6 +151,104 @@ async function testCompleteSetsCompletionFields() {
   assert.equal(payload.data.status, 'completed')
   assert.ok(payload.data.completed_at instanceof Date)
   assert.equal(payload.data.completer.connect.id, admin.id)
+}
+
+async function testTaskApprovalStatusTransition() {
+  const calls: Call[] = []
+  const repository = {
+    findTaskForAccess: async () => ({ ...baseTask, status: 'completed' }),
+    updateWithCompletion: async (payload: unknown) => {
+      calls.push({ name: 'updateWithCompletion', payload })
+      return payload
+    },
+  }
+  const service = new TasksService(repository as never)
+
+  await service.update(baseTask.id, { status: 'task_approved_by_manager' }, admin)
+
+  const payload = calls[0].payload as {
+    actionType: string
+    data: { status: string; completed_at?: null }
+  }
+  assert.equal(payload.actionType, 'status_changed')
+  assert.equal(payload.data.status, 'task_approved_by_manager')
+}
+
+async function testProjectManagerCanDeleteTask() {
+  const calls: Call[] = []
+  const repository = {
+    findTaskForAccess: async () => ({ ...baseTask, assigned_to: teamMember.id }),
+    deleteWithCompletion: async (payload: unknown) => {
+      calls.push({ name: 'deleteWithCompletion', payload })
+      return { id: baseTask.id, deleted: true }
+    },
+  }
+  const service = new TasksService(repository as never)
+
+  await service.delete(baseTask.id, admin)
+
+  const payload = calls[0].payload as {
+    taskId: string
+    workflowId: string
+    beforeValues: { title: string }
+  }
+  assert.equal(payload.taskId, baseTask.id)
+  assert.equal(payload.workflowId, baseTask.workflow_id)
+  assert.equal(payload.beforeValues.title, baseTask.title)
+}
+
+async function testTeamMemberCannotDeleteTask() {
+  const repository = {
+    findTaskForAccess: async () => ({ ...baseTask, assigned_to: teamMember.id }),
+  }
+  const service = new TasksService(repository as never)
+
+  await assert.rejects(
+    () => service.delete(baseTask.id, teamMember),
+    /Only admins and project managers can delete tasks/,
+  )
+}
+
+async function testTaskStatusChangeCreatesNotification() {
+  const notifications: unknown[] = []
+  const repository = {
+    findTaskForAccess: async () => ({
+      ...baseTask,
+      assigned_to: teamMember.id,
+      status: 'ongoing',
+    }),
+    updateWithCompletion: async () => ({
+      ...baseTask,
+      assigned_to: teamMember.id,
+      status: 'completed',
+      workflow: {
+        project_manager_id: admin.id,
+        client: { id: '71111111-1111-4111-8111-111111111111', name: 'Acme' },
+      },
+      assignee: { id: teamMember.id, full_name: 'Team Member', email: 'tm@example.com' },
+    }),
+  }
+  const notificationService = {
+    notifyTaskStatusChanged: async (payload: unknown) => {
+      notifications.push(payload)
+    },
+  }
+  const service = new TasksService(repository as never, notificationService as never)
+
+  await service.update(baseTask.id, { status: 'completed' }, teamMember)
+
+  assert.equal(notifications.length, 1)
+  assert.deepEqual(notifications[0], {
+    tenantId: teamMember.tenantId,
+    actorId: teamMember.id,
+    taskId: baseTask.id,
+    taskTitle: baseTask.title,
+    previousStatus: 'ongoing',
+    nextStatus: 'completed',
+    assigneeId: teamMember.id,
+    projectManagerId: admin.id,
+    clientName: 'Acme',
+  })
 }
 
 async function testCompletedWorkflowCannotReceiveCustomTask() {

@@ -32,6 +32,12 @@ TENANTS {
         timestamp last_login
         decimal hourly_cost_rate
         decimal billable_rate
+        jsonb skills
+        string designation
+        string experience
+        string availability
+        decimal current_workload
+        string team
         timestamp created_at
         timestamp updated_at
     }
@@ -55,12 +61,28 @@ TENANTS {
         text payment_terms
         date renewal_date
         text notes
+        string brand_url
+        string instagram_profile
+        jsonb social_profiles
+        string brand_guidelines
+        jsonb logo_assets
+        jsonb color_palette
+        jsonb fonts
+        text target_audience
+        jsonb competitor_list
+        text positioning_statement
+        jsonb campaign_history
+        jsonb communication_history
         uuid scope_template_id FK
         decimal health_score
         integer retainer_hours
         uuid created_by FK
         timestamp created_at
         timestamp updated_at
+        decimal ad_spend
+        decimal total_investment
+        string invoice_status
+        date next_invoice_date
     }
 
     SCOPE_TEMPLATES {
@@ -108,9 +130,10 @@ TENANTS {
         string status
         string priority
         integer sort_order
-        date due_date
+        timestamp due_date
         uuid[] depends_on
         boolean is_subtask
+        string blocked_previous_status
         timestamp completed_at
         timestamp created_at
         timestamp updated_at
@@ -123,6 +146,7 @@ TENANTS {
         uuid client_id FK
         uuid flagged_by FK
         uuid resolved_by FK
+        uuid assigned_to FK
         string title
         text description
         string severity
@@ -133,6 +157,7 @@ TENANTS {
         timestamp resolved_at
         timestamp created_at
         timestamp updated_at
+        jsonb notify
     }
 
     ACTIVITY_LOGS {
@@ -206,6 +231,24 @@ TENANTS {
         timestamp updated_at
     }
 
+    HISTORY {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK
+        date date
+        jsonb payload
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CLIENT_USERS {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK
+        uuid client_id FK
+        timestamp created_at
+    }
+
     TENANTS ||--o{ USERS : has
     TENANTS ||--o{ CLIENTS : has
     TENANTS ||--o{ SCOPE_TEMPLATES : has
@@ -218,6 +261,8 @@ TENANTS {
     TENANTS ||--o{ TIME_ENTRIES : has
     TENANTS ||--o{ NOTIFICATIONS : has
     TENANTS ||--o{ NOTIFICATION_PREFERENCES : has
+    TENANTS ||--o{ HISTORY : has
+    TENANTS ||--o{ CLIENT_USERS : has
 
     ROLES ||--o{ USERS : assigned_to
 
@@ -227,18 +272,22 @@ TENANTS {
     USERS ||--o{ TASKS : completed_by
     USERS ||--o{ BLOCKERS : flagged_by
     USERS ||--o{ BLOCKERS : resolved_by
+    USERS ||--o{ BLOCKERS : assigned_to
     USERS ||--o{ ACTIVITY_LOGS : performs
     USERS ||--o{ TASK_COMMENTS : writes
     USERS ||--o{ TASK_ATTACHMENTS : uploads
     USERS ||--o{ TIME_ENTRIES : logs
     USERS ||--o{ NOTIFICATIONS : receives
     USERS ||--o{ NOTIFICATION_PREFERENCES : configures
+    USERS ||--o{ HISTORY : has
+    USERS ||--o{ CLIENT_USERS : assigned_to
 
     SCOPE_TEMPLATES ||--o{ CLIENTS : assigned_to
     SCOPE_TEMPLATES ||--o{ WORKFLOWS : generates
 
     CLIENTS ||--o{ WORKFLOWS : contains
     CLIENTS ||--o{ BLOCKERS : affected_by
+    CLIENTS ||--o{ CLIENT_USERS : assigned_to
 
     WORKFLOWS ||--o{ TASKS : contains
 

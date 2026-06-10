@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import {
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -7,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateIf,
 } from 'class-validator'
 
 const priorities = ['high', 'medium', 'low'] as const
@@ -33,12 +35,33 @@ export class CreateTaskDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
+  is_daily?: boolean
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
   @IsUUID()
-  assigned_to?: string
+  assigned_to?: string | null
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
   @Min(0)
   sort_order?: number
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slot?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  client_id?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  workflow_id?: string
 }

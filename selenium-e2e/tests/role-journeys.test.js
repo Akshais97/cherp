@@ -124,7 +124,7 @@ async function main() {
     await login(ctx, users.project_manager.email, users.project_manager.password)
     await step(ctx, 'Project Manager can view internal dashboard', async () => {
       await waitForTestId(ctx.driver, 'dashboard-page', 30000)
-      await waitForTestId(ctx.driver, 'dashboard-client-health-panel')
+      await waitForTestId(ctx.driver, 'project_manager-dashboard-page')
       await assertElementAbsent(ctx.driver, 'nav-users')
       await screenshot(ctx, 'dashboard')
     })
@@ -150,14 +150,15 @@ async function main() {
       await typeByTestId(ctx.driver, 'input-task-title', shared.taskTitle)
       await setValueByTestId(ctx.driver, 'input-task-due-date', today())
       await clickByTestId(ctx.driver, 'button-create-task')
-      await waitForTaskCardText(ctx.driver, shared.taskTitle, 'Pending', 30000)
+      await waitForTaskCardText(ctx.driver, shared.taskTitle, 'Yet to start', 30000)
       await selectTaskCardOption(
         ctx.driver,
         shared.taskTitle,
         'select-task-card-assignee',
         users.team_member.fullName,
       )
-      await selectTaskCardOption(ctx.driver, shared.taskTitle, 'select-task-status', 'In progress')
+      await selectTaskCardOption(ctx.driver, shared.taskTitle, 'select-task-status', 'Ongoing')
+      await clickTaskCardButton(ctx.driver, shared.taskTitle, 'button-save-task')
       await typeTaskCardField(ctx.driver, shared.taskTitle, 'input-blocker-title', shared.blockerTitle)
       await typeTaskCardField(ctx.driver, shared.taskTitle, 'textarea-blocker-description', 'PM role E2E blocker')
       await typeTaskCardField(ctx.driver, shared.taskTitle, 'input-blocker-impact', 'Role journey validation')
@@ -199,25 +200,20 @@ async function main() {
       await assertElementAbsent(ctx.driver, 'nav-users')
       await assertElementAbsent(ctx.driver, 'nav-clients')
       await assertElementAbsent(ctx.driver, 'nav-team-members')
-      await assertElementPresent(ctx.driver, 'nav-client-directory')
+      await assertElementAbsent(ctx.driver, 'nav-client-directory')
       await screenshot(ctx, 'dashboard')
     })
-    await step(ctx, 'Team Member sees client details as read-only', async () => {
-      await clickByTestId(ctx.driver, 'nav-client-directory')
-      await waitForTestId(ctx.driver, 'client-directory-page', 30000)
-      await assertElementPresent(ctx.driver, 'client-directory')
-      await typeByTestId(ctx.driver, 'input-client-search', shared.clientName)
-      await clickClientRow(ctx.driver, shared.clientName, 45000)
-      await waitForTestId(ctx.driver, 'client-readonly-detail', 30000)
-      await assertElementAbsent(ctx.driver, 'client-edit-form')
-      await screenshot(ctx, 'client-readonly')
+    await step(ctx, 'Team Member sees brand details as read-only', async () => {
+      await clickByTestId(ctx.driver, 'nav-brands')
+      await ctx.driver.wait(until.elementLocated(By.css('.brands-page')), 30000)
+      await screenshot(ctx, 'brands-list')
     })
     await step(ctx, 'Team Member can update task execution state', async () => {
       await clickByTestId(ctx.driver, 'nav-workflows')
       await waitForTestId(ctx.driver, 'workflows-page', 30000)
       await typeByTestId(ctx.driver, 'input-workflow-search', shared.clientName)
       await clickWorkflowRow(ctx.driver, shared.clientName, 45000)
-      await waitForTaskCardText(ctx.driver, shared.taskTitle, 'In progress', 30000)
+      await waitForTaskCardText(ctx.driver, shared.taskTitle, 'Ongoing', 30000)
       await assertElementAbsent(ctx.driver, 'task-create-form')
       await clickTaskCardButton(ctx.driver, shared.taskTitle, 'button-complete-task')
       await waitForTaskCardText(ctx.driver, shared.taskTitle, 'Completed', 30000)
@@ -228,28 +224,31 @@ async function main() {
 
   await runJourney('client', users.client, async (ctx) => {
     await login(ctx, users.client.email, users.client.password)
-    await step(ctx, 'Client role signs in but internal dashboard APIs are forbidden', async () => {
+    await step(ctx, 'Client role signs in and views client dashboard', async () => {
       await waitForTestId(ctx.driver, 'app-shell', 30000)
-      await waitForText(ctx.driver, 'User role is not allowed for this route.', 45000)
+      await waitForTestId(ctx.driver, 'client-dashboard-page', 30000)
       await assertElementAbsent(ctx.driver, 'nav-users')
-      await screenshot(ctx, 'forbidden-dashboard')
+      await screenshot(ctx, 'client-dashboard')
     })
-    await step(ctx, 'Client role cannot access internal workflow data', async () => {
-      await clickByTestId(ctx.driver, 'nav-workflows')
-      await waitForTestId(ctx.driver, 'workflows-page', 30000)
-      await waitForText(ctx.driver, 'User role is not allowed for this route.', 45000)
-      await screenshot(ctx, 'forbidden-workflows')
+    await step(ctx, 'Client role cannot access restricted features', async () => {
+      await assertElementAbsent(ctx.driver, 'nav-workflows')
+      await assertElementAbsent(ctx.driver, 'nav-client-directory')
+      await assertElementAbsent(ctx.driver, 'nav-team-members')
+      await screenshot(ctx, 'restricted-client-navigation')
     })
     await logout(ctx)
   })
 }
 
 async function runJourney(roleKey, user, run) {
+  console.log(`\n=== Starting Journey: ${user.label} (${roleKey}) ===`);
   const ctx = createContext(roleKey, user.label)
   ctx.driver = await buildDriver()
   try {
     await run(ctx)
+    console.log(`=== Completed Journey: ${user.label} (${roleKey}) ===\n`);
   } catch (error) {
+    console.error(`!!! Journey Failed: ${user.label} (${roleKey}): ${error.message} !!!\n`);
     if (!ctx.report.steps.some((item) => item.status === 'failed')) {
       ctx.report.summary.failed += 1
       ctx.report.steps.push({
@@ -299,6 +298,7 @@ function createContext(roleKey, label) {
 }
 
 async function step(ctx, name, run) {
+  console.log(`  - [Step] Starting: "${name}"`);
   const startedAt = Date.now()
   const item = {
     name,
@@ -315,6 +315,7 @@ async function step(ctx, name, run) {
     item.browserLogs = await collectBrowserLogs(ctx.driver)
     item.status = 'passed'
     ctx.report.summary.passed += 1
+    console.log(`  - [Step] Passed: "${name}" (${Date.now() - startedAt}ms)`);
   } catch (error) {
     item.status = 'failed'
     item.error = serializeError(error)
@@ -323,6 +324,7 @@ async function step(ctx, name, run) {
     item.browserLogs = await collectBrowserLogs(ctx.driver)
     item.screenshot = await screenshot(ctx, `failure-${slug(name)}`)
     ctx.report.summary.failed += 1
+    console.error(`  - [Step] FAILED: "${name}" (${Date.now() - startedAt}ms) - Error: ${error.message}`);
     throw error
   } finally {
     item.durationMs = Date.now() - startedAt
@@ -569,9 +571,17 @@ async function assertElementAbsent(driver, id) {
 
 async function waitForUserRow(driver, email, timeoutMs) {
   await driver.wait(async () => {
-    const rows = await driver.findElements(cssTestId('user-row'))
-    for (const row of rows) {
-      if ((await row.getText()).includes(email)) return true
+    try {
+      const rows = await driver.findElements(cssTestId('user-row'))
+      for (const row of rows) {
+        try {
+          if ((await row.getText()).includes(email)) return true
+        } catch (error) {
+          if (!String(error?.message || error).includes('stale element')) throw error
+        }
+      }
+    } catch (error) {
+      if (!String(error?.message || error).includes('stale element')) throw error
     }
     return false
   }, timeoutMs)
@@ -710,9 +720,7 @@ async function waitForTaskCardText(driver, taskTitle, text, timeoutMs) {
 async function selectTaskCardOption(driver, taskTitle, testId, text) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(driver, taskTitle)
-    const card = await findTaskCard(driver, taskTitle)
-    if (!card) return false
-    const select = await card.findElement(cssTestId(testId))
+    const select = await driver.findElement(cssTestId(testId))
     const options = await select.findElements(By.css('option'))
     for (const option of options) {
       if ((await option.getText()).trim() === text) {
@@ -727,9 +735,7 @@ async function selectTaskCardOption(driver, taskTitle, testId, text) {
 async function typeTaskCardField(driver, taskTitle, testId, value) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(driver, taskTitle)
-    const card = await findTaskCard(driver, taskTitle)
-    if (!card) return false
-    const element = await card.findElement(cssTestId(testId))
+    const element = await driver.findElement(cssTestId(testId))
     await element.sendKeys(Key.chord(Key.CONTROL, 'a'), Key.BACK_SPACE)
     if (value) await element.sendKeys(value)
     return true
@@ -739,9 +745,7 @@ async function typeTaskCardField(driver, taskTitle, testId, value) {
 async function clickTaskCardButton(driver, taskTitle, testId) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(driver, taskTitle)
-    const card = await findTaskCard(driver, taskTitle)
-    if (!card) return false
-    const button = await card.findElement(cssTestId(testId))
+    const button = await driver.findElement(cssTestId(testId))
     if (!(await button.isEnabled())) return false
     await button.click()
     return true
@@ -761,13 +765,26 @@ async function findTaskCard(driver, taskTitle) {
 }
 
 async function ensureTaskCardOpen(driver, taskTitle) {
+  const modals = await driver.findElements(By.css('.task-detail-modal'))
+  if (modals.length > 0) {
+    try {
+      const titleInput = await driver.findElement(cssTestId('input-edit-task-title'))
+      const currentTitle = await titleInput.getAttribute('value')
+      if (currentTitle.trim() === taskTitle.trim()) {
+        return true
+      }
+    } catch {
+      // Ignore and click the card
+    }
+  }
   const card = await findTaskCard(driver, taskTitle)
   if (!card) return false
-  const buttons = await card.findElements(cssTestId('button-task-accordion'))
-  if (buttons.length === 0) return true
-  const expanded = await buttons[0].getAttribute('aria-expanded')
-  if (expanded === 'true') return true
-  await buttons[0].click()
+  await driver.wait(async () => {
+    const backdrops = await driver.findElements(By.css('.modal-backdrop'))
+    return backdrops.length === 0
+  }, 5000)
+  await card.click()
+  await driver.wait(until.elementLocated(By.css('.task-detail-modal')), 10000)
   await sleep(250)
   return true
 }

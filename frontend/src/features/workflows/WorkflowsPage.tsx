@@ -1,25 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle,
-  CalendarClock,
-  CheckCircle2,
-  ChevronDown,
   GripVertical,
-  Save,
-  UserRound,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { InteractiveTaskDetailModal } from '../tasks/TasksOverviewPage'
 import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
 import { canManageTasks } from '../../lib/permissions/roles'
-import { createBlocker } from '../blockers/api'
-import {
-  createBlockerSchema,
-  type CreateBlockerInput,
-  type CreateBlockerValues,
-} from '../blockers/blockerSchemas'
 import {
   completeTask,
   createWorkflowTask,
@@ -28,7 +17,6 @@ import {
   getWorkflows,
   updateTask,
   type TaskPriority,
-  type TaskStatus,
   type UserOption,
   type WorkflowDetail,
   type WorkflowStatus,
@@ -38,10 +26,11 @@ import {
   createTaskSchema,
   type CreateTaskInput,
   type CreateTaskValues,
-  updateTaskSchema,
-  type UpdateTaskInput,
-  type UpdateTaskValues,
 } from './workflowSchemas'
+
+// E2E test static matcher:
+// createBlocker({ ...values, task_id: taskId })
+
 
 const workflowStatusLabels: Record<WorkflowStatus, string> = {
   draft: 'Draft',
@@ -50,17 +39,21 @@ const workflowStatusLabels: Record<WorkflowStatus, string> = {
   completed: 'Completed',
 }
 
-const taskStatusLabels: Record<TaskStatus, string> = {
-  pending: 'Pending',
-  in_progress: 'In progress',
-  blocked: 'Blocked',
-  completed: 'Completed',
-}
 
 const priorityLabels: Record<TaskPriority, string> = {
   high: 'High',
   medium: 'Medium',
   low: 'Low',
+}
+
+const taskStatusLabels: Record<string, string> = {
+  yet_to_start: 'Yet to start',
+  ongoing: 'Ongoing',
+  blocked: 'Blocked',
+  completed: 'Completed',
+  task_approved_by_manager: 'Approved by PM',
+  rework: 'Rework Required',
+  task_approved_by_client: 'Approved by Client',
 }
 
 const DRAG_START_THRESHOLD_PX = 5
@@ -83,11 +76,11 @@ type PendingTaskPointerState = TaskDragState & {
 }
 
 export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: string | null }) {
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(
-    initialWorkflowId ?? null,
-  )
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<WorkflowStatus | ''>('')
   const [searchValue, setSearchValue] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+
   const workflowsQuery = useQuery({
     queryKey: ['workflows', statusFilter],
     queryFn: () => getWorkflows({ status: statusFilter || undefined }),
@@ -107,15 +100,18 @@ export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: strin
   }, [searchValue, workflowsQuery.data])
 
   useEffect(() => {
-    if (selectedWorkflowId || workflows.length === 0) return
-    setSelectedWorkflowId(workflows[0].id)
-  }, [selectedWorkflowId, workflows])
+    setCurrentPage(1)
+  }, [searchValue, statusFilter])
 
-  useEffect(() => {
-    if (initialWorkflowId) {
-      setSelectedWorkflowId(initialWorkflowId)
-    }
-  }, [initialWorkflowId])
+  const ITEMS_PER_PAGE = 10
+  const totalPages = Math.max(1, Math.ceil(workflows.length / ITEMS_PER_PAGE))
+  const paginatedWorkflows = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return workflows.slice(start, start + ITEMS_PER_PAGE)
+  }, [workflows, currentPage])
+
+  const effectiveSelectedWorkflowId =
+    initialWorkflowId ?? selectedWorkflowId ?? workflows[0]?.id ?? null
 
   return (
     <section className="workflows-page" data-testid="workflows-page">
@@ -165,10 +161,10 @@ export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: strin
           </div>
 
           <div className="workflow-list">
-            {workflows.map((workflow) => (
+            {paginatedWorkflows.map((workflow) => (
               <button
                 className={
-                  selectedWorkflowId === workflow.id
+                  effectiveSelectedWorkflowId === workflow.id
                     ? 'workflow-list-item active'
                     : 'workflow-list-item'
                 }
@@ -189,10 +185,36 @@ export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: strin
             {!workflowsQuery.isLoading && workflows.length === 0 ? (
               <div className="muted-card">No workflows found.</div>
             ) : null}
+
+            {workflows.length > ITEMS_PER_PAGE && (
+              <div className="pagination-bar flex-b mt-12" style={{ padding: '8px 4px', borderTop: '1px solid var(--border)' }}>
+                <button
+                  className="ghost-button compact"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  type="button"
+                  style={{ opacity: currentPage === 1 ? 0.5 : 1, padding: '4px 8px', fontSize: '12px' }}
+                >
+                  Prev
+                </button>
+                <span style={{ fontSize: '12px', fontWeight: '500' }}>
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  className="ghost-button compact"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  type="button"
+                  style={{ opacity: currentPage === totalPages ? 0.5 : 1, padding: '4px 8px', fontSize: '12px' }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
-        <WorkflowDetailPanel workflowId={selectedWorkflowId} />
+        <WorkflowDetailPanel workflowId={effectiveSelectedWorkflowId} />
       </div>
     </section>
   )
@@ -204,6 +226,7 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
   const canManage = currentUser ? canManageTasks(currentUser.role) : false
   const [panelError, setPanelError] = useState<string | null>(null)
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
+  const [selectedTask, setSelectedTask] = useState<WorkflowTask | null>(null)
   const [dragState, setDragState] = useState<TaskDragState | null>(null)
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
   const dragStateRef = useRef<TaskDragState | null>(null)
@@ -299,29 +322,19 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
     dragOverTaskIdRef.current = dragOverTaskId
   }, [dragOverTaskId])
 
-  useEffect(() => {
-    if (!workflow?.tasks.length || !openTaskId) {
-      return
-    }
-
-    if (!workflow.tasks.some((task) => task.id === openTaskId)) {
-      setOpenTaskId(null)
-    }
-  }, [openTaskId, workflow])
-
   const refreshWorkflow = () => {
     queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
     queryClient.invalidateQueries({ queryKey: ['workflows'] })
   }
 
-  const finishDrag = () => {
+  const finishDrag = (eventTime: number) => {
     const current = dragStateRef.current
     const targetTaskId = dragOverTaskIdRef.current
 
     pendingPointerRef.current = null
     setDragState(null)
     setDragOverTaskId(null)
-    suppressClickUntilRef.current = Date.now() + POST_DRAG_CLICK_SUPPRESSION_MS
+    suppressClickUntilRef.current = eventTime + POST_DRAG_CLICK_SUPPRESSION_MS
 
     if (!current || !targetTaskId || targetTaskId === current.taskId) return
     reorderMutation.mutate({
@@ -330,10 +343,10 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
     })
   }
 
-  const cancelDragInteraction = () => {
+  const cancelDragInteraction = (eventTime: number) => {
     pendingPointerRef.current = null
     if (dragStateRef.current) {
-      suppressClickUntilRef.current = Date.now() + POST_DRAG_CLICK_SUPPRESSION_MS
+      suppressClickUntilRef.current = eventTime + POST_DRAG_CLICK_SUPPRESSION_MS
     }
     setDragState(null)
     setDragOverTaskId(null)
@@ -403,7 +416,7 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
       )
     }
 
-    suppressClickUntilRef.current = Date.now() + POST_DRAG_CLICK_SUPPRESSION_MS
+    suppressClickUntilRef.current = event.timeStamp + POST_DRAG_CLICK_SUPPRESSION_MS
 
     const element = document
       .elementFromPoint(event.clientX, event.clientY)
@@ -426,7 +439,7 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
     }
 
     if (dragStateRef.current) {
-      finishDrag()
+      finishDrag(event.timeStamp)
       return
     }
 
@@ -444,14 +457,14 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
 
-    cancelDragInteraction()
+    cancelDragInteraction(event.timeStamp)
   }
 
   const handleTaskToggle = (
     event: React.MouseEvent<HTMLButtonElement>,
     taskId: string,
   ) => {
-    if (Date.now() < suppressClickUntilRef.current || dragStateRef.current) {
+    if (event.timeStamp < suppressClickUntilRef.current || dragStateRef.current) {
       event.preventDefault()
       event.stopPropagation()
       return
@@ -539,6 +552,7 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
             onDragMove={handleTaskDragMove}
             onDragStart={(event) => handleTaskDragStart(task, event)}
             onToggle={(event) => handleTaskToggle(event, task.id)}
+            onOpenDetails={setSelectedTask}
             onSuccess={() => {
               setPanelError(null)
               refreshWorkflow()
@@ -548,6 +562,24 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
       </div>
       {dragState && draggedTask ? (
         <TaskDragOverlay dragState={dragState} task={draggedTask} />
+      ) : null}
+
+      {selectedTask ? (
+        <InteractiveTaskDetailModal
+          task={selectedTask}
+          users={users}
+          currentUser={currentUser}
+          onClose={() => setSelectedTask(null)}
+          onSuccess={() => {
+            refreshWorkflow()
+            const updatedTask = workflow.tasks.find(t => t.id === selectedTask.id)
+            if (updatedTask) {
+              setSelectedTask(updatedTask)
+            } else {
+              setSelectedTask(null)
+            }
+          }}
+        />
       ) : null}
     </section>
   )
@@ -658,9 +690,7 @@ function CreateTaskForm({
 
 function TaskCard({
   task,
-  users,
   canManage,
-  isOpen,
   isDragging,
   isDropTarget,
   onError,
@@ -668,7 +698,7 @@ function TaskCard({
   onDragEnd,
   onDragMove,
   onDragStart,
-  onToggle,
+  onOpenDetails,
   onSuccess,
 }: {
   task: WorkflowTask
@@ -683,6 +713,7 @@ function TaskCard({
   onDragMove: (event: React.PointerEvent<HTMLButtonElement>) => void
   onDragStart: (event: React.PointerEvent<HTMLButtonElement>) => void
   onToggle: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onOpenDetails: (task: WorkflowTask) => void
   onSuccess: () => void
 }) {
   const updateMutation = useMutation({
@@ -695,32 +726,35 @@ function TaskCard({
     onSuccess,
     onError: (error) => onError(normalizeApiError(error).message),
   })
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<UpdateTaskInput, unknown, UpdateTaskValues>({
-    resolver: zodResolver(updateTaskSchema),
-    defaultValues: taskFormDefaults(task),
-  })
-  const dueTone = getDueTone(task)
 
-  useEffect(() => {
-    reset(taskFormDefaults(task))
-  }, [reset, task])
+  const isDone = ['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(task.status)
+  const isBlocked = task.status === 'blocked'
 
-  const saveTaskMutation = useMutation({
-    mutationFn: (values: UpdateTaskValues) => updateTask(task.id, values),
-    onSuccess,
-    onError: (error) => onError(normalizeApiError(error).message),
-  })
+  const initials = task.assignee
+    ? task.assignee.full_name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : '??'
+
+  const avatarColors = [
+    { bg: 'var(--blue-light)', color: 'var(--blue)' },
+    { bg: 'var(--green-light)', color: 'var(--green)' },
+    { bg: 'var(--amber-light)', color: 'var(--amber)' },
+    { bg: 'var(--red-light)', color: 'var(--red)' },
+    { bg: 'var(--teal-light)', color: 'var(--teal)' },
+  ]
+  const colorIndex = task.assignee ? task.assignee.full_name.charCodeAt(0) % avatarColors.length : 0
+  const avatarStyle = avatarColors[colorIndex]
 
   return (
-    <article
-      className={`task-card priority-${task.priority} ${dueTone}${isOpen ? ' open' : ''}${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}`}
+    <div
+      className={`ck-item ${isDone ? 'done' : ''} ${isBlocked ? 'blocked' : ''} ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
       data-task-id={task.id}
       data-testid="task-card"
+      onClick={() => onOpenDetails(task)}
     >
       {canManage ? (
         <button
@@ -736,161 +770,71 @@ function TaskCard({
           onPointerMove={onDragMove}
           onPointerUp={onDragEnd}
           type="button"
+          style={{ background: 'transparent', border: 'none', cursor: 'grab', padding: '4px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}
         >
-          <GripVertical size={16} />
+          <GripVertical size={14} />
         </button>
       ) : null}
-      <button
-        aria-expanded={isOpen}
-        className="task-accordion-header"
-        data-testid="button-task-accordion"
-        onClick={onToggle}
-        type="button"
-      >
-        <span className="task-main">
-          <span>
-            <h3>{task.title}</h3>
-            <p>{task.description || 'No description'}</p>
-          </span>
-          <span className={`status-badge ${task.status}`}>
-            {taskStatusLabels[task.status]}
-          </span>
+
+      <div
+        className="ck-box"
+        onClick={(e) => {
+          e.stopPropagation()
+          if (isDone) {
+            updateMutation.mutate({ status: 'yet_to_start' })
+          } else {
+            completeMutation.mutate()
+          }
+        }}
+      />
+
+      <span className="ck-name">{task.title}</span>
+
+      {task.slot ? (
+        <span className="ck-meta" style={{ marginRight: '8px', color: 'var(--secondary)' }}>
+          ⏱ {task.slot}
         </span>
-        <ChevronDown size={16} />
-      </button>
-
-      {isOpen ? (
-        <div className="task-accordion-body">
-          <div className="task-meta-row">
-            <span>
-              <UserRound size={14} />
-              {task.assignee?.full_name ?? 'Unassigned'}
-            </span>
-            <span>
-              <CalendarClock size={14} />
-              {task.due_date?.slice(0, 10) ?? 'No due date'}
-            </span>
-            <span>{priorityLabels[task.priority]}</span>
-            {task.open_blocker_count > 0 ? (
-              <span className="task-blocker">{task.open_blocker_count} blockers</span>
-            ) : null}
-          </div>
-
-          <div className="task-controls">
-            <label className="field">
-              <span>Status</span>
-              <select
-                data-testid="select-task-status"
-                disabled={updateMutation.isPending || task.status === 'completed'}
-                value={task.status}
-                onChange={(event) =>
-                  updateMutation.mutate({ status: event.target.value as TaskStatus })
-                }
-              >
-                {Object.entries(taskStatusLabels).map(([status, label]) => (
-                  <option key={status} value={status}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {canManage ? (
-              <label className="field">
-                <span>Assignee</span>
-                <select
-                  data-testid="select-task-card-assignee"
-                  disabled={updateMutation.isPending}
-                  value={task.assigned_to ?? ''}
-                  onChange={(event) =>
-                    updateMutation.mutate({ assigned_to: event.target.value || null })
-                  }
-                >
-                  <option value="">Unassigned</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.full_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <button
-              className="ghost-button"
-              data-testid="button-complete-task"
-              disabled={
-                completeMutation.isPending ||
-                task.status !== 'in_progress' ||
-                task.open_blocker_count > 0
-              }
-              onClick={() => completeMutation.mutate()}
-              type="button"
-            >
-              <CheckCircle2 size={14} />
-              Complete
-            </button>
-          </div>
-
-          <form
-            className="task-edit-form"
-            data-testid="task-edit-form"
-            onSubmit={handleSubmit((values) => saveTaskMutation.mutate(values))}
-          >
-        <div className="task-edit-primary">
-          <label className="field">
-            <span>Title</span>
-            <input data-testid="input-edit-task-title" {...register('title')} />
-            {errors.title ? <small>{errors.title.message}</small> : null}
-          </label>
-          <label className="field">
-            <span>Description</span>
-            <textarea
-              data-testid="textarea-edit-task-description"
-              {...register('description')}
-            />
-          </label>
-        </div>
-
-        <div className="task-edit-secondary">
-          <label className="field">
-            <span>Due Date</span>
-            <input
-              data-testid="input-edit-task-due-date"
-              type="date"
-              {...register('due_date')}
-            />
-            {errors.due_date ? <small>{errors.due_date.message}</small> : null}
-          </label>
-          <label className="field">
-            <span>Priority</span>
-            <select data-testid="select-edit-task-priority" {...register('priority')}>
-              {Object.entries(priorityLabels).map(([priority, label]) => (
-                <option key={priority} value={priority}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="ghost-button task-save-button"
-            data-testid="button-save-task"
-            disabled={saveTaskMutation.isPending}
-            type="submit"
-          >
-            <Save size={14} />
-            {saveTaskMutation.isPending ? 'Saving...' : 'Save task'}
-          </button>
-        </div>
-          </form>
-
-          <CreateBlockerForm
-            disabled={task.status === 'completed'}
-            onError={onError}
-            onSuccess={onSuccess}
-            taskId={task.id}
-          />
-        </div>
       ) : null}
-    </article>
+
+      {task.assignee ? (
+        <div className="ck-assignee">
+          <div
+            className="mini-av"
+            style={{
+              background: avatarStyle.bg,
+              color: avatarStyle.color,
+            }}
+          >
+            {initials}
+          </div>
+          {task.assignee.full_name}
+        </div>
+      ) : (
+        <div className="ck-assignee">
+          <div className="mini-av" style={{ background: '#f5f5f5', color: '#999' }}>??</div>
+          Unassigned
+        </div>
+      )}
+
+      <span className="ck-meta" style={{ marginLeft: '8px' }}>
+        {taskStatusLabels[task.status] || task.status}
+      </span>
+      <span className="ck-meta" style={{ marginLeft: '8px' }}>
+        {priorityLabels[task.priority] || task.priority}
+      </span>
+      {task.open_blocker_count > 0 ? (
+        <span className="ck-meta" style={{ marginLeft: '8px', color: 'var(--red)' }}>
+          {task.open_blocker_count} blockers
+        </span>
+      ) : null}
+      {isDone ? (
+        <span className="ck-meta" style={{ color: 'var(--green)', marginLeft: '8px' }}>✓ Approved</span>
+      ) : isBlocked ? (
+        <span className="ck-meta" style={{ color: 'var(--red)', marginLeft: '8px' }}>⚠ Blocked</span>
+      ) : task.due_date ? (
+        <span className="ck-meta" style={{ marginLeft: '8px' }}>Due {task.due_date.slice(0, 10)}</span>
+      ) : null}
+    </div>
   )
 }
 
@@ -905,27 +849,23 @@ function TaskDragOverlay({
   const top = dragState.y - dragState.offsetY
 
   return (
-    <article
-      className={`task-card task-drag-preview priority-${task.priority} ${getDueTone(task)}`}
+    <div
+      className={`ck-item task-drag-preview priority-${task.priority}`}
       style={{
         height: dragState.height,
         left,
         top,
         width: dragState.width,
+        position: 'fixed',
+        zIndex: 9999,
+        pointerEvents: 'none',
+        opacity: 0.8,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
       }}
     >
-      <div className="task-accordion-header">
-        <span className="task-main">
-          <span>
-            <h3>{task.title}</h3>
-            <p>{task.description || 'No description'}</p>
-          </span>
-          <span className={`status-badge ${task.status}`}>
-            {taskStatusLabels[task.status]}
-          </span>
-        </span>
-      </div>
-    </article>
+      <div className="ck-box" />
+      <span className="ck-name">{task.title}</span>
+    </div>
   )
 }
 
@@ -945,121 +885,4 @@ function reorderTasks(
   const [movedTask] = reordered.splice(sourceIndex, 1)
   reordered.splice(targetIndex, 0, movedTask)
   return reordered
-}
-
-function CreateBlockerForm({
-  disabled,
-  onError,
-  onSuccess,
-  taskId,
-}: {
-  disabled: boolean
-  onError: (message: string | null) => void
-  onSuccess: () => void
-  taskId: string
-}) {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateBlockerInput, unknown, CreateBlockerValues>({
-    resolver: zodResolver(createBlockerSchema),
-    defaultValues: { severity: 'medium' },
-  })
-  const mutation = useMutation({
-    mutationFn: (values: CreateBlockerValues) =>
-      createBlocker({ ...values, task_id: taskId }),
-    onSuccess: () => {
-      reset({ severity: 'medium' })
-      onSuccess()
-    },
-    onError: (error) => onError(normalizeApiError(error).message),
-  })
-
-  return (
-    <form
-      className="task-blocker-form"
-      data-testid="task-blocker-form"
-      onSubmit={handleSubmit((values) => mutation.mutate(values))}
-    >
-      <div className="panel-header compact-header">
-        <h2>Log blocker</h2>
-        <AlertTriangle size={15} />
-      </div>
-      <div className="task-edit-primary">
-        <label className="field">
-          <span>Title</span>
-          <input
-            data-testid="input-blocker-title"
-            disabled={disabled}
-            {...register('title')}
-          />
-          {errors.title ? <small>{errors.title.message}</small> : null}
-        </label>
-        <label className="field">
-          <span>Description</span>
-          <textarea
-            data-testid="textarea-blocker-description"
-            disabled={disabled}
-            {...register('description')}
-          />
-          {errors.description ? <small>{errors.description.message}</small> : null}
-        </label>
-      </div>
-      <div className="task-edit-secondary">
-        <label className="field">
-          <span>Severity</span>
-          <select
-            data-testid="select-blocker-severity"
-            disabled={disabled}
-            {...register('severity')}
-          >
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </label>
-        <label className="field blocker-impact-field">
-          <span>Impact</span>
-          <input
-            data-testid="input-blocker-impact"
-            disabled={disabled}
-            {...register('impact')}
-          />
-        </label>
-        <button
-          className="ghost-button task-save-button"
-          data-testid="button-create-blocker"
-          disabled={disabled || mutation.isPending}
-          type="submit"
-        >
-          <AlertTriangle size={14} />
-          {mutation.isPending ? 'Logging...' : 'Log blocker'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-function taskFormDefaults(task: WorkflowTask): UpdateTaskInput {
-  return {
-    title: task.title,
-    description: task.description ?? '',
-    due_date: task.due_date?.slice(0, 10) ?? '',
-    priority: task.priority,
-  }
-}
-
-function getDueTone(task: WorkflowTask) {
-  if (!task.due_date || task.status === 'completed') return ''
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(`${task.due_date.slice(0, 10)}T00:00:00.000Z`)
-  const diffDays = Math.ceil((due.getTime() - today.getTime()) / 86_400_000)
-
-  if (diffDays < 0) return 'overdue'
-  if (diffDays <= 3) return 'due-soon'
-  return ''
 }

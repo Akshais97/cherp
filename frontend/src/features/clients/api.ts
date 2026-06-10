@@ -127,3 +127,9 @@ export function seedScopeTemplates() {
     .post<ScopeTemplate[]>('/scope-templates/seed')
     .then((response) => response.data)
 }
+
+export function updateScopeTemplate(id: string, payload: Partial<ScopeTemplate>) {
+  return apiClient
+    .patch<ScopeTemplate>(`/scope-templates/${id}`, payload)
+    .then((res) => res.data)
+}

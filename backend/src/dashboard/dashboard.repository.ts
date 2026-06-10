@@ -69,7 +69,7 @@ export class DashboardRepository {
           some: {
             tenant_id: tenantId,
             ...(filters.assignedUserId ? { assigned_to: filters.assignedUserId } : {}),
-            status: { in: ['pending', 'in_progress', 'blocked'] },
+            status: { in: ['yet_to_start', 'ongoing', 'blocked', 'completed', 'rework'] },
             workflow: this.workflowRelationWhere(tenantId, filters),
           },
         },
@@ -121,28 +121,59 @@ export class DashboardRepository {
     dueFrom?: Date
     filters: DashboardFilters
   }) {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    thirtyDaysAgo.setHours(0, 0, 0, 0)
+
     return this.prisma.task.findMany({
       where: {
         tenant_id: input.tenantId,
         ...(input.filters.assignedUserId ? { assigned_to: input.filters.assignedUserId } : {}),
-        status: { not: 'completed' },
-        due_date: { gte: input.dueFrom, lte: input.dueBefore },
-        workflow: this.workflowRelationWhere(input.tenantId, input.filters),
+        OR: [
+          {
+            workflow: this.workflowRelationWhere(input.tenantId, input.filters),
+          },
+          {
+            workflow_id: null,
+            client: this.clientWhere(input.tenantId, input.filters),
+          },
+        ],
+        AND: [
+          {
+            OR: [
+              {
+                status: { notIn: ['task_approved_by_client', 'task_approved_by_manager', 'completed'] },
+                due_date: { lte: input.dueBefore },
+              },
+              {
+                status: { in: ['task_approved_by_client', 'task_approved_by_manager', 'completed'] },
+                completed_at: { gte: thirtyDaysAgo },
+              },
+            ],
+          }
+        ]
       },
       orderBy: [{ due_date: 'asc' }, { created_at: 'desc' }],
-      take: 20,
+      take: 100,
       select: {
         id: true,
         title: true,
         status: true,
         priority: true,
         due_date: true,
+        completed_at: true,
         workflow: {
           select: {
             id: true,
             title: true,
             month_number: true,
             client: { select: { id: true, name: true } },
+          },
+        },
+        client: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -223,10 +254,9 @@ export class DashboardRepository {
         : {}),
       ...(filters.assignedUserId
         ? {
-            workflows: {
+            client_users: {
               some: {
-                tenant_id: tenantId,
-                tasks: { some: { tenant_id: tenantId, assigned_to: filters.assignedUserId } },
+                user_id: filters.assignedUserId,
               },
             },
           }
@@ -252,6 +282,15 @@ export class DashboardRepository {
       client: {
         tenant_id: tenantId,
         status: filters.clientStatus ?? { not: 'archived' },
+        ...(filters.assignedUserId
+          ? {
+              client_users: {
+                some: {
+                  user_id: filters.assignedUserId,
+                },
+              },
+            }
+          : {}),
       },
       ...overrides,
     }
@@ -286,5 +325,111 @@ export class DashboardRepository {
       },
       ...overrides,
     }
+  }
+
+  searchClients(tenantId: string, query: string, filters: { assignedUserId?: string }) {
+    return this.prisma.client.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { not: 'archived' },
+        name: { contains: query, mode: 'insensitive' },
+        ...(filters.assignedUserId
+          ? {
+              client_users: {
+                some: {
+                  user_id: filters.assignedUserId,
+                },
+              },
+            }
+          : {}),
+      },
+      select: { id: true, name: true },
+      take: 10,
+    })
+  }
+
+  searchBrandsOnly(tenantId: string, query: string, filters: { assignedUserId?: string }) {
+    return this.prisma.client.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { not: 'archived' },
+        name: { contains: query, mode: 'insensitive' },
+        workflows: {
+          some: {
+            tenant_id: tenantId,
+            tasks: {
+              some: {
+                tenant_id: tenantId,
+                assigned_to: filters.assignedUserId,
+              },
+            },
+          },
+        },
+      },
+      select: { id: true, name: true },
+      take: 10,
+    })
+  }
+
+  searchWorkflows(tenantId: string, query: string, filters: { assignedUserId?: string }) {
+    return this.prisma.workflow.findMany({
+      where: {
+        tenant_id: tenantId,
+        title: { contains: query, mode: 'insensitive' },
+        client: {
+          tenant_id: tenantId,
+          ...(filters.assignedUserId
+            ? {
+                client_users: {
+                  some: {
+                    user_id: filters.assignedUserId,
+                  },
+                },
+              }
+            : {}),
+        },
+      },
+      select: { id: true, title: true, month_number: true, client: { select: { name: true } } },
+      take: 10,
+    })
+  }
+
+  searchTasks(tenantId: string, query: string, filters: { assignedUserId?: string }) {
+    return this.prisma.task.findMany({
+      where: {
+        tenant_id: tenantId,
+        title: { contains: query, mode: 'insensitive' },
+        ...(filters.assignedUserId ? { assigned_to: filters.assignedUserId } : {}),
+      },
+      select: { id: true, title: true, status: true, workflow: { select: { id: true, title: true } } },
+      take: 10,
+    })
+  }
+
+  searchBlockers(tenantId: string, query: string, filters: { assignedUserId?: string }) {
+    return this.prisma.blocker.findMany({
+      where: {
+        tenant_id: tenantId,
+        title: { contains: query, mode: 'insensitive' },
+        ...(filters.assignedUserId ? { task: { assigned_to: filters.assignedUserId } } : {}),
+      },
+      select: { id: true, title: true, status: true, task: { select: { workflow_id: true } } },
+      take: 10,
+    })
+  }
+
+  searchUsers(tenantId: string, query: string, showSystemUsers: boolean) {
+    return this.prisma.user.findMany({
+      where: {
+        tenant_id: tenantId,
+        is_active: true,
+        full_name: { contains: query, mode: 'insensitive' },
+        ...(!showSystemUsers
+          ? { role: { name: { in: ['super_admin', 'project_manager', 'team_member'] } } }
+          : {}),
+      },
+      select: { id: true, full_name: true, email: true },
+      take: 10,
+    })
   }
 }

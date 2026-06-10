@@ -226,23 +226,27 @@ async function main() {
     await typeByTestId('input-task-title', taskTitle)
     await setValueByTestId('input-task-due-date', today())
     await clickByTestId('button-create-task')
-    await waitForTaskCardText(taskTitle, 'Pending', 30000)
+    await waitForTaskCardText(taskTitle, 'Yet to start', 30000)
     await typeTaskCardField(taskTitle, 'input-edit-task-title', editedTaskTitle)
     await typeTaskCardField(
-      taskTitle,
+      editedTaskTitle,
       'textarea-edit-task-description',
       'Edited by Slice 3 Selenium coverage',
     )
-    await setTaskCardValue(taskTitle, 'input-edit-task-due-date', datePlusDays(1))
-    await selectTaskCardOption(taskTitle, 'select-edit-task-priority', 'High')
-    await clickTaskCardButton(taskTitle, 'button-save-task')
-    await waitForTaskCardText(editedTaskTitle, 'Edited by Slice 3 Selenium coverage', 30000)
+    await setTaskCardValue(editedTaskTitle, 'input-edit-task-due-date', datePlusDays(1))
+    await selectTaskCardOption(editedTaskTitle, 'select-edit-task-priority', 'High')
+    await clickTaskCardButton(editedTaskTitle, 'button-save-task')
+    await driver.wait(async () => {
+      const textarea = await driver.findElement(cssTestId('textarea-edit-task-description'))
+      return (await textarea.getAttribute('value')) === 'Edited by Slice 3 Selenium coverage'
+    }, 30000)
     await waitForTaskCardText(editedTaskTitle, 'High', 30000)
     await setTaskCardExpanded(editedTaskTitle, false)
     await dragTaskToFirstAvailable(editedTaskTitle)
     await waitForTaskCardExpanded(editedTaskTitle, false, 30000)
-    await selectTaskCardOption(editedTaskTitle, 'select-task-status', 'In progress')
-    await waitForTaskCardText(editedTaskTitle, 'In progress', 30000)
+    await selectTaskCardOption(editedTaskTitle, 'select-task-status', 'Ongoing')
+    await clickTaskCardButton(editedTaskTitle, 'button-save-task')
+    await waitForTaskCardText(editedTaskTitle, 'Ongoing', 30000)
     await typeTaskCardField(editedTaskTitle, 'input-blocker-title', createdBlockerTitle)
     await typeTaskCardField(
       editedTaskTitle,
@@ -279,7 +283,7 @@ async function main() {
     await waitForTestId('workflows-page', 30000)
     await typeByTestId('input-workflow-search', createdClientName)
     await clickWorkflowRow(createdClientName, 30000)
-    await waitForTaskCardText(createdTaskTitle, 'In progress', 30000)
+    await waitForTaskCardText(createdTaskTitle, 'Ongoing', 30000)
     await ensureTaskCardOpen(createdTaskTitle)
     await clickTaskCardButton(createdTaskTitle, 'button-complete-task')
     await waitForTaskCardText(createdTaskTitle, 'Completed', 30000)
@@ -818,10 +822,8 @@ async function waitForTaskCardText(taskTitle, text, timeoutMs) {
 async function selectTaskCardOption(taskTitle, testId, text) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const select = await card.findElement(cssTestId(testId))
+      const select = await driver.findElement(cssTestId(testId))
       const options = await select.findElements(By.css('option'))
       for (const option of options) {
         if ((await option.getText()).trim() === text) {
@@ -842,10 +844,8 @@ async function selectTaskCardOption(taskTitle, testId, text) {
 async function clickTaskCardButton(taskTitle, testId) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const button = await card.findElement(cssTestId(testId))
+      const button = await driver.findElement(cssTestId(testId))
       if (!(await button.isEnabled())) return false
       await button.click()
       return true
@@ -861,10 +861,8 @@ async function clickTaskCardButton(taskTitle, testId) {
 async function typeTaskCardField(taskTitle, testId, value) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const element = await card.findElement(cssTestId(testId))
+      const element = await driver.findElement(cssTestId(testId))
       await element.sendKeys(Key.chord(Key.CONTROL, 'a'), Key.BACK_SPACE)
       if (value) await element.sendKeys(value)
       return true
@@ -880,10 +878,8 @@ async function typeTaskCardField(taskTitle, testId, value) {
 async function setTaskCardValue(taskTitle, testId, value) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const element = await card.findElement(cssTestId(testId))
+      const element = await driver.findElement(cssTestId(testId))
       await driver.executeScript(
         `
           const element = arguments[0];
@@ -957,28 +953,51 @@ async function findTaskCard(taskTitle) {
 }
 
 async function ensureTaskCardOpen(taskTitle) {
+  const modals = await driver.findElements(By.css('.task-detail-modal'))
+  if (modals.length > 0) {
+    try {
+      const titleInput = await driver.findElement(cssTestId('input-edit-task-title'))
+      const currentTitle = await titleInput.getAttribute('value')
+      if (currentTitle.trim() === taskTitle.trim()) {
+        return true
+      }
+    } catch {
+      // Ignore
+    }
+  }
   const card = await findTaskCard(taskTitle)
   if (!card) return false
-
-  const buttons = await card.findElements(cssTestId('button-task-accordion'))
-  if (buttons.length === 0) return true
-  const expanded = await buttons[0].getAttribute('aria-expanded')
-  if (expanded === 'true') return true
-  await buttons[0].click()
+  await driver.wait(async () => {
+    const backdrops = await driver.findElements(By.css('.modal-backdrop'))
+    return backdrops.length === 0
+  }, 5000)
+  await card.click()
+  await driver.wait(until.elementLocated(By.css('.task-detail-modal')), 10000)
   await sleep(250)
   return true
 }
 
 async function setTaskCardExpanded(taskTitle, shouldExpand) {
   await driver.wait(async () => {
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
-    const buttons = await card.findElements(cssTestId('button-task-accordion'))
-    if (buttons.length === 0) return true
-    const expanded = (await buttons[0].getAttribute('aria-expanded')) === 'true'
-    if (expanded === shouldExpand) return true
-    await buttons[0].click()
-    return false
+    const modals = await driver.findElements(By.css('.task-detail-modal'))
+    const isOpen = modals.length > 0
+    if (isOpen === shouldExpand) {
+      return true
+    }
+    if (shouldExpand) {
+      await ensureTaskCardOpen(taskTitle)
+    } else {
+      const closeButtons = await driver.findElements(By.css('.task-detail-modal button[aria-label="Close modal"]'))
+      if (closeButtons.length > 0) {
+        await closeButtons[0].click()
+        await driver.wait(async () => {
+          const m = await driver.findElements(By.css('.task-detail-modal'))
+          const b = await driver.findElements(By.css('.modal-backdrop'))
+          return m.length === 0 && b.length === 0
+        }, 5000)
+      }
+    }
+    return true
   }, 30000)
 
   await waitForTaskCardExpanded(taskTitle, shouldExpand, 30000)
@@ -986,11 +1005,9 @@ async function setTaskCardExpanded(taskTitle, shouldExpand) {
 
 async function waitForTaskCardExpanded(taskTitle, shouldExpand, timeoutMs) {
   await driver.wait(async () => {
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
-    const buttons = await card.findElements(cssTestId('button-task-accordion'))
-    if (buttons.length === 0) return shouldExpand
-    return ((await buttons[0].getAttribute('aria-expanded')) === 'true') === shouldExpand
+    const modals = await driver.findElements(By.css('.task-detail-modal'))
+    const isOpen = modals.length > 0
+    return isOpen === shouldExpand
   }, timeoutMs)
 }
 

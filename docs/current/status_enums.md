@@ -96,35 +96,52 @@ Rules:
 
 ```ts
 type TaskStatus =
-  | 'pending'
-  | 'in_progress'
+  | 'yet_to_start'
+  | 'ongoing'
   | 'blocked'
-  | 'completed';
+  | 'completed'
+  | 'task_approved_by_manager'
+  | 'rework'
+  | 'task_approved_by_client';
 ```
 
 | Value | Meaning |
 |---|---|
-| `pending` | Not started |
-| `in_progress` | Work has started |
-| `blocked` | Cannot proceed due to blocker |
-| `completed` | Work finished |
+| `yet_to_start` | Work has not started |
+| `ongoing` | Work is in progress |
+| `blocked` | Work is blocked by an unresolved issue |
+| `completed` | Team member has completed work and it can be reviewed |
+| `task_approved_by_manager` | Project manager has approved the completed task |
+| `rework` | Project manager or client requested corrections |
+| `task_approved_by_client` | Client-side approval is complete |
 
 Allowed transitions:
 
 ```txt
-pending → in_progress
-pending → blocked
-in_progress → blocked
-in_progress → completed
-blocked → in_progress
+yet_to_start → ongoing
+yet_to_start → blocked
+yet_to_start → completed
+ongoing → blocked
+ongoing → completed
+blocked → ongoing
+blocked → rework
+completed → task_approved_by_manager
+completed → blocked
+completed → rework
+task_approved_by_manager → task_approved_by_client
+task_approved_by_manager → blocked
+task_approved_by_manager → rework
+rework → ongoing
+rework → blocked
+rework → completed
 ```
 
 Rules:
 
-- blocked tasks cannot be completed directly.
+- tasks with open blockers cannot be completed.
 - completing a task sets `completed_at` and `completed_by`.
-- creating a blocker sets task status to `blocked`.
-- resolving all blockers restores task to `in_progress`.
+- `blocked` is a task status; the `blockers` table stores the detailed blocker records.
+- client-approved tasks are terminal.
 
 ---
 
@@ -168,9 +185,9 @@ type BlockerStatus =
 
 Rules:
 
-- open blockers keep the linked task blocked.
+- open blockers prevent the linked task from being completed.
 - resolving a blocker sets `resolved_at` and `resolved_by`.
-- task may return to `in_progress` only when no open blockers remain.
+- task completion may proceed only when no open blockers remain.
 
 ---
 
@@ -229,7 +246,8 @@ type ActivityActionType =
   | 'completed'
   | 'blocked'
   | 'resolved'
-  | 'archived';
+  | 'archived'
+  | 'deleted';
 ```
 
 Rules:
@@ -268,6 +286,8 @@ in progress
 complete
 done
 blocked_task
+pending
+in_progress
 ```
 
 Use only canonical values.

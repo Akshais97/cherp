@@ -9,8 +9,9 @@ import {
   Users,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
-import { getUsers } from '../workflows/api'
+import { getUsers, getTeamWorkloadSummary } from '../workflows/api'
 import {
   getDashboard,
   getRecentActivity,
@@ -19,9 +20,11 @@ import {
   type DashboardDeadline,
   type DashboardFilters,
   type DashboardOpenBlocker,
+  type DashboardSummary,
 } from './api'
 
 type DashboardRoute = 'client-directory' | 'clients' | 'workflows' | 'blockers'
+  | 'team-members' | 'calendar' | 'tasks' | 'brands'
 
 const statusLabels = {
   on_track: 'On track',
@@ -40,6 +43,7 @@ export function DashboardPage({
 }: {
   onNavigate?: (route: DashboardRoute, ids?: { clientId?: string; workflowId?: string }) => void
 }) {
+  const { currentUser } = useAuth()
   const [projectManagerId, setProjectManagerId] = useState('')
   const [clientStatus, setClientStatus] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -61,6 +65,12 @@ export function DashboardPage({
   const usersQuery = useQuery({
     queryKey: ['users'],
     queryFn: getUsers,
+    enabled: currentUser?.role === 'super_admin' || currentUser?.role === 'project_manager',
+  })
+  const workloadQuery = useQuery({
+    queryKey: ['team-workload-summary'],
+    queryFn: getTeamWorkloadSummary,
+    enabled: currentUser?.role === 'super_admin' || currentUser?.role === 'project_manager',
   })
   const activityQuery = useInfiniteQuery({
     queryKey: ['dashboard-activity', filters],
@@ -97,6 +107,35 @@ export function DashboardPage({
 
     return () => observer.disconnect()
   }, [activityQuery])
+
+  if (currentUser?.role === 'project_manager') {
+    return (
+      <RoleDashboard
+        activity={recentActivity}
+        deadlines={upcomingDeadlines}
+        isLoading={isLoading}
+        onNavigate={onNavigate}
+        openBlockers={openBlockers}
+        role="project_manager"
+        summary={summary}
+        workloadSummary={workloadQuery.data ?? []}
+      />
+    )
+  }
+
+  if (currentUser?.role === 'team_member') {
+    return (
+      <RoleDashboard
+        activity={recentActivity}
+        deadlines={upcomingDeadlines}
+        isLoading={isLoading}
+        onNavigate={onNavigate}
+        openBlockers={openBlockers}
+        role="team_member"
+        summary={summary}
+      />
+    )
+  }
 
   return (
     <section className="dashboard-page" data-testid="dashboard-page">
@@ -179,7 +218,7 @@ export function DashboardPage({
         <section className="panel dashboard-health-panel" data-testid="dashboard-client-health-panel">
           <div className="panel-header">
             <h2>Client health</h2>
-            <button className="ghost-button" data-testid="button-dashboard-view-all" onClick={() => onNavigate?.('client-directory')} type="button">
+            <button className="ghost-button" data-testid="button-dashboard-view-all" onClick={() => onNavigate?.(currentUser?.role === 'team_member' ? 'brands' : 'client-directory')} type="button">
               View all
             </button>
           </div>
@@ -257,6 +296,437 @@ export function DashboardPage({
   )
 }
 
+function RoleDashboard({
+  activity,
+  deadlines,
+  isLoading,
+  onNavigate,
+  openBlockers,
+  role,
+  summary,
+  workloadSummary = [],
+}: {
+  activity: DashboardActivity[]
+  deadlines: DashboardDeadline[]
+  isLoading: boolean
+  onNavigate?: (route: DashboardRoute, ids?: { clientId?: string; workflowId?: string }) => void
+  openBlockers: DashboardOpenBlocker[]
+  role: 'project_manager' | 'team_member'
+  summary?: DashboardSummary
+  workloadSummary?: any[]
+}) {
+  const isPm = role === 'project_manager'
+  const [activeTab, setActiveTab] = useState<'todo' | 'inprogress' | 'inreview' | 'completed'>('todo')
+  const [completedFilter, setCompletedFilter] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
+  const [currentPage, setCurrentPage] = useState<number>(1)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, completedFilter])
+
+  const todoTasks = useMemo(() => deadlines.filter((t) => t.status === 'yet_to_start'), [deadlines])
+  const inprogressTasks = useMemo(() => deadlines.filter((t) => t.status === 'ongoing' || t.status === 'rework' || t.status === 'blocked'), [deadlines])
+  const inreviewTasks = useMemo(() => deadlines.filter((t) => t.status === 'completed' || t.status === 'task_approved_by_manager'), [deadlines])
+  const completedTasksAll = useMemo(() => deadlines.filter((t) => t.status === 'task_approved_by_client'), [deadlines])
+  const doneTasks = useMemo(() => {
+    return deadlines.filter((t) => ['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(t.status))
+  }, [deadlines])
+
+  const completedTasks = useMemo(() => {
+    return completedTasksAll.filter((t) => {
+      if (!t.completedAt) return false
+      const compDate = new Date(t.completedAt)
+      const now = new Date()
+      if (completedFilter === 'daily') {
+        return (
+          compDate.getFullYear() === now.getFullYear() &&
+          compDate.getMonth() === now.getMonth() &&
+          compDate.getDate() === now.getDate()
+        )
+      } else if (completedFilter === 'weekly') {
+        const oneWeekAgo = new Date()
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+        return compDate >= oneWeekAgo
+      } else {
+        const oneMonthAgo = new Date()
+        oneMonthAgo.setDate(oneMonthAgo.getDate() - 30)
+        return compDate >= oneMonthAgo
+      }
+    })
+  }, [completedTasksAll, completedFilter])
+
+  const activeTasks = useMemo(() => {
+    if (activeTab === 'todo') return todoTasks
+    if (activeTab === 'inprogress') return inprogressTasks
+    if (activeTab === 'inreview') return inreviewTasks
+    if (activeTab === 'completed') return completedTasks
+    return []
+  }, [activeTab, todoTasks, inprogressTasks, inreviewTasks, completedTasks])
+
+  const ITEMS_PER_PAGE = 5
+  const totalPages = Math.max(1, Math.ceil(activeTasks.length / ITEMS_PER_PAGE))
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return activeTasks.slice(start, start + ITEMS_PER_PAGE)
+  }, [activeTasks, currentPage])
+
+  const statusBuckets = getRoleStatusBuckets(deadlines, openBlockers, summary)
+  const taskTotal = todoTasks.length + inprogressTasks.length + inreviewTasks.length + completedTasksAll.length
+
+  return (
+    <section className="role-dashboard-page" data-testid="dashboard-page">
+      <div className="page-heading" data-testid={`${role}-dashboard-page`}>
+        <div>
+          <p>{isPm ? 'Project manager dashboard' : 'Team member dashboard'}</p>
+          <h1>Dashboard</h1>
+        </div>
+        <button className="ghost-button" type="button">Customize</button>
+      </div>
+
+      <div className="role-metric-grid" aria-busy={isLoading} data-testid="dashboard-metrics">
+        <MetricCard icon={<BriefcaseBusiness size={18} />} label={isPm ? 'Active Campaigns' : 'My Tasks'} value={summary?.activeWorkflows ?? '-'} tone="blue" detail="Current workload" />
+        <MetricCard icon={<CalendarClock size={18} />} label="In Progress" value={inprogressTasks.length} tone="teal" detail="Open delivery tasks" />
+        <MetricCard icon={<CheckCircle2 size={18} />} label="Completed" value={completedTasksAll.length} tone="green" detail="Completion estimate" />
+        <MetricCard icon={<AlertTriangle size={18} />} label={isPm ? 'Overdue Tasks' : 'Pending Review'} value={openBlockers.length} tone="red" detail="Needs action" />
+        <MetricCard icon={<Users size={18} />} label={isPm ? 'Team Utilization' : 'Approvals'} value={summary ? `${summary.teamUtilization}%` : '-'} tone="amber" detail={isPm ? 'Assigned workload' : 'Awaiting action'} />
+      </div>
+
+      <div className="role-dashboard-main">
+        <section className="panel role-task-table">
+          <div className="panel-header">
+            <h2>{isPm ? 'Tasks Overview' : 'My Tasks'}</h2>
+            <button className="ghost-button" onClick={() => onNavigate?.('tasks')} type="button">
+              View all tasks
+            </button>
+          </div>
+          <div className="role-tabs">
+            <button
+              className={activeTab === 'todo' ? 'active' : ''}
+              onClick={() => setActiveTab('todo')}
+              type="button"
+            >
+              To Do ({todoTasks.length})
+            </button>
+            <button
+              className={activeTab === 'inprogress' ? 'active' : ''}
+              onClick={() => setActiveTab('inprogress')}
+              type="button"
+            >
+              In Progress ({inprogressTasks.length})
+            </button>
+            <button
+              className={activeTab === 'inreview' ? 'active' : ''}
+              onClick={() => setActiveTab('inreview')}
+              type="button"
+            >
+              In Review ({inreviewTasks.length})
+            </button>
+            <button
+              className={activeTab === 'completed' ? 'active' : ''}
+              onClick={() => setActiveTab('completed')}
+              type="button"
+            >
+              Completed ({completedTasks.length})
+            </button>
+          </div>
+
+          {activeTab === 'completed' ? (
+            <div className="completed-filter-row" style={{ display: 'flex', gap: '8px', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px dashed var(--border)' }}>
+              <button
+                className={`ghost-button compact ${completedFilter === 'daily' ? 'active-filter' : ''}`}
+                style={completedFilter === 'daily' ? { background: 'var(--blue-light)', color: 'var(--blue)', fontWeight: 600 } : {}}
+                onClick={() => setCompletedFilter('daily')}
+                type="button"
+              >
+                Daily
+              </button>
+              <button
+                className={`ghost-button compact ${completedFilter === 'weekly' ? 'active-filter' : ''}`}
+                style={completedFilter === 'weekly' ? { background: 'var(--blue-light)', color: 'var(--blue)', fontWeight: 600 } : {}}
+                onClick={() => setCompletedFilter('weekly')}
+                type="button"
+              >
+                Weekly
+              </button>
+              <button
+                className={`ghost-button compact ${completedFilter === 'monthly' ? 'active-filter' : ''}`}
+                style={completedFilter === 'monthly' ? { background: 'var(--blue-light)', color: 'var(--blue)', fontWeight: 600 } : {}}
+                onClick={() => setCompletedFilter('monthly')}
+                type="button"
+              >
+                Monthly
+              </button>
+            </div>
+          ) : null}
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>{isPm ? 'Campaign / Project' : 'Project / Campaign'}</th>
+                  <th>Due Date</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedTasks.map((task) => (
+                  <tr key={task.id} className="clickable-row" onClick={() => onNavigate?.('workflows', { workflowId: task.workflow.id })}>
+                    <td>{task.title}</td>
+                    <td>{task.client.name}</td>
+                    <td>{formatDate(task.dueDate)}</td>
+                    <td>{toTitle(task.priority)}</td>
+                    <td><span className={`status-badge ${task.status}`}>{toTitle(task.status)}</span></td>
+                  </tr>
+                ))}
+                {!isLoading && activeTasks.length === 0 ? (
+                  <tr><td colSpan={5}>No tasks in this category.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          {activeTasks.length > ITEMS_PER_PAGE && (
+            <div
+              className="pagination-bar"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '12px',
+                padding: '8px 4px',
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              <span className="pagination-info" style={{ fontSize: '12px', color: 'var(--secondary)' }}>
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, activeTasks.length)} of {activeTasks.length} tasks
+              </span>
+              <div className="pagination-buttons" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  className="ghost-button compact"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  type="button"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Previous
+                </button>
+                <span className="pagination-page" style={{ fontSize: '12px', fontWeight: '500', minWidth: '70px', textAlign: 'center' }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className="ghost-button compact"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  type="button"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="panel role-donut-panel" style={{ alignSelf: 'start' }}>
+          <div className="panel-header">
+            <h2>Today's Total Tasks: {taskTotal}</h2>
+          </div>
+          <div className="role-donut-layout">
+            <div className="role-donut" style={statusBuckets.style}>
+              <strong>{taskTotal}</strong>
+              <span>Total Tasks</span>
+            </div>
+            <div className="role-donut-legend">
+              <LegendDot label="Yet / Ongoing" value={statusBuckets.ongoing} tone="blue" />
+              <LegendDot label="Blocked" value={statusBuckets.blocked} tone="red" />
+              <LegendDot label="In Review" value={statusBuckets.review} tone="orange" />
+              <LegendDot label="Completed" value={statusBuckets.completed} tone="green" />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div className="role-dashboard-secondary">
+        <section className="panel">
+          <div className="panel-header">
+            <h2>{isPm ? 'Team Workload' : 'My Work Snapshot'}</h2>
+            <button
+              className="ghost-button"
+              onClick={() => onNavigate?.(isPm ? 'team-members' : 'tasks')}
+              type="button"
+            >
+              {isPm ? 'View workload' : 'View tasks'}
+            </button>
+          </div>
+          {isPm ? (
+            <div className="role-workload-list">
+              {workloadSummary.slice(0, 5).map((entry: any) => (
+                <div className="role-workload-row" key={entry.id}>
+                  <span>{entry.fullName}</span>
+                  <div>
+                    <span
+                      style={{
+                        width: `${Math.min(100, entry.workloadPercentage)}%`,
+                      }}
+                    />
+                  </div>
+                  <strong>{entry.workloadPercentage}%</strong>
+                </div>
+              ))}
+              {!workloadSummary.length ? (
+                <div className="muted-card">No workload activity yet.</div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="role-workload-list" style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {doneTasks.map((t) => (
+                <div
+                  key={t.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '500', color: '#fff' }}>{t.title}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{t.client.name}</span>
+                  </div>
+                  <span className={`status-badge ${t.status}`} style={{ fontSize: '10px' }}>
+                    {t.status.replaceAll('_', ' ')}
+                  </span>
+                </div>
+              ))}
+              {!doneTasks.length ? (
+                <div className="muted-card">No completed tasks yet.</div>
+              ) : null}
+            </div>
+          )}
+        </section>
+
+        <section className="panel dashboard-list-panel">
+          <div className="panel-header">
+            <h2>Upcoming Deadlines</h2>
+            <button className="ghost-button" onClick={() => onNavigate?.('calendar')} type="button">View calendar</button>
+          </div>
+          <div className="dashboard-list">
+            {deadlines.slice(0, 5).map((deadline) => (
+              <DeadlineItem key={deadline.id} item={deadline} onNavigate={onNavigate} />
+            ))}
+          </div>
+        </section>
+
+        <section className="panel dashboard-list-panel">
+          <div className="panel-header">
+            <h2>Recent Activity</h2>
+            <Activity size={17} />
+          </div>
+          <div className="dashboard-list">
+            {activity.slice(0, 5).map((entry) => (
+              <ActivityItem entry={entry} key={entry.id} />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="role-dashboard-bottom">
+        <section className="panel role-quick-actions">
+          <div className="panel-header compact-header"><h2>Quick Actions</h2></div>
+          <button className="ghost-button" onClick={() => onNavigate?.('tasks')} type="button">Create Task</button>
+          <button className="ghost-button" onClick={() => onNavigate?.('tasks')} type="button">Request Approval</button>
+          <button className="ghost-button" onClick={() => onNavigate?.(isPm ? 'team-members' : 'tasks')} type="button">{isPm ? 'Add Team Member' : 'View My Work'}</button>
+        </section>
+        <section className="panel role-calendar-strip">
+          <div className="panel-header compact-header"><h2>{isPm ? 'Content Calendar' : 'My Calendar'}</h2></div>
+          <div>
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
+              <span key={day} className={index === 1 ? 'active' : ''}>{day}<small>{index + 6}</small></span>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
+  )
+}
+
+function LegendDot({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone: 'blue' | 'red' | 'orange' | 'green'
+}) {
+  return (
+    <div className={`legend-dot ${tone}`}>
+      <span />
+      <p>{label}</p>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function getRoleStatusBuckets(
+  deadlines: DashboardDeadline[],
+  openBlockers: DashboardOpenBlocker[],
+  summary?: DashboardSummary,
+) {
+  const dueCounts = deadlines.reduce(
+    (counts, task) => {
+      if (task.status === 'blocked') counts.blocked += 1
+      else if (task.status === 'completed') counts.review += 1
+      else if (task.status === 'task_approved_by_manager') counts.review += 1
+      else if (task.status === 'task_approved_by_client') counts.completed += 1
+      else counts.ongoing += 1
+      return counts
+    },
+    { ongoing: 0, blocked: 0, review: 0, completed: 0 },
+  )
+  const blockedTaskIds = new Set(openBlockers.map((blocker) => blocker.task.id))
+  const blocked = Math.max(dueCounts.blocked, blockedTaskIds.size)
+  const visibleWork = Math.max(deadlines.length + blockedTaskIds.size, 1)
+  const completed = Math.max(
+    dueCounts.completed,
+    Math.round((visibleWork * Number(summary?.averageCompletionPercentage ?? 0)) / 100),
+  )
+  const review = dueCounts.review
+  const ongoing = Math.max(0, dueCounts.ongoing)
+  const total = Math.max(ongoing + blocked + review + completed, deadlines.length, 1)
+  const ongoingEnd = Math.round((ongoing / total) * 100)
+  const blockedEnd = ongoingEnd + Math.round((blocked / total) * 100)
+  const reviewEnd = blockedEnd + Math.round((review / total) * 100)
+
+  return {
+    ongoing,
+    blocked,
+    review,
+    completed,
+    total,
+    style: {
+      '--ongoing-end': `${ongoingEnd}%`,
+      '--blocked-end': `${blockedEnd}%`,
+      '--review-end': `${reviewEnd}%`,
+    } as React.CSSProperties,
+  }
+}
+
 function ClientHealthTableRow({
   row,
   onNavigate,
@@ -264,7 +734,8 @@ function ClientHealthTableRow({
   row: ClientHealthRow
   onNavigate?: (route: DashboardRoute, ids?: { clientId?: string; workflowId?: string }) => void
 }) {
-  const targetRoute = 'client-directory'
+  const { currentUser } = useAuth()
+  const targetRoute = currentUser?.role === 'team_member' ? 'brands' : 'client-directory'
 
   return (
     <tr

@@ -22,9 +22,9 @@ export class ClientsRepository {
     }
 
     if (input.assignedUserId) {
-      where.workflows = {
+      where.client_users = {
         some: {
-          tasks: { some: { assigned_to: input.assignedUserId } },
+          user_id: input.assignedUserId,
         },
       }
     }
@@ -76,9 +76,9 @@ export class ClientsRepository {
         tenant_id: input.tenantId,
         ...(input.assignedUserId
           ? {
-              workflows: {
+              client_users: {
                 some: {
-                  tasks: { some: { assigned_to: input.assignedUserId } },
+                  user_id: input.assignedUserId,
                 },
               },
             }
@@ -272,6 +272,32 @@ export class ClientsRepository {
     return this.prisma.$transaction(async (tx) => {
       const client = await tx.client.create({ data: input.client })
 
+      await tx.clientUser.create({
+        data: {
+          tenant_id: input.tenantId,
+          client_id: client.id,
+          user_id: input.userId,
+        },
+      })
+
+      // Automatically link any client-role users who do not have a client assignment
+      const unassignedClientUsers = await tx.user.findMany({
+        where: {
+          tenant_id: input.tenantId,
+          role: { name: 'client' },
+          client_users: { none: {} },
+        },
+      })
+      for (const cu of unassignedClientUsers) {
+        await tx.clientUser.create({
+          data: {
+            tenant_id: input.tenantId,
+            client_id: client.id,
+            user_id: cu.id,
+          },
+        })
+      }
+
       const workflow = await tx.workflow.create({
         data: {
           tenant_id: input.tenantId,
@@ -294,7 +320,7 @@ export class ClientsRepository {
           workflow_id: workflow.id,
           title: task.title,
           description: task.description,
-          status: 'pending',
+          status: 'yet_to_start',
           priority: task.priority,
           sort_order: task.sort_order,
           due_date: task.due_date,
@@ -334,6 +360,36 @@ export class ClientsRepository {
       })
 
       return { client, workflow, tasks: createdTasks }
+    })
+  }
+
+  findClientMappingForUser(tenantId: string, userId: string) {
+    return this.prisma.clientUser.findFirst({
+      where: { tenant_id: tenantId, user_id: userId },
+      select: { client_id: true },
+    })
+  }
+
+  findWorkflowTasks(tenantId: string, workflowId: string) {
+    return this.prisma.workflow.findFirst({
+      where: { id: workflowId, tenant_id: tenantId },
+      select: {
+        id: true,
+        tasks: {
+          orderBy: { sort_order: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            due_date: true,
+            completed_at: true,
+            completed_by: true,
+            description: true,
+            assignee: { select: { full_name: true } },
+          },
+        },
+      },
     })
   }
 

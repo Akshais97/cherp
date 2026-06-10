@@ -26,6 +26,13 @@ export class ClientsController {
     return this.service.list(user, query)
   }
 
+  @Get('my-dashboard')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.Client)
+  @ApiOkResponse({ description: 'Client dashboard summary for client users.' })
+  myDashboard(@CurrentUser() user: RequestUser) {
+    return this.service.getClientDashboard(user)
+  }
+
   @Get(':id')
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Client detail with linked workflow summary.' })

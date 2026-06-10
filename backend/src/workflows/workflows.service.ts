@@ -13,6 +13,7 @@ export class WorkflowsService {
       tenantId: user.tenantId,
       filters,
       assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
   }
 
@@ -21,6 +22,7 @@ export class WorkflowsService {
       tenantId: user.tenantId,
       workflowId: id,
       assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
 
     if (!workflow) {
@@ -45,6 +47,7 @@ export class WorkflowsService {
       tenantId: user.tenantId,
       clientId,
       assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
 
     return workflows

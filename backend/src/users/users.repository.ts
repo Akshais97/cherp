@@ -6,6 +6,25 @@ import { PrismaService } from '../prisma/prisma.service'
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  findHistory(tenantId: string, userId: string, startDate?: string, endDate?: string) {
+    const where: Prisma.HistoryWhereInput = {
+      tenant_id: tenantId,
+      user_id: userId,
+    }
+
+    if (startDate && endDate) {
+      where.date = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      }
+    }
+
+    return this.prisma.history.findMany({
+      where,
+      orderBy: { date: 'asc' },
+    })
+  }
+
   findByTenant(tenantId: string) {
     return this.prisma.user.findMany({
       where: { tenant_id: tenantId },
@@ -225,6 +244,22 @@ export class UsersRepository {
         },
       })
 
+      if (user.role.name === 'client') {
+        const client = await tx.client.findFirst({
+          where: { tenant_id: input.tenantId },
+          orderBy: { created_at: 'desc' },
+        })
+        if (client) {
+          await tx.clientUser.create({
+            data: {
+              tenant_id: input.tenantId,
+              client_id: client.id,
+              user_id: user.id,
+            },
+          })
+        }
+      }
+
       return user
     })
   }
@@ -362,7 +397,31 @@ export class UsersRepository {
       auth_user_id: true,
       created_at: true,
       updated_at: true,
+      designation: true,
+      availability: true,
+      skills: true,
+      current_workload: true,
+      team: true,
       role: { select: { name: true, description: true } },
     } satisfies Prisma.UserSelect
+  }
+
+  findClientUsersForUser(tenantId: string, userId: string) {
+    return this.prisma.clientUser.findMany({
+      where: { tenant_id: tenantId, user_id: userId },
+      select: {
+        client: { select: { name: true } },
+      },
+    })
+  }
+
+  countOpenTasksForUser(tenantId: string, userId: string) {
+    return this.prisma.task.count({
+      where: {
+        tenant_id: tenantId,
+        assigned_to: userId,
+        status: { notIn: ['completed', 'task_approved_by_manager', 'task_approved_by_client'] },
+      },
+    })
   }
 }

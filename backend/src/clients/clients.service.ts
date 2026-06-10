@@ -31,7 +31,7 @@ export class ClientsService {
     return this.clientsRepository.findByTenant({
       tenantId: user.tenantId,
       filters,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
   }
 
@@ -39,7 +39,7 @@ export class ClientsService {
     const client = await this.clientsRepository.findById({
       tenantId: user.tenantId,
       id,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
       includeFinancials:
         user.role === UserRole.SuperAdmin || user.role === UserRole.ProjectManager,
     })
@@ -303,6 +303,37 @@ export class ClientsService {
       renewal_date: client.renewal_date?.toISOString() ?? null,
       notes: client.notes,
       retainer_hours: client.retainer_hours,
+    }
+  }
+
+  async getClientDashboard(user: RequestUser) {
+    const clientUserMapping = await this.clientsRepository.findClientMappingForUser(user.tenantId, user.id)
+    if (!clientUserMapping) {
+      throw new NotFoundException('No client assigned to this user.')
+    }
+    const clientId = clientUserMapping.client_id
+
+    const client = await this.clientsRepository.findById({
+      tenantId: user.tenantId,
+      id: clientId,
+      includeFinancials: true,
+    })
+
+    if (!client) {
+      throw new NotFoundException('Client details not found.')
+    }
+
+    const activeWorkflow = client.workflows[0]
+    let tasks: any[] = []
+    if (activeWorkflow) {
+      const fullWorkflow = await this.clientsRepository.findWorkflowTasks(user.tenantId, activeWorkflow.id)
+      tasks = fullWorkflow?.tasks ?? []
+    }
+
+    return {
+      client,
+      activeWorkflow,
+      tasks,
     }
   }
 }

@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "test": "node tests/phase1-flow.test.js",
-    "test:roles": "node tests/role-journeys.test.js"
+    "test:roles": "node tests/role-journeys.test.js",
+    "test:ux": "node tests/UX_Revamp.test.js"
   },
   "dependencies": {
     "selenium-webdriver": "^4.38.0"

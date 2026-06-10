@@ -35,7 +35,14 @@ export type TeamMemberTask = {
   completed_by?: string | null
   title: string
   description?: string | null
-  status: 'pending' | 'in_progress' | 'blocked' | 'completed'
+  status:
+    | 'yet_to_start'
+    | 'ongoing'
+    | 'blocked'
+    | 'completed'
+    | 'task_approved_by_manager'
+    | 'rework'
+    | 'task_approved_by_client'
   priority: 'high' | 'medium' | 'low'
   sort_order: number
   due_date?: string | null
@@ -128,4 +135,21 @@ export function updateUser(id: string, payload: UpdateUserPayload) {
 
 export function deleteUser(id: string) {
   return apiClient.delete<UserRow>(`/users/${id}`).then((response) => response.data)
+}
+
+export type WorkloadSummaryItem = {
+  id: string
+  fullName: string
+  email: string
+  designation: string
+  availability: string
+  assignedClients: string[]
+  openTasksCount: number
+  workloadPercentage: number
+}
+
+export function getWorkloadSummary() {
+  return apiClient
+    .get<WorkloadSummaryItem[]>('/users/workload-summary')
+    .then((res) => res.data)
 }

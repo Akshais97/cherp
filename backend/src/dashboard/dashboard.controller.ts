@@ -23,6 +23,12 @@ export class DashboardController {
     return this.dashboardService.getSummary(user, query)
   }
 
+  @Get('search')
+  @ApiOkResponse({ description: 'Role-based search of workspace entities.' })
+  search(@Query('q') query: string, @CurrentUser() user: RequestUser) {
+    return this.dashboardService.search(query || '', user)
+  }
+
   @Get('client-health')
   @ApiOkResponse({ description: 'Derived client health rows.' })
   getClientHealth(@CurrentUser() user: RequestUser, @Query() query: DashboardQueryDto) {
