@@ -17,7 +17,7 @@ import {
 export function UserManagementPage() {
   const queryClient = useQueryClient()
   const [pageError, setPageError] = useState<string | null>(null)
-  const usersQuery = useQuery({
+  const { data: users = [], error: usersQueryError, isLoading: isUsersLoading } = useQuery({
     queryKey: ['users-admin'],
     queryFn: getUsers,
   })
@@ -39,7 +39,7 @@ export function UserManagementPage() {
     },
     onError: (error) => setPageError(normalizeApiError(error).message),
   })
-  const usersError = usersQuery.error ? normalizeApiError(usersQuery.error).message : null
+  const usersError = usersQueryError ? normalizeApiError(usersQueryError).message : null
 
   return (
     <section className="users-page" data-testid="users-page">
@@ -112,7 +112,7 @@ export function UserManagementPage() {
           <div className="panel-header">
             <h2>User directory</h2>
             <span className="muted">
-              {usersQuery.isLoading ? 'Loading...' : `${usersQuery.data?.length ?? 0} users`}
+              {isUsersLoading ? 'Loading...' : `${users.length} users`}
             </span>
           </div>
 
@@ -128,10 +128,10 @@ export function UserManagementPage() {
                 </tr>
               </thead>
               <tbody>
-                {(usersQuery.data ?? []).map((user) => (
+                {users.map((user) => (
                   <UserRowItem key={user.id} user={user} />
                 ))}
-                {!usersQuery.isLoading && (usersQuery.data?.length ?? 0) === 0 ? (
+                {!isUsersLoading && users.length === 0 ? (
                   <tr>
                     <td colSpan={5}>No users found.</td>
                   </tr>

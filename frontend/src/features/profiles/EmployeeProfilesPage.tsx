@@ -14,9 +14,8 @@ const teams = [
 ]
 
 export function EmployeeProfilesPage() {
-  const usersQuery = useQuery({ queryKey: ['employee-profiles'], queryFn: getTeamMembers })
-  const users = usersQuery.data ?? []
-  const error = usersQuery.error ? normalizeApiError(usersQuery.error).message : null
+  const { data: users = [], error: usersQueryError } = useQuery({ queryKey: ['employee-profiles'], queryFn: getTeamMembers })
+  const error = usersQueryError ? normalizeApiError(usersQueryError).message : null
 
   return (
     <section className="employee-profiles-page">

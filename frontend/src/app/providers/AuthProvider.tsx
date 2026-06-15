@@ -23,7 +23,7 @@ function getCurrentUser(user: User): CurrentUser {
       metadata.full_name ??
       metadata.name ??
       user.email?.split('@')[0] ??
-      'Sakhaa Cherp User',
+      'Saarthii Cherp User',
     role: allowedRoles.has(role) ? role : 'team_member',
     avatar_url: metadata.avatar_url,
   }

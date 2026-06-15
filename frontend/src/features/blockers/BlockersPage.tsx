@@ -39,33 +39,30 @@ export function BlockersPage() {
   const [resolutionError, setResolutionError] = useState<string | null>(null)
 
   // Fetch blockers
-  const blockersQuery = useQuery({
+  const { data: blockers = [] } = useQuery({
     queryKey: ['blockers-list'],
     queryFn: () => getBlockers(),
   })
-  const blockers = blockersQuery.data ?? []
 
   // Fetch team members for blocker assignment
-  const teamMembersQuery = useQuery({
+  const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members-list'],
     queryFn: getTeamMembers,
   })
-  const teamMembers = teamMembersQuery.data ?? []
 
   // Fetch workflows for the form
-  const workflowsQuery = useQuery({
+  const { data: workflows = [] } = useQuery({
     queryKey: ['blockers-workflows'],
     queryFn: () => getWorkflows(),
   })
-  const workflows = workflowsQuery.data ?? []
 
   // Fetch tasks of selected form workflow
-  const workflowQuery = useQuery({
+  const { data: workflowDetail } = useQuery({
     queryKey: ['blockers-workflow-tasks', formWorkflowId],
     queryFn: () => getWorkflow(formWorkflowId),
     enabled: Boolean(formWorkflowId),
   })
-  const formTasks = workflowQuery.data?.tasks ?? []
+  const formTasks = workflowDetail?.tasks ?? []
 
   // Create Blocker mutation
   const createMutation = useMutation({
@@ -111,12 +108,11 @@ export function BlockersPage() {
 
   // Selected blocker detail query
   const effectiveSelectedBlockerId = selectedBlockerId ?? blockers.find(b => b.status === activeTab)?.id ?? null
-  const blockerQuery = useQuery({
+  const { data: selectedBlocker } = useQuery({
     queryKey: ['blocker-detail', effectiveSelectedBlockerId],
     queryFn: () => getBlocker(effectiveSelectedBlockerId ?? ''),
     enabled: Boolean(effectiveSelectedBlockerId),
   })
-  const selectedBlocker = blockerQuery.data
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -173,6 +169,7 @@ export function BlockersPage() {
       severity: formSeverity,
       impact: formImpact.trim() || undefined,
       assigned_to: formAssignedTo,
+      notify: formNotify,
     })
   }
 
@@ -304,7 +301,7 @@ export function BlockersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--secondary)' }}>Notify Stakeholders</span>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {['Account Manager', 'Creative Director', 'Client Partner', 'Team Lead'].map((role) => (
+                {['Account Manager', 'Client Partner'].map((role) => (
                   <label key={role} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"

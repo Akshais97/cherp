@@ -62,17 +62,24 @@ export function DashboardPage({
     queryKey: ['dashboard', filters],
     queryFn: () => getDashboard(filters),
   })
-  const usersQuery = useQuery({
+  const { data: usersData } = useQuery({
     queryKey: ['users'],
-    queryFn: getUsers,
+    queryFn: () => getUsers(),
     enabled: currentUser?.role === 'super_admin' || currentUser?.role === 'project_manager',
   })
-  const workloadQuery = useQuery({
+  const { data: workloadData } = useQuery({
     queryKey: ['team-workload-summary'],
     queryFn: getTeamWorkloadSummary,
     enabled: currentUser?.role === 'super_admin' || currentUser?.role === 'project_manager',
   })
-  const activityQuery = useInfiniteQuery({
+  const {
+    data: activityData,
+    error: activityQueryError,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    isLoading: isActivityLoading,
+  } = useInfiniteQuery({
     queryKey: ['dashboard-activity', filters],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
@@ -80,33 +87,33 @@ export function DashboardPage({
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
   const apiError = error ? normalizeApiError(error) : null
-  const activityError = activityQuery.error
-    ? normalizeApiError(activityQuery.error).message
+  const activityError = activityQueryError
+    ? normalizeApiError(activityQueryError).message
     : null
   const summary = data?.summary
   const clientHealth = data?.clientHealth ?? []
   const upcomingDeadlines = data?.upcomingDeadlines ?? []
   const openBlockers = data?.openBlockers ?? []
   const recentActivity =
-    activityQuery.data?.pages.flatMap((page) => page.items).filter(Boolean) ?? []
+    activityData?.pages.flatMap((page) => page.items).filter(Boolean) ?? []
   const projectManagers =
-    usersQuery.data?.filter((user) =>
+    usersData?.filter((user) =>
       ['super_admin', 'project_manager'].includes(user.role.name),
     ) ?? []
 
   useEffect(() => {
     const sentinel = activitySentinelRef.current
-    if (!sentinel || !activityQuery.hasNextPage) return
+    if (!sentinel || !hasNextPage) return
 
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && !activityQuery.isFetchingNextPage) {
-        activityQuery.fetchNextPage()
+      if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+        fetchNextPage()
       }
     })
     observer.observe(sentinel)
 
     return () => observer.disconnect()
-  }, [activityQuery])
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   if (currentUser?.role === 'project_manager') {
     return (
@@ -116,9 +123,9 @@ export function DashboardPage({
         isLoading={isLoading}
         onNavigate={onNavigate}
         openBlockers={openBlockers}
-        role="project_manager"
+        userRole="project_manager"
         summary={summary}
-        workloadSummary={workloadQuery.data ?? []}
+        workloadSummary={workloadData ?? []}
       />
     )
   }
@@ -131,7 +138,7 @@ export function DashboardPage({
         isLoading={isLoading}
         onNavigate={onNavigate}
         openBlockers={openBlockers}
-        role="team_member"
+        userRole="team_member"
         summary={summary}
       />
     )
@@ -285,10 +292,10 @@ export function DashboardPage({
               <ActivityItem entry={entry} key={entry.id} />
             ))}
             <div ref={activitySentinelRef} className="activity-sentinel" />
-            {activityQuery.isFetchingNextPage ? (
+            {isFetchingNextPage ? (
               <div className="muted-card">Loading more activity...</div>
             ) : null}
-            {!activityQuery.isLoading && recentActivity.length === 0 ? <div className="muted-card">No recent activity yet.</div> : null}
+            {!isActivityLoading && recentActivity.length === 0 ? <div className="muted-card">No recent activity yet.</div> : null}
           </div>
         </section>
       </div>
@@ -302,7 +309,7 @@ function RoleDashboard({
   isLoading,
   onNavigate,
   openBlockers,
-  role,
+  userRole,
   summary,
   workloadSummary = [],
 }: {
@@ -311,11 +318,11 @@ function RoleDashboard({
   isLoading: boolean
   onNavigate?: (route: DashboardRoute, ids?: { clientId?: string; workflowId?: string }) => void
   openBlockers: DashboardOpenBlocker[]
-  role: 'project_manager' | 'team_member'
+  userRole: 'project_manager' | 'team_member'
   summary?: DashboardSummary
   workloadSummary?: any[]
 }) {
-  const isPm = role === 'project_manager'
+  const isPm = userRole === 'project_manager'
   const [activeTab, setActiveTab] = useState<'todo' | 'inprogress' | 'inreview' | 'completed'>('todo')
   const [completedFilter, setCompletedFilter] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
   const [currentPage, setCurrentPage] = useState<number>(1)
@@ -375,7 +382,7 @@ function RoleDashboard({
 
   return (
     <section className="role-dashboard-page" data-testid="dashboard-page">
-      <div className="page-heading" data-testid={`${role}-dashboard-page`}>
+      <div className="page-heading" data-testid={`${userRole}-dashboard-page`}>
         <div>
           <p>{isPm ? 'Project manager dashboard' : 'Team member dashboard'}</p>
           <h1>Dashboard</h1>

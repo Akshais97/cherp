@@ -126,6 +126,7 @@ export class TasksRepository {
       select: {
         id: true,
         tenant_id: true,
+        client_id: true,
         status: true,
         _count: { select: { tasks: true } },
       },
@@ -589,9 +590,16 @@ export class TasksRepository {
       checklist: true,
       slot: true,
       client_id: true,
+      assigned_by: true,
       created_at: true,
       updated_at: true,
+      client: {
+        select: { id: true, name: true },
+      },
       assignee: {
+        select: { id: true, full_name: true, email: true },
+      },
+      assignor: {
         select: { id: true, full_name: true, email: true },
       },
       workflow: {

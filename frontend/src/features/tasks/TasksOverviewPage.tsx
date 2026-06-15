@@ -63,12 +63,12 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
   const [selectedTask, setSelectedTask] = useState<WorkflowTask | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const workflowsQuery = useQuery({
+  const { data: workflows = [], error: workflowsQueryError } = useQuery({
     queryKey: ['task-overview-workflows'],
     queryFn: () => getWorkflows(),
   })
 
-  const usersQuery = useQuery({
+  const { data: users = [], error: usersQueryError } = useQuery({
     queryKey: ['users'],
     queryFn: getUsers,
     enabled: currentUser?.role === 'super_admin' || currentUser?.role === 'project_manager',
@@ -86,7 +86,6 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
     }
   }, [initialTaskId])
 
-  const workflows = workflowsQuery.data ?? []
   const effectiveWorkflowId = useMemo(() => {
     if (selectedWorkflowId && workflows.some(w => w.id === selectedWorkflowId)) {
       return selectedWorkflowId
@@ -106,13 +105,12 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
     return groups
   }, [workflows])
 
-  const workflowQuery = useQuery({
+  const { data: workflow, error: workflowQueryError, isLoading: isWorkflowLoading } = useQuery({
     queryKey: ['task-overview-workflow', effectiveWorkflowId],
     queryFn: () => getWorkflow(effectiveWorkflowId),
     enabled: Boolean(effectiveWorkflowId),
   })
 
-  const workflow = workflowQuery.data
   const tasks = useMemo(() => {
     const allTasks = workflow?.tasks ?? []
     if (currentUser?.role === 'team_member') {
@@ -121,7 +119,7 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
     return assigneeId ? allTasks.filter((task) => task.assigned_to === assigneeId) : allTasks
   }, [assigneeId, currentUser, workflow?.tasks])
 
-  const error = workflowsQuery.error || workflowQuery.error || usersQuery.error
+  const error = workflowsQueryError || workflowQueryError || usersQueryError
   const errorMessage = error ? normalizeApiError(error).message : null
 
   const handleTaskClick = (task: WorkflowTask) => {
@@ -190,7 +188,7 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
             ) : (
               <>
                 <option value="">All assignees</option>
-                {(usersQuery.data ?? []).map((user) => (
+                {users.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.full_name}
                   </option>
@@ -231,18 +229,24 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
                   </span>
                   <h3>{task.title}</h3>
                   <p className="task-desc">{task.description || 'No description added yet.'}</p>
-                  <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '12px', color: 'var(--secondary-text, #6B6B6B)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CalendarClock size={12} /> {daysUntil(task.due_date)}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <UserRound size={12} /> {task.assignee?.full_name ?? 'Unassigned'}
-                    </span>
+                  <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: 'var(--secondary-text, #6B6B6B)', borderTop: '1px solid rgba(0,0,0,0.04)', paddingTop: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CalendarClock size={11} /> {daysUntil(task.due_date)}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <UserRound size={11} /> {task.assignee?.full_name ?? 'Unassigned'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', opacity: 0.85 }}>
+                      <span>🏢 {task.client?.name || task.workflow?.client?.name || 'Internal'}</span>
+                      <span>By: {task.assignor?.full_name ? task.assignor.full_name.split(' ')[0] : 'System'}</span>
+                    </div>
                   </div>
                 </button>
               );
             })}
-            {!workflowQuery.isLoading && tasks.length === 0 ? (
+            {!isWorkflowLoading && tasks.length === 0 ? (
               <div className="muted-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px' }}>
                 No tasks match these filters.
               </div>
@@ -284,7 +288,7 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
       {showCreateModal && effectiveWorkflowId ? (
         <CreateTaskModal
           workflowId={effectiveWorkflowId}
-          users={usersQuery.data ?? []}
+          users={users}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleRefresh}
         />
@@ -293,7 +297,7 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
       {selectedTask ? (
         <InteractiveTaskDetailModal
           task={selectedTask}
-          users={usersQuery.data ?? []}
+          users={users}
           currentUser={currentUser}
           onClose={() => setSelectedTask(null)}
           onSuccess={() => {
@@ -505,6 +509,9 @@ export function InteractiveTaskDetailModal({
   const [localIsDaily, setLocalIsDaily] = useState(task.is_daily ?? false)
   
   // Rework/Approval reasons
+  const [isApplying, setIsApplying] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [showCompleteSuccess, setShowCompleteSuccess] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState<'request_approval' | 'approve' | 'request_changes' | 'delete' | null>(null)
   const [actionReason, setActionReason] = useState('')
   const [isActionSubmitting, setIsActionSubmitting] = useState(false)
@@ -523,19 +530,19 @@ export function InteractiveTaskDetailModal({
   const [newChecklistItem, setNewChecklistItem] = useState('')
 
   // Query details for comments, attachments, logs
-  const commentsQuery = useQuery({
+  const { data: comments = [], isLoading: isCommentsLoading } = useQuery({
     queryKey: ['task-comments', task.id],
     queryFn: () => getTaskComments(task.id),
     enabled: activeTab === 'comments',
   })
 
-  const attachmentsQuery = useQuery({
+  const { data: attachments = [], isLoading: isAttachmentsLoading } = useQuery({
     queryKey: ['task-attachments', task.id],
     queryFn: () => getTaskAttachments(task.id),
     enabled: activeTab === 'attachments',
   })
 
-  const logsQuery = useQuery({
+  const { data: logs = [], isLoading: isLogsLoading } = useQuery({
     queryKey: ['task-logs', task.id],
     queryFn: () => getTaskLogs(task.id),
     enabled: activeTab === 'logs',
@@ -553,7 +560,7 @@ export function InteractiveTaskDetailModal({
   const [resolutionNotes, setResolutionNotes] = useState('')
   const [isResolving, setIsResolving] = useState(false)
 
-  const blockersQuery = useQuery({
+  const { data: blockers = [] } = useQuery({
     queryKey: ['task-blockers', task.id],
     queryFn: () => getBlockers({ task_id: task.id }),
   })
@@ -610,6 +617,9 @@ export function InteractiveTaskDetailModal({
     setError(null)
     try {
       await completeTask(task.id)
+      setShowCompleteSuccess(true)
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      setShowCompleteSuccess(false)
       onSuccess()
     } catch (err: any) {
       setError(normalizeApiError(err).message)
@@ -863,6 +873,18 @@ export function InteractiveTaskDetailModal({
           {activeTab === 'details' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
+              {/* Metadata: Client and Assignor */}
+              <div style={{ display: 'flex', gap: '24px', fontSize: '13px', background: 'var(--hover-bg, #F0F0EC)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div>
+                  <span style={{ color: 'var(--muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Client Name</span>
+                  <strong>{task.client?.name || task.workflow?.client?.name || 'Internal'}</strong>
+                </div>
+                <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '24px' }}>
+                  <span style={{ color: 'var(--muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Assigned By</span>
+                  <strong>{task.assignor?.full_name || 'System / Auto-generated'}</strong>
+                </div>
+              </div>
+
               {/* Row 1: Assignee, status, priority, due date, slot, is_daily */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: 'var(--secondary-bg, #F5F5F2)', padding: '16px', borderRadius: '8px' }}>
                 <label className="field" style={{ marginTop: 0 }}>
@@ -977,12 +999,12 @@ export function InteractiveTaskDetailModal({
               {/* Blockers list and Log Blocker form */}
               <div style={{ borderTop: '1px solid var(--hover-bg, #F0F0EC)', paddingTop: '16px' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger-red, #D44)' }}>
-                  <AlertCircle size={16} /> Blockers ({blockersQuery.data?.length ?? 0})
+                  <AlertCircle size={16} /> Blockers ({blockers.length})
                 </h3>
 
                 {/* List Blockers */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                  {blockersQuery.data?.map((blocker) => (
+                  {blockers.map((blocker) => (
                     <div key={blocker.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px', borderRadius: '6px', background: 'var(--red-light, #FFF5F5)', border: '1px solid var(--red-border, #FFE3E3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <strong style={{ fontSize: '13.5px', color: 'var(--red, #C53030)' }}>{blocker.title}</strong>
@@ -1052,7 +1074,7 @@ export function InteractiveTaskDetailModal({
                       )}
                     </div>
                   ))}
-                  {blockersQuery.data?.length === 0 ? (
+                  {blockers.length === 0 ? (
                     <p style={{ fontSize: '13px', color: 'var(--muted-text, #9A9A9A)', fontStyle: 'italic' }}>No blockers logged for this task.</p>
                   ) : null}
                 </div>
@@ -1196,8 +1218,8 @@ export function InteractiveTaskDetailModal({
           {activeTab === 'comments' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--hover-bg, #F0F0EC)', borderRadius: '8px', padding: '12px', background: 'var(--secondary-bg, #F5F5F2)' }}>
-                {commentsQuery.isLoading ? <p>Loading comments...</p> : null}
-                {commentsQuery.data?.map((comment) => (
+                {isCommentsLoading ? <p>Loading comments...</p> : null}
+                {comments.map((comment) => (
                   <div key={comment.id} style={{ display: 'flex', gap: '10px', background: '#FFFFFF', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
                     <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary-accent, #3B6DD6)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
                       {comment.author.full_name.split(' ').map((p: any) => p[0]).join('').substring(0, 2).toUpperCase()}
@@ -1213,7 +1235,7 @@ export function InteractiveTaskDetailModal({
                     </div>
                   </div>
                 ))}
-                {commentsQuery.data?.length === 0 ? (
+                {comments.length === 0 ? (
                   <p style={{ fontStyle: 'italic', color: 'var(--muted-text, #9A9A9A)', textAlign: 'center', padding: '16px' }}>No comments posted yet.</p>
                 ) : null}
               </div>
@@ -1267,8 +1289,8 @@ export function InteractiveTaskDetailModal({
 
               {/* Attachments list */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {attachmentsQuery.isLoading ? <p>Loading attachments...</p> : null}
-                {attachmentsQuery.data?.map((att) => (
+                {isAttachmentsLoading ? <p>Loading attachments...</p> : null}
+                {attachments.map((att) => (
                   <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '6px', border: '1px solid var(--hover-bg, #F0F0EC)', background: 'var(--card-bg, #FFFFFF)' }}>
                     <Paperclip size={16} style={{ color: 'var(--primary-accent, #3B6DD6)' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
@@ -1292,7 +1314,7 @@ export function InteractiveTaskDetailModal({
                     ) : null}
                   </div>
                 ))}
-                {attachmentsQuery.data?.length === 0 ? (
+                {attachments.length === 0 ? (
                   <p style={{ fontStyle: 'italic', color: 'var(--muted-text, #9A9A9A)', textAlign: 'center', padding: '16px' }}>No attachments linked yet.</p>
                 ) : null}
               </div>
@@ -1315,10 +1337,10 @@ export function InteractiveTaskDetailModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {logsQuery.isLoading ? (
+                    {isLogsLoading ? (
                       <tr><td colSpan={6} style={{ textAlign: 'center' }}>Loading logs...</td></tr>
                     ) : null}
-                    {logsQuery.data?.map((log) => (
+                    {logs.map((log) => (
                       <tr key={log.id}>
                         <td>{new Date(log.created_at).toLocaleString()}</td>
                         <td><strong>{log.user.full_name}</strong></td>
@@ -1328,7 +1350,7 @@ export function InteractiveTaskDetailModal({
                         <td>{log.reason || <span style={{ color: 'var(--muted-text, #9A9A9A)', fontStyle: 'italic' }}>None</span>}</td>
                       </tr>
                     ))}
-                    {logsQuery.data?.length === 0 ? (
+                    {logs.length === 0 ? (
                       <tr><td colSpan={6} style={{ textAlign: 'center', fontStyle: 'italic', color: 'var(--muted-text)' }}>No changes recorded yet.</td></tr>
                     ) : null}
                   </tbody>
@@ -1359,8 +1381,10 @@ export function InteractiveTaskDetailModal({
               className="primary-action"
               type="button"
               data-testid="button-save-task"
+              disabled={isApplying || showSuccess}
               onClick={async () => {
                 setError(null)
+                setIsApplying(true)
                 try {
                   await updateTask(task.id, {
                     title: title.trim() || undefined,
@@ -1372,13 +1396,18 @@ export function InteractiveTaskDetailModal({
                     is_daily: localIsDaily,
                     slot: localSlot || null,
                   })
+                  setShowSuccess(true)
+                  await new Promise((resolve) => setTimeout(resolve, 1200))
+                  setShowSuccess(false)
                   onSuccess()
                 } catch (err: any) {
                   setError(normalizeApiError(err).message)
+                } finally {
+                  setIsApplying(false)
                 }
               }}
             >
-              Apply changes
+              {isApplying ? 'Applying...' : showSuccess ? '✓ Saved!' : 'Apply changes'}
             </button>
           )}
 
@@ -1389,10 +1418,10 @@ export function InteractiveTaskDetailModal({
               onClick={handleCompleteTask}
               type="button"
               data-testid="button-complete-task"
-              disabled={isCompleting}
+              disabled={isCompleting || showCompleteSuccess}
               style={{ background: 'var(--success-green, #2DA86B)' }}
             >
-              {isCompleting ? 'Completing...' : 'Complete Task'}
+              {isCompleting ? 'Completing...' : showCompleteSuccess ? '✓ Completed!' : 'Complete Task'}
             </button>
           ) : null}
 

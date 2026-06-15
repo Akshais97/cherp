@@ -241,6 +241,7 @@ async function testTaskStatusChangeCreatesNotification() {
   assert.deepEqual(notifications[0], {
     tenantId: teamMember.tenantId,
     actorId: teamMember.id,
+    actorRole: teamMember.role,
     taskId: baseTask.id,
     taskTitle: baseTask.title,
     previousStatus: 'ongoing',

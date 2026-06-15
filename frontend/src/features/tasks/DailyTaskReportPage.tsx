@@ -49,7 +49,7 @@ export function DailyTaskReportPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   // Fetch report tasks
-  const reportQuery = useQuery<DailyReportResponse>({
+  const { data: reportData, isLoading: isReportLoading } = useQuery<DailyReportResponse>({
     queryKey: ['daily-report', selectedDate],
     queryFn: () =>
       apiClient
@@ -61,12 +61,12 @@ export function DailyTaskReportPage() {
   })
 
   // Fetch clients to assign tasks to brands
-  const clientsQuery = useQuery({
+  const { data: clientsData } = useQuery({
     queryKey: ['brands-clients'],
     queryFn: () => getClients()
   })
 
-  const { assigned = [], completed = [] } = reportQuery.data || {}
+  const { assigned = [], completed = [] } = reportData || {}
 
   const handlePrevDay = () => {
     const d = new Date(selectedDate)
@@ -170,7 +170,7 @@ export function DailyTaskReportPage() {
     // 2. Header
     ctx.fillStyle = '#1A1A17'
     ctx.font = 'bold 24px Inter, sans-serif'
-    ctx.fillText('Sakhaa CHERP — Daily Task Report', 40, 60)
+    ctx.fillText('Saarthii CHERP — Daily Task Report', 40, 60)
 
     ctx.fillStyle = '#6B6B66'
     ctx.font = '14px Inter, sans-serif'
@@ -280,43 +280,42 @@ export function DailyTaskReportPage() {
       : 0
 
   return (
-    <div className="animate-pageIn" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="animate-pageIn daily-report-container">
       
       {/* Top Controls / Header */}
-      <div className="animate-headerDrop" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+      <div className="animate-headerDrop daily-report-header">
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: 'var(--text)' }}>Daily Task Report</h1>
-          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '4px 0 0' }}>Track your day's completions and upcoming task checklist.</p>
+          <h1>Daily Task Report</h1>
+          <p>Track your day's completions and upcoming task checklist.</p>
         </div>
 
         {/* Date Selector Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button className="icon-button" onClick={handlePrevDay} style={{ background: 'var(--hover)', padding: '8px', borderRadius: '6px' }} type="button">
+        <div className="daily-report-date-nav">
+          <button className="icon-button" onClick={handlePrevDay} type="button">
             <ChevronLeft size={16} />
           </button>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--card)', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: '6px' }}>
+          <div className="daily-report-date-picker">
             <Calendar size={15} style={{ color: 'var(--muted)' }} />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              style={{ border: 'none', background: 'transparent', fontSize: '13px', color: 'var(--text)', outline: 'none' }}
             />
           </div>
 
-          <button className="icon-button" onClick={handleNextDay} style={{ background: 'var(--hover)', padding: '8px', borderRadius: '6px' }} type="button">
+          <button className="icon-button" onClick={handleNextDay} type="button">
             <ChevronRight size={16} />
           </button>
         </div>
 
         {/* Export options */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="ghost-button" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }} type="button">
+        <div className="daily-report-actions">
+          <button className="ghost-button" onClick={handlePrint} type="button">
             <Printer size={15} />
             Print Report
           </button>
-          <button className="primary-action" onClick={handleDownloadJPEG} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }} type="button">
+          <button className="primary-action" onClick={handleDownloadJPEG} style={{ width: 'auto' }} type="button">
             <Download size={15} />
             Export JPEG
           </button>
@@ -324,90 +323,77 @@ export function DailyTaskReportPage() {
       </div>
 
       {/* KPI Cards section */}
-      <div className="grid animate-cardRise" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <div className="panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderRadius: '10px' }}>
-          <div style={{ width: '40px', height: '40px', background: 'var(--green-light)', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-            <CheckCircle size={20} style={{ color: 'var(--green)' }} />
+      <div className="grid animate-cardRise daily-report-kpi-grid">
+        <div className="panel daily-report-kpi-card">
+          <div className="daily-report-kpi-icon done">
+            <CheckCircle size={20} />
           </div>
-          <div>
-            <h3 style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tasks Done</h3>
-            <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text)' }}>{completed.length}</span>
-          </div>
-        </div>
-
-        <div className="panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderRadius: '10px' }}>
-          <div style={{ width: '40px', height: '40px', background: 'var(--blue-light)', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-            <Clock size={20} style={{ color: 'var(--blue)' }} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned / Open</h3>
-            <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text)' }}>{assigned.length}</span>
+          <div className="daily-report-kpi-info">
+            <h3>Tasks Done</h3>
+            <span>{completed.length}</span>
           </div>
         </div>
 
-        <div className="panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', borderRadius: '10px' }}>
-          <div style={{ width: '40px', height: '40px', background: 'var(--hover)', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-            <FileText size={20} style={{ color: 'var(--text)' }} />
+        <div className="panel daily-report-kpi-card">
+          <div className="daily-report-kpi-icon pending">
+            <Clock size={20} />
           </div>
-          <div>
-            <h3 style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completion Rate</h3>
-            <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text)' }}>{completionRate}%</span>
+          <div className="daily-report-kpi-info">
+            <h3>Assigned / Open</h3>
+            <span>{assigned.length}</span>
+          </div>
+        </div>
+
+        <div className="panel daily-report-kpi-card">
+          <div className="daily-report-kpi-icon rate">
+            <FileText size={20} />
+          </div>
+          <div className="daily-report-kpi-info">
+            <h3>Completion Rate</h3>
+            <span>{completionRate}%</span>
           </div>
         </div>
       </div>
 
       {/* Main Grid Content */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'flex-start' }}>
+      <div className="daily-report-layout-grid">
         
         {/* Left Column: Assigned / Incomplete Checklist */}
-        <div className="panel" style={{ padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="panel daily-report-panel">
+          <h2>
             <Clock size={16} style={{ color: 'var(--blue)' }} />
             Assigned for the Day
           </h2>
 
-          {reportQuery.isLoading ? (
-            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>Loading...</div>
+          {isReportLoading ? (
+            <div className="daily-report-placeholder">Loading...</div>
           ) : assigned.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--muted)', fontSize: '13px' }}>
+            <div className="daily-report-empty-placeholder">
               No assigned tasks for this day.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="daily-report-list">
               {assigned.map((task) => {
                 const brand = task.workflow?.client?.name || task.client?.name || 'Internal'
                 return (
-                  <div
-                    key={task.id}
-                    className="ck-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px',
-                      background: 'var(--input)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)' }}>{task.title}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--muted)' }}>
+                  <div key={task.id} className="daily-report-task-item">
+                    <div className="task-detail">
+                      <span className="task-title">{task.title}</span>
+                      <div className="task-meta">
                         <span>{brand}</span>
                         {task.slot && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: 'var(--hover)', padding: '1px 5px', borderRadius: '4px' }}>
+                          <span className="task-slot-badge">
                             ⏱ {task.slot}
                           </span>
                         )}
                         {task.is_daily && (
-                          <span style={{ background: 'var(--blue-light)', color: 'var(--blue)', padding: '1px 5px', borderRadius: '4px' }}>Daily</span>
+                          <span className="task-daily-badge">Daily</span>
                         )}
                       </div>
                     </div>
                     <button
-                      className="primary-action"
+                      className="compact-done-button"
                       onClick={() => handleMarkCompleted(task.id)}
-                      style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto', background: 'var(--green)', color: '#FFF' }}
                       type="button"
                     >
                       Done
@@ -420,46 +406,34 @@ export function DailyTaskReportPage() {
         </div>
 
         {/* Middle Column: Tasks Done / Completed */}
-        <div className="panel" style={{ padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="panel daily-report-panel">
+          <h2>
             <CheckCircle size={16} style={{ color: 'var(--green)' }} />
             Tasks Completed / Done
           </h2>
 
-          {reportQuery.isLoading ? (
-            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>Loading...</div>
+          {isReportLoading ? (
+            <div className="daily-report-placeholder">Loading...</div>
           ) : completed.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px', color: 'var(--muted)', fontSize: '13px' }}>
+            <div className="daily-report-empty-placeholder">
               No completed tasks recorded for this day.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="daily-report-list">
               {completed.map((task) => {
                 const brand = task.workflow?.client?.name || task.client?.name || 'Internal'
                 return (
-                  <div
-                    key={task.id}
-                    className="ck-item done"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      padding: '12px',
-                      background: 'var(--green-light)',
-                      border: '1px solid rgba(45, 168, 107, 0.2)',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)', textDecoration: 'line-through', opacity: 0.8 }}>{task.title}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--muted)' }}>
+                  <div key={task.id} className="daily-report-task-item done">
+                    <span className="task-title">{task.title}</span>
+                    <div className="task-meta">
                       <span>{brand}</span>
                       {task.slot && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: 'rgba(45, 168, 107, 0.1)', color: 'var(--green)', padding: '1px 5px', borderRadius: '4px' }}>
+                        <span className="task-slot-badge done">
                           ⏱ {task.slot}
                         </span>
                       )}
                       {task.is_daily && (
-                        <span style={{ background: 'var(--blue-light)', color: 'var(--blue)', padding: '1px 5px', borderRadius: '4px' }}>Daily</span>
+                        <span className="task-daily-badge">Daily</span>
                       )}
                     </div>
                   </div>
@@ -470,54 +444,51 @@ export function DailyTaskReportPage() {
         </div>
 
         {/* Right Column: Inline Log Task Control */}
-        <div className="panel" style={{ padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="panel daily-report-panel">
+          <h2>
             <Plus size={16} />
             Quick Add Task
           </h2>
 
-          {errorMsg && <div className="notice error" style={{ fontSize: '12px', padding: '8px', margin: 0 }}>{errorMsg}</div>}
+          {errorMsg && <div className="notice error small-notice">{errorMsg}</div>}
 
-          <form onSubmit={handleAddTask} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <label className="field" style={{ marginTop: 0 }}>
+          <form onSubmit={handleAddTask} className="daily-report-form">
+            <label className="field">
               <span>Task Title</span>
               <input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="What did you work on?"
                 required
-                style={{ background: 'var(--input)', fontSize: '13px', padding: '8px' }}
               />
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <label className="field" style={{ marginTop: 0 }}>
+            <div className="daily-report-form-row">
+              <label className="field">
                 <span>Brand / Client</span>
                 <select
                   value={newClientId}
                   onChange={(e) => setNewClientId(e.target.value)}
-                  style={{ background: 'var(--input)', fontSize: '13px', padding: '8px' }}
                 >
                   <option value="">Internal / None</option>
-                  {clientsQuery.data?.map((client: any) => (
+                  {clientsData?.map((client: any) => (
                     <option key={client.id} value={client.id}>{client.name}</option>
                   ))}
                 </select>
               </label>
 
-              <label className="field" style={{ marginTop: 0 }}>
+              <label className="field">
                 <span>Slot Time</span>
                 <input
                   value={newSlot}
                   onChange={(e) => setNewSlot(e.target.value)}
                   placeholder="e.g. 10:00 AM"
-                  style={{ background: 'var(--input)', fontSize: '13px', padding: '8px' }}
                 />
               </label>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '4px 0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text)', cursor: 'pointer' }}>
+            <div className="daily-report-checkbox-row">
+              <label className="check-field" style={{ cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={isDailyTask}
@@ -530,7 +501,6 @@ export function DailyTaskReportPage() {
             <button
               className="primary-action"
               disabled={isSubmitting}
-              style={{ width: '100%', marginTop: '6px' }}
               type="submit"
             >
               {isSubmitting ? 'Adding...' : 'Add to Report'}

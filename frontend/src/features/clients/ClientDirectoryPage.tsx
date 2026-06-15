@@ -48,19 +48,19 @@ export function ClientDirectoryPage() {
     }),
     [debouncedSearch, statusFilter],
   )
-  const clientsQuery = useQuery({
+  const { data: clientsData, error: clientsQueryError, isLoading: isClientsLoading } = useQuery({
     queryKey: ['clients', filters],
     queryFn: () => getClients(filters),
   })
 
   const clients = useMemo(() => {
-    return [...(clientsQuery.data ?? [])].sort((a, b) =>
+    return [...(clientsData ?? [])].sort((a, b) =>
       String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? '')),
     )
-  }, [clientsQuery.data, sortKey])
+  }, [clientsData, sortKey])
 
-  const clientsError = clientsQuery.error
-    ? normalizeApiError(clientsQuery.error).message
+  const clientsError = clientsQueryError
+    ? normalizeApiError(clientsQueryError).message
     : null
 
   return (
@@ -82,7 +82,7 @@ export function ClientDirectoryPage() {
       <div className="client-directory-layout">
         <ClientDirectory
           clients={clients}
-          isLoading={clientsQuery.isLoading}
+          isLoading={isClientsLoading}
           searchValue={searchValue}
           selectedClientId={selectedClientId}
           sortKey={sortKey}
@@ -216,12 +216,11 @@ function ClientDetailPanel({ clientId }: { clientId: string | null }) {
   const canManage = currentUser ? canManageClients(currentUser.role) : false
   const canArchive = currentUser ? canArchiveClients(currentUser.role) : false
   const [panelError, setPanelError] = useState<string | null>(null)
-  const clientQuery = useQuery({
+  const { data: client, isLoading: isClientLoading } = useQuery({
     queryKey: ['client', clientId],
     queryFn: () => getClient(clientId ?? ''),
     enabled: Boolean(clientId),
   })
-  const client = clientQuery.data
   const {
     register,
     handleSubmit,
@@ -269,7 +268,7 @@ function ClientDetailPanel({ clientId }: { clientId: string | null }) {
     )
   }
 
-  if (clientQuery.isLoading) {
+  if (isClientLoading) {
     return <section className="panel muted-card" data-testid="client-detail-loading">Loading client detail...</section>
   }
 

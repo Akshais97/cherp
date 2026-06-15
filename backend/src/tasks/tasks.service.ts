@@ -104,6 +104,7 @@ export class TasksService {
         ...(workflowId ? { workflow: { connect: { id: workflowId } } } : {}),
         ...(clientId ? { client: { connect: { id: clientId } } } : {}),
         assignee: dto.assigned_to ? { connect: { id: dto.assigned_to } } : undefined,
+        assignor: { connect: { id: user.id } },
         title: dto.title,
         description: dto.description,
         status: 'yet_to_start',
@@ -175,8 +176,14 @@ export class TasksService {
         : {}),
       ...(updateFields.assigned_to !== undefined
         ? updateFields.assigned_to
-          ? { assignee: { connect: { id: updateFields.assigned_to } } }
-          : { assignee: { disconnect: true } }
+          ? {
+              assignee: { connect: { id: updateFields.assigned_to } },
+              assignor: { connect: { id: user.id } },
+            }
+          : {
+              assignee: { disconnect: true },
+              assignor: { disconnect: true },
+            }
         : {}),
       ...(updateFields.status !== undefined
         ? {
@@ -208,13 +215,14 @@ export class TasksService {
       await this.notifications?.notifyTaskStatusChanged({
         tenantId: user.tenantId,
         actorId: user.id,
+        actorRole: user.role,
         taskId: id,
         taskTitle: task.title,
         previousStatus: existing.status,
         nextStatus: dto.status,
         assigneeId: task.assigned_to,
         projectManagerId: task.workflow?.project_manager_id,
-        clientName: task.workflow?.client?.name,
+        clientName: task.workflow?.client?.name || task.client?.name,
       })
     }
 

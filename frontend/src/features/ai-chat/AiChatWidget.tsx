@@ -16,8 +16,8 @@ export function AiChatWidget() {
   // Initialize welcoming greeting
   useEffect(() => {
     if (chatHistory.length === 0 && currentUser) {
-      const pmMenu = "Hello! I am your Sakhaa Assistant. Would you like to:\n- Create Task\n- Update Status\n- Read Task Details\n- Delete Task\n- Give Approval\n- Add Blocker"
-      const tmMenu = "Hello! I am your Sakhaa Assistant. Would you like to:\n- Update Status\n- Read Task Details\n- Ask Approval\n- Add Blocker"
+      const pmMenu = "Hello! I am your Saarthi Assistant. Would you like to:\n- Create Task\n- Update Status\n- Read Task Details\n- Delete Task\n- Give Approval\n- Add Blocker"
+      const tmMenu = "Hello! I am your Saarthi Assistant. Would you like to:\n- Update Status\n- Read Task Details\n- Ask Approval\n- Add Blocker"
       setChatHistory([
         {
           role: 'model',
@@ -76,8 +76,8 @@ export function AiChatWidget() {
   }
 
   const handleReset = () => {
-    const pmMenu = "Hello! I am your Sakhaa Assistant. Would you like to:\n- Create Task\n- Update Status\n- Read Task Details\n- Delete Task\n- Give Approval\n- Add Blocker"
-    const tmMenu = "Hello! I am your Sakhaa Assistant. Would you like to:\n- Update Status\n- Read Task Details\n- Ask Approval\n- Add Blocker"
+    const pmMenu = "Hello! I am your Saarthi Assistant. Would you like to:\n- Create Task\n- Update Status\n- Read Task Details\n- Delete Task\n- Give Approval\n- Add Blocker"
+    const tmMenu = "Hello! I am your Saarthi Assistant. Would you like to:\n- Update Status\n- Read Task Details\n- Ask Approval\n- Add Blocker"
     setChatHistory([
       {
         role: 'model',
@@ -93,7 +93,7 @@ export function AiChatWidget() {
           {/* Header */}
           <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '14px', color: '#fff', fontWeight: '600' }}>Your Sakhaa</h2>
+              <h2 style={{ margin: 0, fontSize: '14px', color: '#fff', fontWeight: '600' }}>Your Saarthi</h2>
               <span className="muted" style={{ fontSize: '11px' }}>AI task companion</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -237,7 +237,7 @@ export function AiChatWidget() {
       
       {/* Floating launcher button */}
       <button
-        aria-label="Open Sakhaa Assistant"
+        aria-label="Open Saarthi Assistant"
         className="ai-chat-launcher"
         data-testid="button-ai-chat-open"
         onClick={() => setIsOpen((value) => !value)}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BriefcaseBusiness, Edit3, Plus, Trash2, X } from 'lucide-react'
+import { Copy, Edit3, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { getScopeTemplates, updateScopeTemplate, type ScopeTemplate } from './api'
 import { normalizeApiError } from '../../lib/api/errors'
@@ -62,7 +62,7 @@ export function ScopeTemplatesPage() {
             <div key={template.id} className="panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                  <BriefcaseBusiness size={20} style={{ color: 'var(--blue)' }} />
+                  <Copy size={20} style={{ color: 'var(--blue)' }} />
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>{template.name}</h3>
                 </div>
                 <p style={{ fontSize: '13px', color: 'var(--secondary)', margin: '0 0 16px' }}>

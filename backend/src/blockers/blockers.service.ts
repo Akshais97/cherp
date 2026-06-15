@@ -76,6 +76,7 @@ export class BlockersService {
       assigneeId: task.assigned_to,
       projectManagerId: blocker.task?.workflow?.project_manager_id,
       clientName: task.workflow?.client?.name || task.client?.name || '',
+      notify: blocker.notify ? (blocker.notify as string[]) : undefined,
     })
 
     return blocker

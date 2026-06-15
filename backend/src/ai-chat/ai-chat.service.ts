@@ -170,14 +170,14 @@ Always return a JSON object. The response must NOT contain any formatting prefix
             ? await this.repository.findUserByName({ tenantId: user.tenantId, name: assigneeName })
             : null
 
+          const payload: any = { title }
+          if (assignee?.id) payload.assigned_to = assignee.id
+          if (dueDate) payload.due_date = dueDate
+          if (clientId) payload.client_id = clientId
+
           const task = await this.tasksService.create(
             workflowId,
-            {
-              title,
-              assigned_to: assignee?.id || undefined,
-              due_date: dueDate || undefined,
-              client_id: clientId || undefined,
-            },
+            payload,
             user,
           )
 

@@ -104,7 +104,7 @@ button {
 
 .login-page {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 540px);
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 480px);
   height: 100svh;
   overflow: hidden;
 }
@@ -112,11 +112,28 @@ button {
 .login-story {
   display: flex;
   flex-direction: column;
-  gap: clamp(14px, 2.4vh, 30px);
+  gap: clamp(20px, 4vh, 40px);
   justify-content: center;
   min-height: 0;
   overflow: auto;
-  padding: clamp(18px, 3.2vh, 34px) clamp(26px, 5vw, 64px);
+  padding: clamp(24px, 5vh, 48px) clamp(32px, 8vw, 96px);
+  background: radial-gradient(circle at 10% 20%, rgba(59, 109, 214, 0.06) 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, rgba(14, 154, 167, 0.04) 0%, transparent 50%),
+              var(--bg);
+  position: relative;
+}
+
+.login-story::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(0, 0, 0, 0.015) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0, 0, 0, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
 }
 
 .brand-mark,
@@ -132,15 +149,18 @@ button {
 }
 
 .brand-mark {
-  gap: 12px;
+  gap: 14px;
+  z-index: 2;
 }
 
 .brand-icon {
   display: block;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   object-fit: cover;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 4px 20px rgba(59, 109, 214, 0.1);
 }
 
 .brand-mark h1,
@@ -162,74 +182,97 @@ button {
 }
 
 .brand-mark h1 {
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
   line-height: 1.1;
+  letter-spacing: -0.5px;
 }
 
 .brand-mark p {
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 
 .login-copy {
-  max-width: 680px;
+  max-width: 620px;
+  z-index: 2;
 }
 
 .login-copy h2 {
   color: var(--text);
-  font-size: clamp(32px, 4.1vw, 52px);
-  line-height: 1;
-  letter-spacing: 0;
+  font-size: clamp(36px, 4.5vw, 56px);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -1.5px;
 }
 
 .login-copy span {
-  color: var(--blue);
+  background: linear-gradient(135deg, var(--blue) 0%, var(--teal) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .login-copy p {
-  max-width: 620px;
-  margin-top: 14px;
+  max-width: 540px;
+  margin-top: 18px;
   color: var(--secondary);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 .login-benefits {
   display: grid;
-  max-width: 680px;
-  margin-top: 22px;
-  gap: 10px;
+  max-width: 600px;
+  margin-top: 32px;
+  gap: 16px;
 }
 
 .feature-row {
-  gap: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.feature-row:hover {
+  background: var(--hover);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 
 .feature-row > div {
   display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--blue);
   background: var(--blue-light);
+  border: 1px solid rgba(59, 109, 214, 0.2);
 }
 
 .feature-row strong {
   display: block;
-  margin-bottom: 2px;
-  font-size: 14px;
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .feature-row p {
   color: var(--secondary);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .login-panel {
@@ -237,45 +280,49 @@ button {
   place-items: center;
   min-height: 0;
   overflow: auto;
-  padding: clamp(16px, 2.4vh, 28px);
+  padding: clamp(20px, 4vh, 40px);
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
 }
 
 .login-card {
-  width: min(100%, 430px);
-  padding: clamp(22px, 3vh, 30px);
+  width: min(100%, 400px);
+  padding: clamp(24px, 4vh, 36px);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--card);
-  box-shadow: 0 16px 40px rgba(26, 26, 26, 0.07);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(26, 26, 26, 0.06);
 }
 
 .login-card-icon {
   display: grid;
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 14px;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--blue);
   background: var(--blue-light);
+  border: 1px solid rgba(59, 109, 214, 0.2);
 }
 
 .form-heading {
-  margin-bottom: 18px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
 .form-heading h2 {
-  font-size: 26px;
-  line-height: 1.1;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
 }
 
 .form-heading p {
   margin-top: 6px;
   color: var(--secondary);
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .field {
@@ -3519,6 +3566,311 @@ button:hover .btn-ripple,
   }
 }
 
+
+/* Daily Task Report Page Styles */
+.daily-report-container {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.daily-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.daily-report-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-report-date-nav .icon-button {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  min-height: auto;
+  width: auto;
+  flex: none;
+}
+
+.daily-report-date-nav .icon-button:hover {
+  background: var(--hover);
+  border-color: var(--border-strong);
+}
+
+.daily-report-date-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.daily-report-date-picker:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue-light);
+}
+
+.daily-report-date-picker input {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+}
+
+.daily-report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.daily-report-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.daily-report-kpi-card {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-radius: 8px;
+}
+
+.daily-report-kpi-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.daily-report-kpi-icon.done {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.daily-report-kpi-icon.pending {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+
+.daily-report-kpi-icon.rate {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.daily-report-kpi-info h3 {
+  font-size: 11px;
+  color: var(--secondary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.daily-report-kpi-info span {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.daily-report-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.daily-report-panel {
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.daily-report-panel h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily-report-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.daily-report-task-item:hover {
+  background: var(--hover);
+  border-color: var(--border-strong);
+}
+
+.compact-done-button {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--green);
+  background: var(--green);
+  color: #fff;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  cursor: pointer;
+}
+
+.compact-done-button:hover {
+  background: #258f5a;
+  border-color: #258f5a;
+  box-shadow: 0 4px 12px rgba(45, 168, 107, 0.24);
+  transform: translateY(-1px);
+}
+
+.compact-done-button:active {
+  transform: translateY(0);
+}
+
+.daily-report-task-item.done {
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--green-light);
+  border: 1px solid rgba(45, 168, 107, 0.2);
+}
+
+.daily-report-task-item.done .task-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.daily-report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.daily-report-form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 480px) {
+  .daily-report-form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.daily-report-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.daily-report-header p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.daily-report-placeholder {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.daily-report-empty-placeholder {
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.daily-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.task-slot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--hover);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.task-slot-badge.done {
+  background: rgba(45, 168, 107, 0.1);
+  color: var(--green);
+}
+
+.task-daily-badge {
+  background: var(--blue-light);
+  color: var(--blue);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.small-notice {
+  font-size: 12px;
+  padding: 8px;
+  margin: 0;
+}
+
+.daily-report-checkbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0;
+}
+
 /* Print Stylesheet for Daily Task Report */
 @media print {
   body {
@@ -3551,5 +3903,6 @@ button:hover .btn-ripple,
     grid-template-columns: 1fr 1fr !important;
   }
 }
+
 
 

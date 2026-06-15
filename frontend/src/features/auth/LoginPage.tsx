@@ -63,9 +63,9 @@ export function LoginPage() {
     <main className="login-page" data-testid="login-page">
       <section className="login-story" aria-label="Product overview">
         <div className="brand-mark">
-          <img alt="Sakhaa Cherp" className="brand-icon" src="/cherp-logo.png" />
+          <img alt="Saarthii Cherp" className="brand-icon" src="/cherp-logo.png" />
           <div>
-            <h1>Sakhaa Cherp</h1>
+            <h1>Saarthii Cherp</h1>
             <p>Enterprise Resource Planning</p>
           </div>
         </div>
@@ -107,7 +107,7 @@ export function LoginPage() {
           </div>
           <div className="form-heading">
             <h2>Welcome Back</h2>
-            <p>Sign in with your Sakhaa Cherp account.</p>
+            <p>Sign in with your Saarthii Cherp account.</p>
           </div>
 
           {!isConfigured ? (

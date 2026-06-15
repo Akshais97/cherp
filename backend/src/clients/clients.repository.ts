@@ -318,6 +318,8 @@ export class ClientsRepository {
         data: input.tasks.map((task) => ({
           tenant_id: input.tenantId,
           workflow_id: workflow.id,
+          client_id: client.id,
+          assigned_by: input.userId,
           title: task.title,
           description: task.description,
           status: 'yet_to_start',

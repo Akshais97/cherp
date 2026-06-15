@@ -11,7 +11,7 @@ import {
 export function NotificationsBell() {
   const [isOpen, setIsOpen] = useState(false)
   const queryClient = useQueryClient()
-  const notificationsQuery = useQuery({
+  const { data: notifications = [], error: notificationsQueryError, isLoading: isNotificationsLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => getNotifications(),
   })
@@ -21,10 +21,9 @@ export function NotificationsBell() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
-  const notifications = notificationsQuery.data ?? []
   const unreadCount = notifications.filter((notification) => !notification.is_read).length
-  const error = notificationsQuery.error
-    ? normalizeApiError(notificationsQuery.error).message
+  const error = notificationsQueryError
+    ? normalizeApiError(notificationsQueryError).message
     : null
 
   return (
@@ -55,10 +54,10 @@ export function NotificationsBell() {
                 onMarkRead={() => markReadMutation.mutate(notification.id)}
               />
             ))}
-            {!notificationsQuery.isLoading && notifications.length === 0 ? (
+            {!isNotificationsLoading && notifications.length === 0 ? (
               <div className="muted-card">No notifications yet.</div>
             ) : null}
-            {notificationsQuery.isLoading ? (
+            {isNotificationsLoading ? (
               <div className="muted-card">Loading notifications...</div>
             ) : null}
           </div>

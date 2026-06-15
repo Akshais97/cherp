@@ -253,6 +253,7 @@ async function testBlockerCreationCreatesNotification() {
     assigneeId: teamMember.id,
     projectManagerId: undefined,
     clientName: 'Acme',
+    notify: undefined,
   })
 }
 

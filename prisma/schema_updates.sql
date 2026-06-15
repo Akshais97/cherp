@@ -32,3 +32,7 @@ ALTER TABLE erp.tasks ADD COLUMN IF NOT EXISTS is_daily boolean DEFAULT false;
 -- Alter tasks table to add blocked_previous_status column
 ALTER TABLE erp.tasks ADD COLUMN IF NOT EXISTS blocked_previous_status varchar(50);
 
+-- Alter tasks table to add assigned_by column
+ALTER TABLE erp.tasks ADD COLUMN IF NOT EXISTS assigned_by uuid REFERENCES erp.users(id) ON DELETE SET NULL;
+
+

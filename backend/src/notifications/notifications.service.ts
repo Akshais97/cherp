@@ -25,6 +25,7 @@ export class NotificationsService {
   async notifyTaskStatusChanged(input: {
     tenantId: string
     actorId: string
+    actorRole?: string
     taskId: string
     taskTitle: string
     previousStatus: string
@@ -37,6 +38,15 @@ export class NotificationsService {
 
     if (input.assigneeId && input.assigneeId !== input.actorId) {
       recipients.add(input.assigneeId)
+    }
+
+    if (
+      input.previousStatus === 'ongoing' &&
+      input.actorRole === 'team_member' &&
+      input.projectManagerId &&
+      input.projectManagerId !== input.actorId
+    ) {
+      recipients.add(input.projectManagerId)
     }
 
     if (
@@ -78,6 +88,7 @@ export class NotificationsService {
     assigneeId?: string | null
     projectManagerId?: string | null
     clientName?: string | null
+    notify?: string[]
   }) {
     const recipients = new Set<string>()
 
@@ -87,6 +98,18 @@ export class NotificationsService {
 
     if (input.projectManagerId && input.projectManagerId !== input.actorId) {
       recipients.add(input.projectManagerId)
+    }
+
+    if (input.notify && input.notify.length > 0) {
+      const stakeholders = await this.repository.findUsersByDesignation(
+        input.tenantId,
+        input.notify,
+      )
+      for (const sh of stakeholders) {
+        if (sh.id !== input.actorId) {
+          recipients.add(sh.id)
+        }
+      }
     }
 
     await this.repository.createMany(

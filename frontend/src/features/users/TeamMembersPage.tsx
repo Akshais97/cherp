@@ -34,20 +34,20 @@ const blockerStatusLabels: Record<TeamMemberBlocker['status'], string> = {
 export function TeamMembersPage() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [searchValue, setSearchValue] = useState('')
-  const membersQuery = useQuery({
+  const { data: membersData = [], error: membersQueryError, isLoading: isMembersLoading } = useQuery({
     queryKey: ['team-members'],
     queryFn: getTeamMembers,
   })
-  const membersError = membersQuery.error
-    ? normalizeApiError(membersQuery.error).message
+  const membersError = membersQueryError
+    ? normalizeApiError(membersQueryError).message
     : null
   const members = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
-    return (membersQuery.data ?? []).filter((member) => {
+    return membersData.filter((member) => {
       if (!search) return true
       return `${member.full_name} ${member.email}`.toLowerCase().includes(search)
     })
-  }, [membersQuery.data, searchValue])
+  }, [membersData, searchValue])
 
   return (
     <section className="team-members-page" data-testid="team-members-page">
@@ -66,7 +66,7 @@ export function TeamMembersPage() {
           <div className="panel-header">
             <h2>Team member list</h2>
             <span className="muted">
-              {membersQuery.isLoading ? 'Loading...' : `${members.length} members`}
+              {isMembersLoading ? 'Loading...' : `${members.length} members`}
             </span>
           </div>
 
@@ -99,7 +99,7 @@ export function TeamMembersPage() {
                 </span>
               </button>
             ))}
-            {!membersQuery.isLoading && members.length === 0 ? (
+            {!isMembersLoading && members.length === 0 ? (
               <div className="muted-card">No team members found.</div>
             ) : null}
           </div>
@@ -112,16 +112,15 @@ export function TeamMembersPage() {
 }
 
 function TeamMemberDetailPanel({ memberId }: { memberId: string | null }) {
-  const workloadQuery = useQuery({
+  const { data, error: workloadQueryError, isLoading: isWorkloadLoading } = useQuery({
     queryKey: ['team-member-workload', memberId],
     queryFn: () => getTeamMemberWorkload(memberId ?? ''),
     enabled: Boolean(memberId),
   })
-  const workloadError = workloadQuery.error
-    ? normalizeApiError(workloadQuery.error).message
+  const workloadError = workloadQueryError
+    ? normalizeApiError(workloadQueryError).message
     : null
 
-  const data = workloadQuery.data
   const tasks = data?.tasks ?? []
   const blockers = data?.blockers ?? []
   const member = data?.member ?? null
@@ -164,7 +163,7 @@ function TeamMemberDetailPanel({ memberId }: { memberId: string | null }) {
     )
   }
 
-  if (workloadQuery.isLoading) {
+  if (isWorkloadLoading) {
     return (
       <section className="panel muted-card" data-testid="team-member-detail-loading">
         Loading team member workload...

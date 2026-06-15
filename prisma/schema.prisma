@@ -79,6 +79,7 @@ model User {
   flagged_blockers    Blocker[]                @relation("BlockerFlaggedBy")
   resolved_blockers   Blocker[]                @relation("BlockerResolvedBy")
   assigned_blockers   Blocker[]                @relation("BlockerAssignedTo")
+  assigned_by_tasks   Task[]                   @relation("TaskAssignedBy")
   activity_logs       ActivityLog[]
   task_comments       TaskComment[]
   task_attachments    TaskAttachment[]
@@ -226,6 +227,7 @@ model Task {
   slot           String?
   client_id               String?   @db.Uuid
   blocked_previous_status String?   @db.VarChar(50)
+  assigned_by             String?   @db.Uuid
   created_at              DateTime  @default(now()) @db.Timestamptz
   updated_at              DateTime  @updatedAt @db.Timestamptz
 
@@ -234,6 +236,7 @@ model Task {
   client        Client?   @relation("ClientTasks", fields: [client_id], references: [id], onDelete: Cascade)
   assignee      User?     @relation("TaskAssignedTo", fields: [assigned_to], references: [id])
   completer     User?     @relation("TaskCompletedBy", fields: [completed_by], references: [id])
+  assignor      User?     @relation("TaskAssignedBy", fields: [assigned_by], references: [id])
   parent_task   Task?     @relation("TaskHierarchy", fields: [parent_task_id], references: [id])
   subtasks      Task[]    @relation("TaskHierarchy")
   blockers      Blocker[]

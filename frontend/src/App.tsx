@@ -58,7 +58,7 @@ function AppContent() {
   }, [])
 
   if (isLoading) {
-    return <div className="boot-screen" data-testid="app-loading">Loading Sakhaa Cherp...</div>
+    return <div className="boot-screen" data-testid="app-loading">Loading Saarthii Cherp...</div>
   }
 
   return currentUser ? <AppShell /> : <LoginPage />

@@ -2,9 +2,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function run() {
-  console.log('Altering due_date column in tasks table to timestamptz...');
-  await prisma.$executeRawUnsafe('ALTER TABLE erp.tasks ALTER COLUMN due_date TYPE timestamptz USING due_date::timestamptz;');
-  console.log('Column altered successfully.');
+  console.log('Adding assigned_by column to tasks table...');
+  await prisma.$executeRawUnsafe('ALTER TABLE erp.tasks ADD COLUMN IF NOT EXISTS assigned_by uuid REFERENCES erp.users(id) ON DELETE SET NULL;');
+  console.log('Column added successfully.');
   await prisma.$disconnect();
 }
 

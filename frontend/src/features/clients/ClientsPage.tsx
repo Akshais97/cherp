@@ -58,7 +58,7 @@ export function ClientsPage() {
   const { currentUser } = useAuth()
   const canManage = currentUser ? canManageClients(currentUser.role) : false
   const [pageError, setPageError] = useState<string | null>(null)
-  const templatesQuery = useQuery({
+  const { data: templatesData, error: templatesQueryError } = useQuery({
     queryKey: ['scope-templates'],
     queryFn: getScopeTemplates,
     enabled: canManage,
@@ -72,9 +72,9 @@ export function ClientsPage() {
     onError: (error) => setPageError(normalizeApiError(error).message),
   })
 
-  const templates = canManage ? templatesQuery.data ?? [] : []
-  const templatesError = canManage && templatesQuery.error
-    ? normalizeApiError(templatesQuery.error).message
+  const templates = canManage ? templatesData ?? [] : []
+  const templatesError = canManage && templatesQueryError
+    ? normalizeApiError(templatesQueryError).message
     : null
 
   return (

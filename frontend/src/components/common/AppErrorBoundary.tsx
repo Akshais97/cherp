@@ -20,7 +20,7 @@ export class AppErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('Sakhaa Cherp UI boundary caught an error', {
+    console.error('Saarthii Cherp UI boundary caught an error', {
       error,
       componentStack: info.componentStack,
     })

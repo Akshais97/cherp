@@ -5,6 +5,8 @@ import {
   Calendar,
   ClipboardList,
   Contact,
+  Copy,
+  FileText,
   FolderOpen,
   LayoutDashboard,
   LogOut,
@@ -67,7 +69,7 @@ const baseNavItems: {
 }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} /> },
   { id: 'client-dashboard', label: 'Client Dashboard', icon: <LayoutDashboard size={17} /> },
-  { id: 'daily-report', label: 'Daily Report', icon: <ClipboardList size={17} /> },
+  { id: 'daily-report', label: 'Daily Report', icon: <FileText size={17} /> },
   { id: 'tasks', label: 'Tasks', icon: <ClipboardList size={17} /> },
   { id: 'calendar', label: 'Calendar', icon: <Calendar size={17} /> },
   { id: 'client-directory', label: 'Client Directory', icon: <FolderOpen size={17} /> },
@@ -78,7 +80,7 @@ const baseNavItems: {
     label: 'Workflows',
     icon: <BriefcaseBusiness size={17} />,
   },
-  { id: 'scope-templates', label: 'Scope Templates', icon: <BriefcaseBusiness size={17} /> },
+  { id: 'scope-templates', label: 'Scope Templates', icon: <Copy size={17} /> },
   { id: 'team-members', label: 'Team Members', icon: <UserRoundCheck size={17} /> },
   { id: 'employee-profiles', label: 'Employee Profiles', icon: <Contact size={17} /> },
   { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={17} /> },
@@ -192,9 +194,9 @@ export function AppShell() {
     >
       <aside className="sidebar">
         <div className="shell-brand">
-          <img alt="Sakhaa Cherp" className="brand-logo" src="/cherp-logo.png" />
+          <img alt="Saarthii Cherp" className="brand-logo" src="/cherp-logo.png" />
           <div>
-            <strong>Sakhaa Cherp</strong>
+            <strong>Saarthii Cherp</strong>
             <span>Agency ERP</span>
           </div>
         </div>

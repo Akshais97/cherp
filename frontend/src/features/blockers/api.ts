@@ -68,6 +68,7 @@ export type CreateBlockerPayload = {
   severity: BlockerSeverity
   impact?: string
   assigned_to: string
+  notify?: string[]
 }
 
 export type ResolveBlockerPayload = {

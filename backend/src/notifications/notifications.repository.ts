@@ -26,6 +26,20 @@ export class NotificationsRepository {
     })
   }
 
+  findUsersByDesignation(tenantId: string, designations: string[]) {
+    return this.prisma.user.findMany({
+      where: {
+        tenant_id: tenantId,
+        is_active: true,
+        designation: {
+          in: designations,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    })
+  }
+
   findForUser(input: { tenantId: string; userId: string; unreadOnly?: boolean }) {
     return this.prisma.notification.findMany({
       where: {

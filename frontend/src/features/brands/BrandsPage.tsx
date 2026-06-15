@@ -18,9 +18,8 @@ const brandFields = [
 ]
 
 export function BrandsPage() {
-  const clientsQuery = useQuery({ queryKey: ['brands-clients'], queryFn: () => getClients() })
-  const clients = clientsQuery.data ?? []
-  const error = clientsQuery.error ? normalizeApiError(clientsQuery.error).message : null
+  const { data: clients = [], error: clientsQueryError, isLoading: isClientsLoading } = useQuery({ queryKey: ['brands-clients'], queryFn: () => getClients() })
+  const error = clientsQueryError ? normalizeApiError(clientsQueryError).message : null
 
   return (
     <section className="brands-page">
@@ -57,7 +56,7 @@ export function BrandsPage() {
             </dl>
           </article>
         ))}
-        {!clientsQuery.isLoading && clients.length === 0 ? (
+        {!isClientsLoading && clients.length === 0 ? (
           <div className="muted-card">No brands yet.</div>
         ) : null}
       </div>

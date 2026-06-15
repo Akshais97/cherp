@@ -81,23 +81,23 @@ export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: strin
   const [searchValue, setSearchValue] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const workflowsQuery = useQuery({
+  const { data: workflowsData = [], error: workflowsQueryError, isLoading: isWorkflowsLoading } = useQuery({
     queryKey: ['workflows', statusFilter],
     queryFn: () => getWorkflows({ status: statusFilter || undefined }),
   })
-  const workflowsError = workflowsQuery.error
-    ? normalizeApiError(workflowsQuery.error).message
+  const workflowsError = workflowsQueryError
+    ? normalizeApiError(workflowsQueryError).message
     : null
 
   const workflows = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
-    return (workflowsQuery.data ?? []).filter((workflow) => {
+    return workflowsData.filter((workflow) => {
       if (!search) return true
       return `${workflow.title} ${workflow.client.name} ${workflow.client.industry} ${workflow.client.service_type}`
         .toLowerCase()
         .includes(search)
     })
-  }, [searchValue, workflowsQuery.data])
+  }, [searchValue, workflowsData])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -130,7 +130,7 @@ export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: strin
           <div className="panel-header">
             <h2>Workflow list</h2>
             <span className="muted">
-              {workflowsQuery.isLoading ? 'Loading...' : `${workflows.length} workflows`}
+              {isWorkflowsLoading ? 'Loading...' : `${workflows.length} workflows`}
             </span>
           </div>
 
@@ -182,7 +182,7 @@ export function WorkflowsPage({ initialWorkflowId }: { initialWorkflowId?: strin
                 </span>
               </button>
             ))}
-            {!workflowsQuery.isLoading && workflows.length === 0 ? (
+            {!isWorkflowsLoading && workflows.length === 0 ? (
               <div className="muted-card">No workflows found.</div>
             ) : null}
 
@@ -233,23 +233,22 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
   const dragOverTaskIdRef = useRef<string | null>(null)
   const pendingPointerRef = useRef<PendingTaskPointerState | null>(null)
   const suppressClickUntilRef = useRef(0)
-  const workflowQuery = useQuery({
+  const { data: workflow, error: workflowQueryError, isLoading: isWorkflowLoading } = useQuery({
     queryKey: ['workflow', workflowId],
     queryFn: () => getWorkflow(workflowId ?? ''),
     enabled: Boolean(workflowId),
   })
-  const usersQuery = useQuery({
+  const { data: usersData = [], error: usersQueryError } = useQuery({
     queryKey: ['users'],
     queryFn: getUsers,
     enabled: canManage,
   })
-  const workflowError = workflowQuery.error
-    ? normalizeApiError(workflowQuery.error).message
+  const workflowError = workflowQueryError
+    ? normalizeApiError(workflowQueryError).message
     : null
-  const usersError = canManage && usersQuery.error ? normalizeApiError(usersQuery.error).message : null
+  const usersError = canManage && usersQueryError ? normalizeApiError(usersQueryError).message : null
 
-  const workflow = workflowQuery.data
-  const users = canManage ? usersQuery.data ?? [] : []
+  const users = canManage ? usersData : []
   const reorderMutation = useMutation({
     mutationFn: async ({
       sourceTaskId,
@@ -481,7 +480,7 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
     )
   }
 
-  if (workflowQuery.isLoading) {
+  if (isWorkflowLoading) {
     return (
       <section className="panel muted-card" data-testid="workflow-detail-loading">
         Loading workflow detail...
