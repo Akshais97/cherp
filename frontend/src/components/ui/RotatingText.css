@@ -1,0 +1,16 @@
+.rotating-text-wrapper {
+  display: inline-flex;
+  position: relative;
+  overflow: hidden;
+  height: 1.45em;
+  vertical-align: -0.15em;
+  align-items: center;
+}
+
+.rotating-text-item {
+  display: inline-block;
+  color: var(--blue);
+  font-weight: 800;
+  padding-bottom: 0.1em;
+  padding-right: 0.05em;
+}

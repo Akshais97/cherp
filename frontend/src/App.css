@@ -27,6 +27,29 @@
   -webkit-font-smoothing: antialiased;
 }
 
+.dark {
+  --bg: #121216;
+  --bg-secondary: #0d0d11;
+  --card: #18181d;
+  --hover: #222228;
+  --input: #0f0f13;
+  --border: #25252c;
+  --border-strong: #32323a;
+  --text: #f2f2f5;
+  --secondary: #b3b3c0;
+  --muted: #828293;
+  --blue: #5a8bfa;
+  --blue-light: #18223c;
+  --green: #3ec285;
+  --green-light: #152a20;
+  --amber: #e29e25;
+  --amber-light: #332512;
+  --red: #ec5a5a;
+  --red-light: #3a1818;
+  --teal: #2cb5c3;
+  --teal-light: #132b2e;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -110,17 +133,22 @@ button {
 }
 
 .login-story {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(20px, 4vh, 40px);
-  justify-content: center;
   min-height: 0;
   overflow: auto;
-  padding: clamp(24px, 5vh, 48px) clamp(32px, 8vw, 96px);
-  background: radial-gradient(circle at 10% 20%, rgba(59, 109, 214, 0.06) 0%, transparent 40%),
-              radial-gradient(circle at 90% 80%, rgba(14, 154, 167, 0.04) 0%, transparent 50%),
-              var(--bg);
   position: relative;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+.login-story-content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 3vh, 32px);
+  justify-content: center;
+  min-height: 100%;
+  padding: clamp(24px, 4vh, 40px) clamp(32px, 8vw, 96px);
+  position: relative;
+  z-index: 2;
 }
 
 .login-story::before {
@@ -134,6 +162,7 @@ button {
               linear-gradient(90deg, rgba(0, 0, 0, 0.015) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
+  z-index: 1;
 }
 
 .brand-mark,
@@ -219,7 +248,7 @@ button {
 
 .login-copy p {
   max-width: 540px;
-  margin-top: 18px;
+  margin-top: clamp(10px, 2vh, 18px);
   color: var(--secondary);
   font-size: 16px;
   line-height: 1.6;
@@ -228,25 +257,35 @@ button {
 .login-benefits {
   display: grid;
   max-width: 600px;
-  margin-top: 32px;
-  gap: 16px;
+  margin-top: clamp(16px, 3vh, 28px);
+  gap: clamp(10px, 1.5vh, 16px);
+}
+
+.feature-card-spotlight {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(232, 232, 228, 0.65);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  width: 100%;
+}
+
+.feature-card-spotlight:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 109, 214, 0.25);
+  box-shadow: 0 10px 30px rgba(59, 109, 214, 0.04);
 }
 
 .feature-row {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-}
-
-.feature-row:hover {
-  background: var(--hover);
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
+  padding: clamp(10px, 1.5vh, 16px) 16px;
+  background: transparent !important;
+  border: none !important;
+  transition: none !important;
+  transform: none !important;
 }
 
 .feature-row > div {
@@ -285,14 +324,27 @@ button {
   border-left: 1px solid var(--border);
 }
 
-.login-card {
+.login-card-spotlight-wrapper {
   width: min(100%, 400px);
-  padding: clamp(24px, 4vh, 36px);
-  border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--card);
-  backdrop-filter: blur(12px);
   box-shadow: 0 16px 40px rgba(26, 26, 26, 0.06);
+}
+
+.login-card-spotlight-wrapper .spotlight-card-content {
+  padding: clamp(24px, 4vh, 36px);
+  display: flex;
+  flex-direction: column;
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.magnet-button-wrapper {
+  width: 100%;
 }
 
 .login-card-icon {
@@ -456,14 +508,14 @@ button {
 
 .notice.error {
   margin-bottom: 18px;
-  color: #a02828;
+  color: var(--red);
   border-color: rgba(221, 68, 68, 0.2);
   background: var(--red-light);
 }
 
 .notice.success {
   margin-bottom: 18px;
-  color: #1c7a4a;
+  color: var(--green);
   border-color: rgba(45, 168, 107, 0.22);
   background: var(--green-light);
 }
@@ -1559,7 +1611,7 @@ td:first-child {
 }
 
 .status-badge.on_track {
-  color: #1c7a4a;
+  color: var(--green);
   background: var(--green-light);
 }
 
@@ -1568,7 +1620,7 @@ td:first-child {
 }
 
 .status-badge.at_risk {
-  color: #8b6914;
+  color: var(--amber);
   background: var(--amber-light);
 }
 
@@ -1577,7 +1629,7 @@ td:first-child {
 }
 
 .status-badge.off_track {
-  color: #a02828;
+  color: var(--red);
   background: var(--red-light);
 }
 
@@ -1586,7 +1638,7 @@ td:first-child {
 }
 
 .status-badge.active {
-  color: #1c7a4a;
+  color: var(--green);
   background: var(--green-light);
 }
 
@@ -1595,7 +1647,7 @@ td:first-child {
 }
 
 .status-badge.paused {
-  color: #8b6914;
+  color: var(--amber);
   background: var(--amber-light);
 }
 
@@ -1622,7 +1674,7 @@ td:first-child {
 }
 
 .status-badge.open {
-  color: #a02828;
+  color: var(--red);
   background: var(--red-light);
 }
 
@@ -1631,7 +1683,7 @@ td:first-child {
 }
 
 .status-badge.resolved {
-  color: #1c7a4a;
+  color: var(--green);
   background: var(--green-light);
 }
 
@@ -3037,7 +3089,7 @@ tbody tr.selected-row {
 }
 
 .status-badge.yet_to_start {
-  color: #8b6914;
+  color: var(--amber);
   background: var(--amber-light);
 }
 
@@ -3055,7 +3107,7 @@ tbody tr.selected-row {
 }
 
 .status-badge.blocked {
-  color: #a02828;
+  color: var(--red);
   background: var(--red-light);
 }
 
@@ -3064,7 +3116,7 @@ tbody tr.selected-row {
 }
 
 .status-badge.rework {
-  color: #a02828;
+  color: var(--red);
   background: var(--red-light);
 }
 
@@ -3074,7 +3126,7 @@ tbody tr.selected-row {
 
 .status-badge.task_approved_by_manager,
 .status-badge.task_approved_by_client {
-  color: #1c7a4a;
+  color: var(--green);
   background: var(--green-light);
 }
 
@@ -3902,6 +3954,389 @@ button:hover .btn-ripple,
   .grid {
     grid-template-columns: 1fr 1fr !important;
   }
+}
+
+/* Dark Mode Toggle Switch Styles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.switch #theme-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #2196f3;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.sun-moon {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: yellow;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+}
+
+#theme-toggle-input:checked + .slider {
+  background-color: #0d0d11;
+}
+
+#theme-toggle-input:focus + .slider {
+  box-shadow: 0 0 1px #2196f3;
+}
+
+#theme-toggle-input:checked + .slider .sun-moon {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(26px);
+  background-color: #f2f2f5;
+  -webkit-animation: rotate-center 0.6s ease-in-out both;
+  animation: rotate-center 0.6s ease-in-out both;
+}
+
+.moon-dot {
+  opacity: 0;
+  transition: 0.4s;
+  fill: #828293;
+}
+
+#theme-toggle-input:checked + .slider .sun-moon .moon-dot {
+  opacity: 1;
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round .sun-moon {
+  border-radius: 50%;
+}
+
+#moon-dot-1 {
+  left: 10px;
+  top: 3px;
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  z-index: 4;
+}
+
+#moon-dot-2 {
+  left: 2px;
+  top: 10px;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  z-index: 4;
+}
+
+#moon-dot-3 {
+  left: 16px;
+  top: 18px;
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  z-index: 4;
+}
+
+#light-ray-1 {
+  left: -8px;
+  top: -8px;
+  position: absolute;
+  width: 43px;
+  height: 43px;
+  z-index: -1;
+  fill: white;
+  opacity: 10%;
+}
+
+#light-ray-2 {
+  left: -50%;
+  top: -50%;
+  position: absolute;
+  width: 55px;
+  height: 55px;
+  z-index: -1;
+  fill: white;
+  opacity: 10%;
+}
+
+#light-ray-3 {
+  left: -18px;
+  top: -18px;
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  z-index: -1;
+  fill: white;
+  opacity: 10%;
+}
+
+.cloud-light {
+  position: absolute;
+  fill: #eee;
+  animation-name: cloud-move;
+  animation-duration: 6s;
+  animation-iteration-count: infinite;
+}
+
+.cloud-dark {
+  position: absolute;
+  fill: #ccc;
+  animation-name: cloud-move;
+  animation-duration: 6s;
+  animation-iteration-count: infinite;
+  animation-delay: 1s;
+}
+
+#cloud-1 {
+  left: 30px;
+  top: 15px;
+  width: 40px;
+}
+
+#cloud-2 {
+  left: 44px;
+  top: 10px;
+  width: 20px;
+}
+
+#cloud-3 {
+  left: 18px;
+  top: 24px;
+  width: 30px;
+}
+
+#cloud-4 {
+  left: 36px;
+  top: 18px;
+  width: 40px;
+}
+
+#cloud-5 {
+  left: 48px;
+  top: 14px;
+  width: 20px;
+}
+
+#cloud-6 {
+  left: 22px;
+  top: 26px;
+  width: 30px;
+}
+
+@keyframes cloud-move {
+  0% {
+    transform: translateX(0px);
+  }
+
+  40% {
+    transform: translateX(4px);
+  }
+
+  80% {
+    transform: translateX(-4px);
+  }
+
+  100% {
+    transform: translateX(0px);
+  }
+}
+
+.stars {
+  transform: translateY(-32px);
+  opacity: 0;
+  transition: 0.4s;
+}
+
+.star {
+  fill: white;
+  position: absolute;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+  animation-name: star-twinkle;
+  animation-duration: 2s;
+  animation-iteration-count: infinite;
+}
+
+#theme-toggle-input:checked + .slider .stars {
+  -webkit-transform: translateY(0);
+  -ms-transform: translateY(0);
+  transform: translateY(0);
+  opacity: 1;
+}
+
+#star-1 {
+  width: 20px;
+  top: 2px;
+  left: 3px;
+  animation-delay: 0.3s;
+}
+
+#star-2 {
+  width: 6px;
+  top: 16px;
+  left: 3px;
+}
+
+#star-3 {
+  width: 12px;
+  top: 20px;
+  left: 10px;
+  animation-delay: 0.6s;
+}
+
+#star-4 {
+  width: 18px;
+  top: 0px;
+  left: 18px;
+  animation-delay: 1.3s;
+}
+
+@keyframes star-twinkle {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.2);
+  }
+
+  80% {
+    transform: scale(0.8);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Custom dark mode micro-adjustments for background animations & shadows */
+.dark .aurora-blob {
+  mix-blend-mode: screen;
+  filter: opacity(0.35);
+}
+
+.dark .login-story::before {
+  background: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.dark .feature-card-spotlight {
+  background: rgba(24, 24, 29, 0.65);
+  border: 1px solid rgba(37, 37, 44, 0.65);
+}
+
+.dark .feature-card-spotlight:hover {
+  border-color: rgba(90, 139, 250, 0.25);
+  box-shadow: 0 10px 30px rgba(90, 139, 250, 0.04);
+}
+
+.dark .login-card-spotlight-wrapper {
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+}
+
+.dark .topbar {
+  background: rgba(18, 18, 22, 0.92);
+}
+
+/* Dark Mode hover borders and shadow adjustments to match brand blue */
+.dark .metric-card:hover {
+  border-color: rgba(90, 139, 250, 0.25);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.dark .panel:hover {
+  border-color: rgba(90, 139, 250, 0.25);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.dark .overview-task-card:hover {
+  border-color: rgba(90, 139, 250, 0.35);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.25);
+}
+
+.dark .ai-chat-launcher {
+  border-color: rgba(90, 139, 250, 0.35);
+  box-shadow: 0 18px 44px rgba(90, 139, 250, 0.28);
+}
+
+.dark .ai-chat-options button.active {
+  border-color: rgba(90, 139, 250, 0.35);
+}
+
+.dark .notification-row.unread {
+  border-color: rgba(90, 139, 250, 0.35);
+}
+
+.dark .stepper-item.active {
+  border-color: rgba(90, 139, 250, 0.35);
+}
+
+.dark .team-member-list-item.active,
+.dark .team-member-list-item:hover {
+  border-color: rgba(90, 139, 250, 0.35);
+}
+
+.dark .blocker-list-item.active,
+.dark .blocker-list-item:hover {
+  border-color: rgba(90, 139, 250, 0.35);
+}
+
+.dark .workflow-list-item.active,
+.dark .workflow-list-item:hover {
+  border-color: rgba(90, 139, 250, 0.35);
+}
+
+.dark .task-card.drop-target {
+  border-color: rgba(90, 139, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(90, 139, 250, 0.15);
+}
+
+/* Premium Dark Mode custom scrollbars */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #393944;
+  border-radius: 999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4e4e5d;
+}
+
+.dark {
+  scrollbar-color: #393944 transparent;
+  scrollbar-width: thin;
 }
 
 

@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { CountUp } from '../../components/ui/CountUp'
 import {
   Filter,
   Activity,
@@ -606,13 +607,13 @@ function RoleDashboard({
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '8px 12px',
-                    background: 'rgba(255, 255, 255, 0.02)',
+                    background: 'var(--bg)',
                     borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--border)',
                   }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '500', color: '#fff' }}>{t.title}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)' }}>{t.title}</span>
                     <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{t.client.name}</span>
                   </div>
                   <span className={`status-badge ${t.status}`} style={{ fontSize: '10px' }}>
@@ -844,7 +845,7 @@ function MetricCard({
     <article className="metric-card" data-testid={`metric-${label.toLowerCase().replaceAll(' ', '-')}`}>
       <div className={`metric-icon ${tone}`}>{icon}</div>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>{typeof value === 'number' ? <CountUp end={value} /> : value}</strong>
       <p>{detail}</p>
     </article>
   )
