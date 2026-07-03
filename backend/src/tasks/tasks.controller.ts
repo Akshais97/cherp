@@ -13,6 +13,28 @@ import { ReviewTaskDto } from './dto/review-task.dto'
 import { UpdateTaskDto } from './dto/update-task.dto'
 import { TasksService } from './tasks.service'
 
+const toUuidArray = (val: any, allowUnassigned = false): string[] | undefined => {
+  if (!val) return undefined
+  const arr = Array.isArray(val) ? val : [val]
+  const clean = arr
+    .map(v => typeof v === 'string' ? v.trim() : v)
+    .filter(v => {
+      if (!v) return false
+      if (allowUnassigned && v === 'unassigned') return true
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+    })
+  return clean.length > 0 ? clean : undefined
+}
+
+const toStringArray = (val: any): string[] | undefined => {
+  if (!val) return undefined
+  const arr = Array.isArray(val) ? val : [val]
+  const clean = arr
+    .map(v => typeof v === 'string' ? v.trim() : v)
+    .filter(Boolean)
+  return clean.length > 0 ? clean : undefined
+}
+
 @ApiTags('Tasks')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -40,6 +62,36 @@ export class TasksController {
     return this.service.getDailyReport(date, user)
   }
 
+  @Get('analytics')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Retrieves task analytics aggregated counts.' })
+  getAnalytics(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('userId') targetUserId?: string,
+    @Query('clientIds') clientIds?: string[],
+    @Query('assigneeIds') assigneeIds?: string[],
+    @Query('labels') labels?: string[],
+    @Query('priorities') priorities?: string[],
+    @Query('statuses') statuses?: string[],
+    @Query('slots') slots?: string[],
+    @Query('searchText') searchText?: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    return this.service.findAnalyticsSummary({
+      startDate,
+      endDate,
+      targetUserId,
+      clientIds: toUuidArray(clientIds),
+      assigneeIds: toUuidArray(assigneeIds, true),
+      labels: toStringArray(labels),
+      priorities: toStringArray(priorities),
+      statuses: toStringArray(statuses),
+      slots: toStringArray(slots),
+      searchText,
+    }, user!)
+  }
+
   @Get(':id')
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Retrieves a single task.' })
@@ -52,14 +104,32 @@ export class TasksController {
 
   @Get()
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
-  @ApiOkResponse({ description: 'Retrieves all tasks matching the user access scopes and optional date filters.' })
+  @ApiOkResponse({ description: 'Retrieves all tasks matching the user access scopes and optional filters.' })
   findMany(
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
-    @Query('userId') targetUserId: string,
-    @CurrentUser() user: RequestUser,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('userId') targetUserId?: string,
+    @Query('clientIds') clientIds?: string[],
+    @Query('assigneeIds') assigneeIds?: string[],
+    @Query('labels') labels?: string[],
+    @Query('priorities') priorities?: string[],
+    @Query('statuses') statuses?: string[],
+    @Query('slots') slots?: string[],
+    @Query('searchText') searchText?: string,
+    @CurrentUser() user?: RequestUser,
   ) {
-    return this.service.findMany({ startDate, endDate, targetUserId }, user)
+    return this.service.findMany({
+      startDate,
+      endDate,
+      targetUserId,
+      clientIds: toUuidArray(clientIds),
+      assigneeIds: toUuidArray(assigneeIds, true),
+      labels: toStringArray(labels),
+      priorities: toStringArray(priorities),
+      statuses: toStringArray(statuses),
+      slots: toStringArray(slots),
+      searchText,
+    }, user!)
   }
 
   @Patch(':id')

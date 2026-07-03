@@ -50,7 +50,7 @@ export class ClientsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Updates tenant client profile fields.' })
   update(
     @Param('id') id: string,
@@ -58,6 +58,13 @@ export class ClientsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.service.update(id, dto, user)
+  }
+
+  @Get(':id/logs')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Retrieves client modification log history.' })
+  getLogs(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.service.getLogs(id, user)
   }
 
   @Patch(':id/status')

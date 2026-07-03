@@ -84,4 +84,39 @@ export class UpdateTaskDto {
   @ValidateIf((o, v) => v !== null)
   @IsUUID()
   client_id?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsDateString()
+  start_date?: string | null
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsString({ each: true })
+  labels?: string[]
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsUUID()
+  recurrence_series_id?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsString()
+  recurrence_rule?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsDateString()
+  recurrence_end_date?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsString()
+  recurrence_type?: string | null
 }

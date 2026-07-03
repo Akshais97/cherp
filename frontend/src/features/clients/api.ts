@@ -32,6 +32,18 @@ export type ClientRow = {
   contract_end?: string
   payment_terms?: string
   renewal_date?: string
+  brand_url?: string
+  instagram_profile?: string
+  social_profiles?: any
+  brand_guidelines?: string
+  logo_assets?: any
+  color_palette?: any
+  fonts?: any
+  target_audience?: string
+  competitor_list?: any
+  positioning_statement?: string
+  campaign_history?: any
+  communication_history?: any
   created_at: string
 }
 
@@ -132,4 +144,27 @@ export function updateScopeTemplate(id: string, payload: Partial<ScopeTemplate>)
   return apiClient
     .patch<ScopeTemplate>(`/scope-templates/${id}`, payload)
     .then((res) => res.data)
+}
+
+export type ClientLog = {
+  id: string
+  action_type: string
+  entity_type: string
+  entity_id: string
+  before_values: any
+  after_values: any
+  created_at: string
+  user?: {
+    id: string
+    full_name: string
+    role?: {
+      name: string
+    }
+  }
+}
+
+export function getClientLogs(clientId: string) {
+  return apiClient
+    .get<ClientLog[]>(`/clients/${clientId}/logs`)
+    .then((response) => response.data)
 }

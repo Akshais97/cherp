@@ -64,4 +64,38 @@ export class CreateTaskDto {
   @IsOptional()
   @IsUUID()
   workflow_id?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  start_date?: string
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsString({ each: true })
+  labels?: string[]
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsUUID()
+  recurrence_series_id?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsString()
+  recurrence_rule?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsDateString()
+  recurrence_end_date?: string | null
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @ValidateIf((o, v) => v !== null)
+  @IsString()
+  recurrence_type?: string | null
 }

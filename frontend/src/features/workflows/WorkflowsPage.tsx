@@ -4,8 +4,9 @@ import {
   GripVertical,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useForm } from 'react-hook-form'
-import { InteractiveTaskDetailModal } from '../tasks/TasksOverviewPage'
+import { TaskDetailsDrawer } from '../tasks/components/TaskDetailsDrawer'
 import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
 import { canManageTasks } from '../../lib/permissions/roles'
@@ -560,14 +561,16 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
         ))}
       </div>
       {dragState && draggedTask ? (
-        <TaskDragOverlay dragState={dragState} task={draggedTask} />
+        createPortal(
+          <TaskDragOverlay dragState={dragState} task={draggedTask} />,
+          document.body
+        )
       ) : null}
 
       {selectedTask ? (
-        <InteractiveTaskDetailModal
+        <TaskDetailsDrawer
           task={selectedTask}
           users={users}
-          currentUser={currentUser}
           onClose={() => setSelectedTask(null)}
           onSuccess={() => {
             refreshWorkflow()
@@ -577,6 +580,10 @@ function WorkflowDetailPanel({ workflowId }: { workflowId: string | null }) {
             } else {
               setSelectedTask(null)
             }
+          }}
+          onUpdateTask={async (taskId, fields) => {
+            await updateTask(taskId, fields)
+            refreshWorkflow()
           }}
         />
       ) : null}

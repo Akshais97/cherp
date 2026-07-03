@@ -28,12 +28,13 @@ export function SpotlightCard({
       ref={cardRef}
       className={`spotlight-card ${className}`}
       onMouseMove={handleMouseMove}
+      {...props}
       style={{
         ['--spotlight-color' as any]: spotlightColor,
         ['--x' as any]: `${coords.x}px`,
         ['--y' as any]: `${coords.y}px`,
+        ...props.style
       } as React.CSSProperties}
-      {...props}
     >
       <div className="spotlight-card-border" />
       <div className="spotlight-card-content">{children}</div>

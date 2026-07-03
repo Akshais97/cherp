@@ -16,6 +16,12 @@ model Tenant {
   slug       String   @unique
   created_at DateTime @default(now()) @db.Timestamptz
 
+  // Teams Integration settings
+  teams_enabled        Boolean  @default(false)
+  teams_tenant_id      String?
+  teams_client_id      String?
+  teams_client_secret  String?
+
   users             User[]
   clients           Client[]
   scope_templates   ScopeTemplate[]
@@ -53,6 +59,7 @@ model User {
   role_id          String    @db.Uuid
   auth_user_id     String    @unique @db.Uuid
   email            String
+  microsoft_id     String?   @unique
   full_name        String
   avatar_url       String?
   is_active        Boolean   @default(true)
@@ -219,6 +226,12 @@ model Task {
   priority       String    @default("medium")
   sort_order     Int       @default(0)
   due_date       DateTime? @db.Timestamptz
+  start_date     DateTime? @db.Date
+  labels         String[]  @default([])
+  recurrence_series_id String?   @db.Uuid
+  recurrence_rule      String?
+  recurrence_end_date  DateTime? @db.Date
+  recurrence_type      String?
   depends_on     String[]  @db.Uuid
   is_subtask     Boolean   @default(false)
   is_daily       Boolean   @default(false)

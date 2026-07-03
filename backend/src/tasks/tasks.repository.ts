@@ -12,6 +12,13 @@ export class TasksRepository {
     role: string
     startDate?: string
     endDate?: string
+    clientIds?: string[]
+    assigneeIds?: string[]
+    labels?: string[]
+    priorities?: string[]
+    statuses?: string[]
+    slots?: string[]
+    searchText?: string
   }) {
     const { tenantId, userId, role, startDate, endDate } = input
     const where: Prisma.TaskWhereInput = {
@@ -75,6 +82,76 @@ export class TasksRepository {
       })
     }
 
+    if (input.clientIds && input.clientIds.length > 0) {
+      andConditions.push({
+        OR: [
+          { client_id: { in: input.clientIds } },
+          { workflow: { client_id: { in: input.clientIds } } }
+        ]
+      })
+    }
+
+    if (input.assigneeIds && input.assigneeIds.length > 0) {
+      const hasUnassigned = input.assigneeIds.includes('unassigned')
+      const ids = input.assigneeIds.filter(id => id !== 'unassigned')
+      if (hasUnassigned) {
+        andConditions.push({
+          OR: [
+            { assigned_to: null },
+            { assigned_to: { in: ids } }
+          ]
+        })
+      } else {
+        andConditions.push({ assigned_to: { in: ids } })
+      }
+    }
+
+    if (input.labels && input.labels.length > 0) {
+      andConditions.push({ labels: { hasSome: input.labels } })
+    }
+
+    if (input.priorities && input.priorities.length > 0) {
+      andConditions.push({ priority: { in: input.priorities } })
+    }
+
+    if (input.statuses && input.statuses.length > 0) {
+      const hasLate = input.statuses.includes('late')
+      const otherStatuses = input.statuses.filter(s => s !== 'late')
+      const conditions: Prisma.TaskWhereInput[] = []
+      if (otherStatuses.length > 0) {
+        conditions.push({ status: { in: otherStatuses } })
+      }
+      if (hasLate) {
+        conditions.push({
+          status: { notIn: ['completed', 'task_approved_by_manager', 'task_approved_by_client'] },
+          due_date: { lt: new Date() },
+          is_daily: false
+        })
+      }
+      andConditions.push({ OR: conditions })
+    }
+
+    if (input.slots && input.slots.length > 0) {
+      const hasUnslotted = input.slots.includes('unslotted')
+      const values = input.slots.filter(s => s !== 'unslotted')
+      if (hasUnslotted) {
+        andConditions.push({
+          OR: [
+            { slot: null },
+            { slot: { in: values } }
+          ]
+        })
+      } else {
+        andConditions.push({ slot: { in: values } })
+      }
+    }
+
+    if (input.searchText) {
+      andConditions.push({
+        title: { contains: input.searchText, mode: 'insensitive' }
+      })
+    }
+
     if (andConditions.length > 0) {
       where.AND = andConditions
     }
@@ -87,6 +164,12 @@ export class TasksRepository {
         status: true,
         priority: true,
         due_date: true,
+        start_date: true,
+        labels: true,
+        recurrence_series_id: true,
+        recurrence_rule: true,
+        recurrence_end_date: true,
+        recurrence_type: true,
         is_daily: true,
         workflow_id: true,
         client_id: true,
@@ -97,6 +180,7 @@ export class TasksRepository {
             id: true,
             full_name: true,
             email: true,
+            avatar_url: true,
           },
         },
         workflow: {
@@ -112,8 +196,237 @@ export class TasksRepository {
           },
         },
       },
-      orderBy: { due_date: 'asc' },
+      orderBy: [
+        { slot: 'asc' },
+        { priority: 'asc' },
+        { due_date: 'asc' },
+        { sort_order: 'asc' }
+      ]
     })
+  }
+
+  async findAnalyticsSummary(input: {
+    tenantId: string
+    userId: string
+    role: string
+    startDate?: string
+    endDate?: string
+    clientIds?: string[]
+    assigneeIds?: string[]
+    labels?: string[]
+    priorities?: string[]
+    statuses?: string[]
+    slots?: string[]
+    searchText?: string
+  }) {
+    const { tenantId, userId, role, startDate, endDate } = input
+    const where: Prisma.TaskWhereInput = {
+      tenant_id: tenantId,
+    }
+
+    const andConditions: Prisma.TaskWhereInput[] = []
+
+    if (role === 'team_member') {
+      andConditions.push({ assigned_to: userId })
+    } else if (role === 'project_manager') {
+      andConditions.push({
+        OR: [
+          { assigned_to: userId },
+          { assignee: { role: { name: 'team_member' } } },
+          { assigned_to: null },
+        ]
+      })
+    }
+
+    if (role !== 'super_admin') {
+      andConditions.push({
+        OR: [
+          {
+            workflow: {
+              client: {
+                client_users: {
+                  some: {
+                    user_id: userId,
+                  },
+                },
+              },
+            },
+          },
+          {
+            client: {
+              client_users: {
+                some: {
+                  user_id: userId,
+                },
+              },
+            },
+          },
+        ]
+      })
+    }
+
+    if (startDate && endDate) {
+      andConditions.push({
+        OR: [
+          {
+            due_date: {
+              gte: new Date(startDate),
+              lte: new Date(endDate),
+            },
+          },
+          {
+            is_daily: true,
+          },
+        ],
+      })
+    }
+
+    if (input.clientIds && input.clientIds.length > 0) {
+      andConditions.push({
+        OR: [
+          { client_id: { in: input.clientIds } },
+          { workflow: { client_id: { in: input.clientIds } } }
+        ]
+      })
+    }
+
+    if (input.assigneeIds && input.assigneeIds.length > 0) {
+      const hasUnassigned = input.assigneeIds.includes('unassigned')
+      const ids = input.assigneeIds.filter(id => id !== 'unassigned')
+      if (hasUnassigned) {
+        andConditions.push({
+          OR: [
+            { assigned_to: null },
+            { assigned_to: { in: ids } }
+          ]
+        })
+      } else {
+        andConditions.push({ assigned_to: { in: ids } })
+      }
+    }
+
+    if (input.labels && input.labels.length > 0) {
+      andConditions.push({ labels: { hasSome: input.labels } })
+    }
+
+    if (input.priorities && input.priorities.length > 0) {
+      andConditions.push({ priority: { in: input.priorities } })
+    }
+
+    if (input.statuses && input.statuses.length > 0) {
+      const hasLate = input.statuses.includes('late')
+      const otherStatuses = input.statuses.filter(s => s !== 'late')
+      const conditions: Prisma.TaskWhereInput[] = []
+      if (otherStatuses.length > 0) {
+        conditions.push({ status: { in: otherStatuses } })
+      }
+      if (hasLate) {
+        conditions.push({
+          status: { notIn: ['completed', 'task_approved_by_manager', 'task_approved_by_client'] },
+          due_date: { lt: new Date() },
+          is_daily: false
+        })
+      }
+      andConditions.push({ OR: conditions })
+    }
+
+    if (input.slots && input.slots.length > 0) {
+      const hasUnslotted = input.slots.includes('unslotted')
+      const values = input.slots.filter(s => s !== 'unslotted')
+      if (hasUnslotted) {
+        andConditions.push({
+          OR: [
+            { slot: null },
+            { slot: { in: values } }
+          ]
+        })
+      } else {
+        andConditions.push({ slot: { in: values } })
+      }
+    }
+
+    if (input.searchText) {
+      andConditions.push({
+        title: { contains: input.searchText, mode: 'insensitive' }
+      })
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions
+    }
+
+    const tasks = await this.prisma.task.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        priority: true,
+        due_date: true,
+        is_daily: true,
+        client: { select: { id: true, name: true } },
+        workflow: { select: { client: { select: { id: true, name: true } } } },
+        assignee: { select: { id: true, full_name: true } }
+      }
+    })
+
+    const statusCounts = { yet_to_start: 0, ongoing: 0, blocked: 0, completed: 0, late: 0 }
+    const priorityCounts: Record<string, { yet_to_start: number; ongoing: number; blocked: number; completed: number; late: number }> = {
+      high: { yet_to_start: 0, ongoing: 0, blocked: 0, completed: 0, late: 0 },
+      medium: { yet_to_start: 0, ongoing: 0, blocked: 0, completed: 0, late: 0 },
+      low: { yet_to_start: 0, ongoing: 0, blocked: 0, completed: 0, late: 0 }
+    }
+    const clientCounts: Record<string, { name: string; yet_to_start: number; ongoing: number; blocked: number; completed: number; late: number }> = {}
+    const memberCounts: Record<string, { name: string; yet_to_start: number; ongoing: number; blocked: number; completed: number; late: number }> = {}
+
+    const completedStates = ['completed', 'task_approved_by_manager', 'task_approved_by_client']
+    const now = new Date()
+
+    for (const task of tasks) {
+      let resolvedStatus = task.status
+      const isCompleted = completedStates.includes(task.status)
+      const isOverdue = task.due_date && new Date(task.due_date) < now && !task.is_daily
+      
+      if (!isCompleted && isOverdue) {
+        resolvedStatus = 'late'
+      } else if (isCompleted) {
+        resolvedStatus = 'completed'
+      }
+
+      if (resolvedStatus in statusCounts) {
+        statusCounts[resolvedStatus as keyof typeof statusCounts]++
+      }
+
+      const prio = task.priority || 'medium'
+      if (priorityCounts[prio] && resolvedStatus in priorityCounts[prio]) {
+        priorityCounts[prio][resolvedStatus as keyof typeof statusCounts]++
+      }
+
+      const clientObj = task.client || task.workflow?.client
+      const clientId = clientObj?.id || 'internal'
+      const clientName = clientObj?.name || 'Internal'
+      if (!clientCounts[clientId]) {
+        clientCounts[clientId] = { name: clientName, yet_to_start: 0, ongoing: 0, blocked: 0, completed: 0, late: 0 }
+      }
+      if (resolvedStatus in clientCounts[clientId]) {
+        clientCounts[clientId][resolvedStatus as keyof typeof statusCounts]++
+      }
+
+      const memberId = task.assignee?.id || 'unassigned'
+      const memberName = task.assignee?.full_name || 'Unassigned'
+      if (!memberCounts[memberId]) {
+        memberCounts[memberId] = { name: memberName, yet_to_start: 0, ongoing: 0, blocked: 0, completed: 0, late: 0 }
+      }
+      if (resolvedStatus in memberCounts[memberId]) {
+        memberCounts[memberId][resolvedStatus as keyof typeof statusCounts]++
+      }
+    }
+
+    return {
+      statusCounts,
+      priorityCounts,
+      clientCounts,
+      memberCounts
+    }
   }
 
   findWorkflowForCreate(input: { tenantId: string; workflowId: string }) {
@@ -157,6 +470,12 @@ export class TasksRepository {
         priority: true,
         sort_order: true,
         due_date: true,
+        start_date: true,
+        labels: true,
+        recurrence_series_id: true,
+        recurrence_rule: true,
+        recurrence_end_date: true,
+        recurrence_type: true,
         is_daily: true,
         completed_at: true,
         checklist: true,
@@ -279,24 +598,52 @@ export class TasksRepository {
         { key: 'description', label: 'description' },
         { key: 'status', label: 'status' },
         { key: 'priority', label: 'priority' },
+        { key: 'slot', label: 'slot' },
+        { key: 'start_date', label: 'start_date' },
+        { key: 'recurrence_rule', label: 'recurrence_rule' },
       ]
 
       for (const field of fieldsToCompare) {
         const oldValue = before[field.key]
         const newValue = after[field.key]
-        if (oldValue !== newValue) {
+        
+        let normalizedOld = oldValue
+        let normalizedNew = newValue
+        if (field.key === 'start_date') {
+          normalizedOld = oldValue ? new Date(oldValue).toISOString().slice(0, 10) : null
+          normalizedNew = newValue ? new Date(newValue).toISOString().slice(0, 10) : null
+        }
+
+        if (normalizedOld !== normalizedNew) {
           await tx.taskLog.create({
             data: {
               tenant_id: input.tenantId,
               task_id: input.taskId,
               user_id: input.userId,
               field: field.label,
-              old_value: oldValue ? String(oldValue) : null,
-              new_value: newValue ? String(newValue) : null,
+              old_value: normalizedOld ? String(normalizedOld) : null,
+              new_value: normalizedNew ? String(normalizedNew) : null,
               reason: input.reason || null,
             }
           })
         }
+      }
+
+      // Compare labels
+      const oldLabelsStr = before.labels ? JSON.stringify(before.labels) : '[]'
+      const newLabelsStr = task.labels ? JSON.stringify(task.labels) : '[]'
+      if (oldLabelsStr !== newLabelsStr) {
+        await tx.taskLog.create({
+          data: {
+            tenant_id: input.tenantId,
+            task_id: input.taskId,
+            user_id: input.userId,
+            field: 'labels',
+            old_value: oldLabelsStr,
+            new_value: newLabelsStr,
+            reason: input.reason || null,
+          }
+        })
       }
 
       // Compare assignee
@@ -586,6 +933,12 @@ export class TasksRepository {
       priority: true,
       sort_order: true,
       due_date: true,
+      start_date: true,
+      labels: true,
+      recurrence_series_id: true,
+      recurrence_rule: true,
+      recurrence_end_date: true,
+      recurrence_type: true,
       completed_at: true,
       checklist: true,
       slot: true,

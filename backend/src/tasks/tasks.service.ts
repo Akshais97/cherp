@@ -45,7 +45,21 @@ export class TasksService {
     @Optional() private readonly notifications?: NotificationsService,
   ) {}
 
-  async findMany(query: { startDate?: string; endDate?: string; targetUserId?: string }, user: RequestUser) {
+  async findMany(
+    query: {
+      startDate?: string
+      endDate?: string
+      targetUserId?: string
+      clientIds?: string[]
+      assigneeIds?: string[]
+      labels?: string[]
+      priorities?: string[]
+      statuses?: string[]
+      slots?: string[]
+      searchText?: string
+    },
+    user: RequestUser
+  ) {
     let userIdToQuery = user.id
     let roleToQuery = user.role as string
 
@@ -63,6 +77,55 @@ export class TasksService {
       role: roleToQuery,
       startDate: query.startDate,
       endDate: query.endDate,
+      clientIds: query.clientIds,
+      assigneeIds: query.assigneeIds,
+      labels: query.labels,
+      priorities: query.priorities,
+      statuses: query.statuses,
+      slots: query.slots,
+      searchText: query.searchText,
+    })
+  }
+
+  async findAnalyticsSummary(
+    query: {
+      startDate?: string
+      endDate?: string
+      targetUserId?: string
+      clientIds?: string[]
+      assigneeIds?: string[]
+      labels?: string[]
+      priorities?: string[]
+      statuses?: string[]
+      slots?: string[]
+      searchText?: string
+    },
+    user: RequestUser
+  ) {
+    let userIdToQuery = user.id
+    let roleToQuery = user.role as string
+
+    if (query.targetUserId) {
+      if (user.role === UserRole.TeamMember && query.targetUserId !== user.id) {
+        throw new ForbiddenException('Team members can only view their own analytics.')
+      }
+      userIdToQuery = query.targetUserId
+      roleToQuery = UserRole.TeamMember
+    }
+
+    return this.repository.findAnalyticsSummary({
+      tenantId: user.tenantId,
+      userId: userIdToQuery,
+      role: roleToQuery,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      clientIds: query.clientIds,
+      assigneeIds: query.assigneeIds,
+      labels: query.labels,
+      priorities: query.priorities,
+      statuses: query.statuses,
+      slots: query.slots,
+      searchText: query.searchText,
     })
   }
 
@@ -111,6 +174,12 @@ export class TasksService {
         priority: dto.priority ?? 'medium',
         sort_order: dto.sort_order ?? (workflow ? workflow._count.tasks + 1 : 1),
         due_date: dto.due_date ? this.toDate(dto.due_date) : undefined,
+        start_date: dto.start_date ? this.toDate(dto.start_date) : undefined,
+        labels: dto.labels ?? [],
+        recurrence_series_id: dto.recurrence_series_id ?? null,
+        recurrence_rule: dto.recurrence_rule ?? null,
+        recurrence_end_date: dto.recurrence_end_date ? this.toDate(dto.recurrence_end_date) : undefined,
+        recurrence_type: dto.recurrence_type ?? null,
         is_daily: dto.is_daily ?? false,
         depends_on: [],
         is_subtask: false,
@@ -166,6 +235,12 @@ export class TasksService {
       ...(updateFields.priority !== undefined ? { priority: updateFields.priority } : {}),
       ...(updateFields.sort_order !== undefined ? { sort_order: updateFields.sort_order } : {}),
       ...(updateFields.due_date !== undefined ? { due_date: updateFields.due_date ? this.toDate(updateFields.due_date) : null } : {}),
+      ...(updateFields.start_date !== undefined ? { start_date: updateFields.start_date ? this.toDate(updateFields.start_date) : null } : {}),
+      ...(updateFields.labels !== undefined ? { labels: updateFields.labels } : {}),
+      ...(updateFields.recurrence_series_id !== undefined ? { recurrence_series_id: updateFields.recurrence_series_id } : {}),
+      ...(updateFields.recurrence_rule !== undefined ? { recurrence_rule: updateFields.recurrence_rule } : {}),
+      ...(updateFields.recurrence_end_date !== undefined ? { recurrence_end_date: updateFields.recurrence_end_date ? this.toDate(updateFields.recurrence_end_date) : null } : {}),
+      ...(updateFields.recurrence_type !== undefined ? { recurrence_type: updateFields.recurrence_type } : {}),
       ...(updateFields.is_daily !== undefined ? { is_daily: updateFields.is_daily } : {}),
       ...(checklist !== undefined ? { checklist } : {}),
       ...(updateFields.slot !== undefined ? { slot: updateFields.slot } : {}),
@@ -226,6 +301,10 @@ export class TasksService {
       })
     }
 
+    if (completing) {
+      await this.handleRecurrence(task, user)
+    }
+
     return task
   }
 
@@ -242,7 +321,7 @@ export class TasksService {
 
     this.assertTransition(existing.status as TaskStatus, 'completed')
 
-    return this.repository.updateWithCompletion({
+    const task = await this.repository.updateWithCompletion({
       tenantId: user.tenantId,
       userId: user.id,
       taskId: id,
@@ -255,6 +334,10 @@ export class TasksService {
       beforeValues: this.snapshot(existing),
       actionType: 'completed',
     })
+
+    await this.handleRecurrence(task, user)
+
+    return task
   }
 
   async delete(id: string, user: RequestUser) {
@@ -346,9 +429,16 @@ export class TasksService {
     assigned_to: string | null
     sort_order: number
     due_date: Date | null
+    start_date: Date | null
+    labels: string[]
+    recurrence_series_id: string | null
+    recurrence_rule: string | null
+    recurrence_end_date: Date | null
+    recurrence_type: string | null
     completed_by: string | null
     completed_at: Date | null
     checklist?: any
+    slot: string | null
   }): Prisma.InputJsonObject {
     return {
       title: task.title,
@@ -358,10 +448,83 @@ export class TasksService {
       assigned_to: task.assigned_to,
       sort_order: task.sort_order,
       due_date: task.due_date?.toISOString() ?? null,
+      start_date: task.start_date?.toISOString() ?? null,
+      labels: task.labels ?? [],
+      recurrence_series_id: task.recurrence_series_id,
+      recurrence_rule: task.recurrence_rule,
+      recurrence_end_date: task.recurrence_end_date?.toISOString() ?? null,
+      recurrence_type: task.recurrence_type,
       completed_by: task.completed_by,
       completed_at: task.completed_at?.toISOString() ?? null,
       checklist: task.checklist ?? [],
+      slot: task.slot,
     }
+  }
+
+  private async handleRecurrence(task: any, user: RequestUser) {
+    if (!task.recurrence_rule) return
+
+    const currentDueDate = task.due_date ? new Date(task.due_date) : new Date()
+    const nextDueDate = new Date(currentDueDate)
+
+    if (task.recurrence_rule === 'daily') {
+      nextDueDate.setDate(currentDueDate.getDate() + 1)
+    } else if (task.recurrence_rule === 'weekdays') {
+      nextDueDate.setDate(currentDueDate.getDate() + 1)
+      while (nextDueDate.getDay() === 0 || nextDueDate.getDay() === 6) {
+        nextDueDate.setDate(nextDueDate.getDate() + 1)
+      }
+    } else if (task.recurrence_rule === 'weekly') {
+      nextDueDate.setDate(currentDueDate.getDate() + 7)
+    } else {
+      nextDueDate.setDate(currentDueDate.getDate() + 1)
+    }
+
+    if (task.recurrence_end_date && nextDueDate > new Date(task.recurrence_end_date)) {
+      return
+    }
+
+    let nextChecklist = []
+    if (task.checklist) {
+      try {
+        const parsed = typeof task.checklist === 'string' ? JSON.parse(task.checklist) : task.checklist
+        if (Array.isArray(parsed)) {
+          nextChecklist = parsed.map((item: any) => ({ ...item, is_completed: false }))
+        }
+      } catch (e) {
+        nextChecklist = []
+      }
+    }
+
+    await this.repository.createWithCompletion({
+      tenantId: user.tenantId,
+      userId: user.id,
+      workflowId: task.workflow_id,
+      data: {
+        tenant: { connect: { id: user.tenantId } },
+        ...(task.workflow_id ? { workflow: { connect: { id: task.workflow_id } } } : {}),
+        ...(task.client_id ? { client: { connect: { id: task.client_id } } } : {}),
+        assignee: task.assigned_to ? { connect: { id: task.assigned_to } } : undefined,
+        assignor: { connect: { id: user.id } },
+        title: task.title,
+        description: task.description,
+        status: 'yet_to_start',
+        priority: task.priority || 'medium',
+        sort_order: task.sort_order || 1,
+        due_date: nextDueDate,
+        start_date: task.start_date ? new Date(task.start_date) : undefined,
+        labels: task.labels || [],
+        recurrence_series_id: task.recurrence_series_id || task.id,
+        recurrence_rule: task.recurrence_rule,
+        recurrence_end_date: task.recurrence_end_date ? new Date(task.recurrence_end_date) : undefined,
+        recurrence_type: task.recurrence_type,
+        checklist: nextChecklist,
+        is_daily: task.is_daily || false,
+        depends_on: [],
+        is_subtask: task.is_subtask || false,
+        slot: task.slot,
+      }
+    })
   }
 
   async getComments(id: string, user: RequestUser) {

@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common'
 import { RequestUser } from '../common/types/request-user.type'
 import { NotificationsRepository } from './notifications.repository'
+import { TeamsIntegrationService } from '../users/teams-integration.service'
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly repository: NotificationsRepository) {}
+  constructor(
+    private readonly repository: NotificationsRepository,
+    private readonly teamsService: TeamsIntegrationService,
+  ) {}
 
   list(user: RequestUser, unreadOnly = false) {
     return this.repository.findForUser({
@@ -76,6 +80,22 @@ export class NotificationsService {
         related_entity_id: input.taskId,
       })),
     )
+
+    // Dispatch to Microsoft Teams (non-blocking background task)
+    const title = this.notificationTitle(input.nextStatus)
+    const message = `${input.taskTitle} moved from ${input.previousStatus} to ${input.nextStatus}${input.clientName ? ` for ${input.clientName}` : ''}.`
+    Promise.all(
+      [...recipients].map((userId) =>
+        this.teamsService.sendNotification({
+          tenantId: input.tenantId,
+          userId,
+          title,
+          message,
+        }),
+      ),
+    ).catch((err) => {
+      console.error('Error dispatching Teams status change notifications:', err)
+    })
   }
 
   async notifyBlockerCreated(input: {
@@ -123,6 +143,22 @@ export class NotificationsService {
         related_entity_id: input.blockerId,
       })),
     )
+
+    // Dispatch to Microsoft Teams (non-blocking background task)
+    const title = 'Task blocker logged'
+    const message = `${input.blockerTitle} was logged on ${input.taskTitle}${input.clientName ? ` for ${input.clientName}` : ''}.`
+    Promise.all(
+      [...recipients].map((userId) =>
+        this.teamsService.sendNotification({
+          tenantId: input.tenantId,
+          userId,
+          title,
+          message,
+        }),
+      ),
+    ).catch((err) => {
+      console.error('Error dispatching Teams blocker notifications:', err)
+    })
   }
 
   private notificationType(status: string) {

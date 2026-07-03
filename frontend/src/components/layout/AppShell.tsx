@@ -5,10 +5,10 @@ import {
   Calendar,
   ClipboardList,
   Contact,
-  Copy,
   FileText,
   FolderOpen,
   LayoutDashboard,
+  LayoutTemplate,
   LogOut,
   Menu,
   Palette,
@@ -16,10 +16,12 @@ import {
   UserPlus,
   UserRoundCheck,
   Users,
+  Network
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../app/providers/useAuth'
+import { useTheme } from '../../app/providers/ThemeContext'
 import { NotificationsBell } from '../../features/notifications/NotificationsBell'
 import { AiChatWidget } from '../../features/ai-chat/AiChatWidget'
 import { AnalyticsPage } from '../../features/analytics/AnalyticsPage'
@@ -44,6 +46,7 @@ import { searchWorkspace, type SearchResult } from '../../features/dashboard/api
 import { ClientDashboardPage } from '../../features/dashboard/ClientDashboardPage'
 import { ScopeTemplatesPage } from '../../features/clients/ScopeTemplatesPage'
 import { DailyTaskReportPage } from '../../features/tasks/DailyTaskReportPage'
+import { IntegrationsPage } from '../../features/integrations/IntegrationsPage'
 
 type AppRoute =
   | 'dashboard'
@@ -61,6 +64,7 @@ type AppRoute =
   | 'client-dashboard'
   | 'scope-templates'
   | 'daily-report'
+  | 'integrations'
 
 const baseNavItems: {
   id: AppRoute
@@ -80,7 +84,7 @@ const baseNavItems: {
     label: 'Workflows',
     icon: <BriefcaseBusiness size={17} />,
   },
-  { id: 'scope-templates', label: 'Scope Templates', icon: <Copy size={17} /> },
+  { id: 'scope-templates', label: 'Scope Templates', icon: <LayoutTemplate size={17} /> },
   { id: 'team-members', label: 'Team Members', icon: <UserRoundCheck size={17} /> },
   { id: 'employee-profiles', label: 'Employee Profiles', icon: <Contact size={17} /> },
   { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={17} /> },
@@ -96,19 +100,7 @@ export function AppShell() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
-  })
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }, [theme])
+  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     const q = searchQuery.trim()
@@ -188,6 +180,22 @@ export function AppShell() {
         { id: 'users' as const, label: 'Users', icon: <Users size={17} /> },
       ]
     : operationalNavItems
+  
+  const finalNavItems = [...navItems]
+  if (currentUser?.email === 'akshaiofficial97@gmail.com') {
+    finalNavItems.push({
+      id: 'integrations' as any,
+      label: 'Integrations',
+      icon: <Network size={17} />
+    })
+  }
+
+  const matchingNavItems = searchQuery.trim().length >= 1
+    ? finalNavItems.filter((item) =>
+        item.label.toLowerCase().includes(searchQuery.trim().toLowerCase())
+      )
+    : []
+
   const initials = currentUser?.name
     .split(' ')
     .map((part) => part[0])
@@ -216,7 +224,7 @@ export function AppShell() {
 
         <nav aria-label="Primary navigation">
           <p>Operations</p>
-          {navItems.map((item) => (
+          {finalNavItems.map((item) => (
             <button
               className={activeRoute === item.id ? 'active' : ''}
               data-testid={`nav-${item.id}`}
@@ -264,9 +272,32 @@ export function AppShell() {
               />
               {searchLoading ? <span style={{ fontSize: '11px', color: 'var(--muted)', animation: 'pulse 1s infinite' }}>...</span> : null}
             </div>
-            {searchResults ? (
+            {(searchResults || matchingNavItems.length > 0) ? (
               <div className="search-dropdown">
-                {searchResults.clients.length > 0 ? (
+                {matchingNavItems.length > 0 ? (
+                  <div>
+                    <div className="search-group-title">Navigation Sections</div>
+                    {matchingNavItems.map((item) => (
+                      <button
+                        key={item.id}
+                        className="search-item"
+                        onClick={() => {
+                          setSearchQuery('')
+                          setSearchResults(null)
+                          setTargetWorkflowId(null)
+                          setRoute(item.id)
+                        }}
+                        type="button"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        {item.icon}
+                        <strong>{item.label}</strong>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {searchResults?.clients && searchResults.clients.length > 0 ? (
                   <div>
                     <div className="search-group-title">{currentUser?.role === 'team_member' ? 'Brands' : 'Clients'}</div>
                     {searchResults.clients.map((c) => (
@@ -276,7 +307,7 @@ export function AppShell() {
                     ))}
                   </div>
                 ) : null}
-                {searchResults.workflows.length > 0 ? (
+                {searchResults?.workflows && searchResults.workflows.length > 0 ? (
                   <div>
                     <div className="search-group-title">Workflows</div>
                     {searchResults.workflows.map((w) => (
@@ -287,7 +318,7 @@ export function AppShell() {
                     ))}
                   </div>
                 ) : null}
-                {searchResults.tasks.length > 0 ? (
+                {searchResults?.tasks && searchResults.tasks.length > 0 ? (
                   <div>
                     <div className="search-group-title">Tasks</div>
                     {searchResults.tasks.map((t) => (
@@ -298,7 +329,7 @@ export function AppShell() {
                     ))}
                   </div>
                 ) : null}
-                {searchResults.blockers.length > 0 ? (
+                {searchResults?.blockers && searchResults.blockers.length > 0 ? (
                   <div>
                     <div className="search-group-title">Blockers</div>
                     {searchResults.blockers.map((b) => (
@@ -309,7 +340,7 @@ export function AppShell() {
                     ))}
                   </div>
                 ) : null}
-                {searchResults.users.length > 0 ? (
+                {searchResults?.users && searchResults.users.length > 0 ? (
                   <div>
                     <div className="search-group-title">Team Members</div>
                     {searchResults.users.map((u) => (
@@ -320,11 +351,13 @@ export function AppShell() {
                     ))}
                   </div>
                 ) : null}
-                {searchResults.clients.length === 0 &&
+                {searchResults &&
+                searchResults.clients.length === 0 &&
                 searchResults.workflows.length === 0 &&
                 searchResults.tasks.length === 0 &&
                 searchResults.blockers.length === 0 &&
-                searchResults.users.length === 0 ? (
+                searchResults.users.length === 0 &&
+                matchingNavItems.length === 0 ? (
                   <div style={{ padding: '8px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>
                     No results found.
                   </div>
@@ -338,7 +371,7 @@ export function AppShell() {
               id="theme-toggle-input"
               type="checkbox"
               checked={theme === 'dark'}
-              onChange={() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))}
+              onChange={toggleTheme}
             />
             <div className="slider round">
               <div className="sun-moon">
@@ -433,6 +466,7 @@ export function AppShell() {
           {activeRoute === 'client-dashboard' ? <ClientDashboardPage /> : null}
           {activeRoute === 'scope-templates' ? <ScopeTemplatesPage /> : null}
           {activeRoute === 'daily-report' ? <DailyTaskReportPage /> : null}
+          {activeRoute === 'integrations' ? <IntegrationsPage /> : null}
             </motion.div>
           </AnimatePresence>
         </div>

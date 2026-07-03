@@ -11,6 +11,8 @@
   --muted: #9a9a9a;
   --blue: #3b6dd6;
   --blue-light: #eef4ff;
+  --accent: var(--blue);
+  --accent-light: var(--blue-light);
   --green: #2da86b;
   --green-light: #edfbf3;
   --amber: #d48806;
@@ -19,6 +21,8 @@
   --red-light: #fef0f0;
   --teal: #0e9aa7;
   --teal-light: #e6f9fa;
+  --hover-bg: var(--bg-secondary);
+  --secondary-text: var(--secondary);
   color: var(--text);
   background: var(--bg);
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -40,6 +44,8 @@
   --muted: #828293;
   --blue: #5a8bfa;
   --blue-light: #18223c;
+  --accent: var(--blue);
+  --accent-light: var(--blue-light);
   --green: #3ec285;
   --green-light: #152a20;
   --amber: #e29e25;
@@ -414,6 +420,19 @@ button {
   outline: 0;
   color: var(--text);
   background: transparent;
+}
+
+.field-control input:-webkit-autofill,
+.field-control input:-webkit-autofill:hover,
+.field-control input:-webkit-autofill:focus,
+.field-control input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--input) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.field-control:focus-within input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--blue-light) inset !important;
 }
 
 .field > input,
@@ -2889,14 +2908,18 @@ tbody tr.selected-row {
     transform 140ms ease;
 }
 
-.task-card.dragging {
-  opacity: 0.34;
-  transform: scale(0.995);
+.task-card.dragging,
+.ck-item.dragging,
+.task-board-card.dragging {
+  opacity: 0.34 !important;
+  transform: scale(0.995) !important;
 }
 
-.task-card.drop-target {
-  border-color: rgba(59, 109, 214, 0.52);
-  box-shadow: 0 0 0 3px rgba(59, 109, 214, 0.12);
+.task-card.drop-target,
+.ck-item.drop-target,
+.task-board-card.drop-target {
+  border-color: rgba(59, 109, 214, 0.52) !important;
+  box-shadow: 0 0 0 3px rgba(59, 109, 214, 0.12) !important;
 }
 
 .task-drag-preview {
@@ -4310,9 +4333,11 @@ button:hover .btn-ripple,
   border-color: rgba(90, 139, 250, 0.35);
 }
 
-.dark .task-card.drop-target {
-  border-color: rgba(90, 139, 250, 0.55);
-  box-shadow: 0 0 0 3px rgba(90, 139, 250, 0.15);
+.dark .task-card.drop-target,
+.dark .ck-item.drop-target,
+.dark .task-board-card.drop-target {
+  border-color: rgba(90, 139, 250, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(90, 139, 250, 0.15) !important;
 }
 
 /* Premium Dark Mode custom scrollbars */
@@ -4337,6 +4362,70 @@ button:hover .btn-ripple,
 .dark {
   scrollbar-color: #393944 transparent;
   scrollbar-width: thin;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Custom Toggle Switch */
+.custom-toggle-switch {
+  font-size: 17px;
+  position: relative;
+  display: inline-block;
+  width: 62px;
+  height: 35px;
+}
+
+/* Hide default HTML checkbox */
+.custom-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider */
+.custom-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0px;
+  background: #fff;
+  transition: .4s;
+  border-radius: 30px;
+  border: 1px solid #ccc;
+}
+
+.custom-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 1.9em;
+  width: 1.9em;
+  border-radius: 16px;
+  left: 1.2px;
+  top: 0;
+  bottom: 0;
+  background-color: white;
+  box-shadow: 0 2px 5px #999999;
+  transition: .4s;
+}
+
+.custom-toggle-switch input:checked + .custom-toggle-slider {
+  background-color: #5fdd54;
+  border: 1px solid transparent;
+}
+
+.custom-toggle-switch input:checked + .custom-toggle-slider:before {
+  transform: translateX(1.5em);
 }
 
 

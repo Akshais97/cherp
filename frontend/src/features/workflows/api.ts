@@ -16,6 +16,7 @@ export type UserOption = {
   email: string
   full_name: string
   role: { name: string; description: string }
+  avatar_url?: string
 }
 
 export type WorkflowRow = {
@@ -66,14 +67,20 @@ export type WorkflowTask = {
   completed_at?: string
   created_at: string
   updated_at: string
-  assignee?: { id: string; full_name: string; email: string }
-  completer?: { id: string; full_name: string; email: string }
+  assignee?: { id: string; full_name: string; email: string; avatar_url?: string }
+  completer?: { id: string; full_name: string; email: string; avatar_url?: string }
   open_blocker_count: number
   checklist?: ChecklistItem[]
   client?: { id: string; name: string } | null
   workflow?: { id: string; title: string; project_manager_id?: string | null; client?: { id: string; name: string } | null } | null
   assigned_by?: string | null
-  assignor?: { id: string; full_name: string; email: string } | null
+  assignor?: { id: string; full_name: string; email: string; avatar_url?: string } | null
+  start_date?: string | null
+  labels?: string[]
+  recurrence_series_id?: string | null
+  recurrence_rule?: string | null
+  recurrence_end_date?: string | null
+  recurrence_type?: string | null
 }
 
 export type WorkflowDetail = WorkflowRow & {
@@ -105,6 +112,7 @@ export type UpdateTaskPayload = Partial<{
   status: TaskStatus
   priority: TaskPriority
   due_date: string | null
+  start_date: string | null
   is_daily: boolean | null
   assigned_to: string | null
   sort_order: number
@@ -112,6 +120,10 @@ export type UpdateTaskPayload = Partial<{
   reason: string
   slot: string | null
   client_id: string | null
+  labels: string[]
+  recurrence_rule: string | null
+  recurrence_end_date: string | null
+  recurrence_type: string | null
 }>
 
 export function getWorkflows(filters?: WorkflowFilters) {
@@ -196,5 +208,13 @@ export function getTeamWorkloadSummary() {
 
 export function getTask(id: string) {
   return apiClient.get<WorkflowTask>(`/tasks/${id}`).then((response) => response.data)
+}
+
+export function getTasks(params?: any) {
+  return apiClient.get<WorkflowTask[]>('/tasks', { params }).then((response) => response.data)
+}
+
+export function createTask(payload: any) {
+  return apiClient.post<WorkflowTask>('/tasks', payload).then((response) => response.data)
 }
 
