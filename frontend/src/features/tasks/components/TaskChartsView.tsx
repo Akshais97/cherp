@@ -42,6 +42,26 @@ const statusDisplayLabels = {
   late: 'Late'
 }
 
+const getYAxisConfig = (maxCount: number) => {
+  if (maxCount <= 0) {
+    return { max: 8, ticks: [8, 6, 4, 2, 0] }
+  }
+  let step = 8
+  if (maxCount <= 6) step = 1
+  else if (maxCount <= 12) step = 2
+  else if (maxCount <= 24) step = 4
+  else if (maxCount <= 48) step = 8
+  else if (maxCount <= 60) step = 10
+  else if (maxCount <= 120) step = 20
+  else step = Math.ceil(maxCount / 6)
+
+  const ticks: number[] = []
+  for (let i = 6; i >= 0; i--) {
+    ticks.push(i * step)
+  }
+  return { max: 6 * step, ticks }
+}
+
 export function TaskChartsView({ filters }: TaskChartsViewProps) {
   const [hoveredDonutSegment, setHoveredDonutSegment] = useState<string | null>(null)
   
@@ -102,6 +122,36 @@ export function TaskChartsView({ filters }: TaskChartsViewProps) {
     const { yet_to_start, ongoing, blocked, late } = analytics.statusCounts
     return yet_to_start + ongoing + blocked + late
   }, [analytics])
+
+  const maxPriorityTotal = useMemo(() => {
+    if (!analytics) return 0
+    return Math.max(
+      ...Object.values(analytics.priorityCounts).map(counts =>
+        Object.values(counts).reduce((sum, val) => sum + val, 0)
+      )
+    )
+  }, [analytics])
+  const priorityYConfig = useMemo(() => getYAxisConfig(maxPriorityTotal), [maxPriorityTotal])
+
+  const maxClientTotal = useMemo(() => {
+    if (!analytics) return 0
+    const countsList = Object.values(analytics.clientCounts).map(data => {
+      const { name, ...counts } = data
+      return Object.values(counts).reduce((sum, val) => sum + val, 0)
+    })
+    return countsList.length > 0 ? Math.max(...countsList) : 0
+  }, [analytics])
+  const clientYConfig = useMemo(() => getYAxisConfig(maxClientTotal), [maxClientTotal])
+
+  const maxMemberTotal = useMemo(() => {
+    if (!analytics) return 0
+    const countsList = Object.values(analytics.memberCounts).map(data => {
+      const { name, ...counts } = data
+      return Object.values(counts).reduce((sum, val) => sum + val, 0)
+    })
+    return countsList.length > 0 ? Math.max(...countsList) : 0
+  }, [analytics])
+  const memberYConfig = useMemo(() => getYAxisConfig(maxMemberTotal), [maxMemberTotal])
 
   const handleBarMouseMove = (
     e: React.MouseEvent,
@@ -300,35 +350,54 @@ export function TaskChartsView({ filters }: TaskChartsViewProps) {
         <h3 style={{ margin: '0 0 24px 0', fontSize: '15px', fontWeight: '600', color: 'var(--text)' }}>
           Priority Workload
         </h3>
-        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '220px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-          {Object.entries(analytics.priorityCounts).map(([priority, counts]) => {
-            const total = Object.values(counts).reduce((s, c) => s + c, 0)
-            return (
-              <div key={priority} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '40px' }}>
-                <div style={{ position: 'relative', width: '16px', height: '130px', background: 'var(--hover-bg, #F5F5F2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
-                  {Object.entries(counts).map(([status, count]) => {
-                    if (count === 0) return null
-                    const heightPct = total > 0 ? (count / total) * 100 : 0
-                    return (
-                      <div
-                        key={status}
-                        style={{
-                          height: `${heightPct}%`,
-                          backgroundColor: statusColors[status as keyof typeof statusColors],
-                          cursor: 'pointer'
-                        }}
-                        onMouseMove={(e) => handleBarMouseMove(e, priority.toUpperCase(), status, count, 'priority')}
-                        onMouseLeave={handleBarMouseLeave}
-                      />
-                    )
-                  })}
-                </div>
-                <span style={{ fontSize: '11px', textTransform: 'capitalize', color: 'var(--secondary-text)', marginTop: '8px', fontWeight: '600' }}>
-                  {priority}
-                </span>
-              </div>
-            )
-          })}
+        <div style={{ display: 'flex', gap: '12px', position: 'relative', marginTop: '12px' }}>
+          {/* Y-axis Labels */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '150px', width: '20px', fontSize: '11px', color: 'var(--secondary)', textAlign: 'right', paddingRight: '8px', borderRight: '1px solid var(--border)' }}>
+            {priorityYConfig.ticks.map(val => (
+              <span key={val}>{val}</span>
+            ))}
+          </div>
+
+          {/* Chart Content Area with Grid Lines */}
+          <div style={{ position: 'relative', flex: 1, height: '195px', minWidth: 0 }}>
+            {/* Horizontal Grid Lines */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+              {priorityYConfig.ticks.map((val, idx) => (
+                <div key={val} style={{ borderTop: idx === priorityYConfig.ticks.length - 1 ? '1px solid var(--border)' : '1px dashed var(--border)', height: '0', width: '100%' }} />
+              ))}
+            </div>
+
+            {/* Stacked Bars Container */}
+            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start', height: '195px', position: 'relative', zIndex: 1, paddingLeft: '8px' }}>
+              {Object.entries(analytics.priorityCounts).map(([priority, counts]) => {
+                return (
+                  <div key={priority} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '40px' }}>
+                    <div style={{ position: 'relative', width: '16px', height: '150px', background: 'var(--hover-bg, #F5F5F2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
+                      {Object.entries(counts).map(([status, count]) => {
+                        if (count === 0) return null
+                        const heightPct = (count / priorityYConfig.max) * 100
+                        return (
+                          <div
+                            key={status}
+                            style={{
+                              height: `${heightPct}%`,
+                              backgroundColor: statusColors[status as keyof typeof statusColors],
+                              cursor: 'pointer'
+                            }}
+                            onMouseMove={(e) => handleBarMouseMove(e, priority.toUpperCase(), status, count, 'priority')}
+                            onMouseLeave={handleBarMouseLeave}
+                          />
+                        )
+                      })}
+                    </div>
+                    <span style={{ fontSize: '11px', textTransform: 'capitalize', color: 'var(--secondary-text)', marginTop: '8px', fontWeight: '600', height: '22px', whiteSpace: 'nowrap' }}>
+                      {priority}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Status Legend Row */}
@@ -371,44 +440,63 @@ export function TaskChartsView({ filters }: TaskChartsViewProps) {
         <h3 style={{ margin: '0 0 24px 0', fontSize: '15px', fontWeight: '600', color: 'var(--text)' }}>
           Brand Task Load
         </h3>
-        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', alignItems: 'flex-end', height: '220px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-          {Object.entries(analytics.clientCounts).map(([clientId, data]) => {
-            const { name, ...counts } = data
-            const total = Object.values(counts).reduce((s, c) => s + c, 0)
-            return (
-              <div key={clientId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px', flex: 1 }}>
-                <div style={{ position: 'relative', width: '16px', height: '130px', background: 'var(--hover-bg, #F5F5F2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
-                  {Object.entries(counts).map(([status, count]) => {
-                    if (count === 0) return null
-                    const heightPct = total > 0 ? (count / total) * 100 : 0
-                    return (
-                      <div
-                        key={status}
-                        style={{
-                          height: `${heightPct}%`,
-                          backgroundColor: statusColors[status as keyof typeof statusColors],
-                          cursor: 'pointer'
-                        }}
-                        onMouseMove={(e) => handleBarMouseMove(e, name, status, count, 'client')}
-                        onMouseLeave={handleBarMouseLeave}
-                      />
-                    )
-                  })}
-                </div>
-                <span 
-                  style={{ fontSize: '10px', color: 'var(--secondary-text)', marginTop: '8px', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}
-                  title={name}
-                >
-                  {name}
-                </span>
-              </div>
-            )
-          })}
-          {Object.keys(analytics.clientCounts).length === 0 ? (
-            <div style={{ display: 'flex', flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-text)', fontSize: '12px', fontStyle: 'italic' }}>
-              No brands queried
+        <div style={{ display: 'flex', gap: '12px', position: 'relative', marginTop: '12px' }}>
+          {/* Y-axis Labels */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '150px', width: '20px', fontSize: '11px', color: 'var(--secondary)', textAlign: 'right', paddingRight: '8px', borderRight: '1px solid var(--border)' }}>
+            {clientYConfig.ticks.map(val => (
+              <span key={val}>{val}</span>
+            ))}
+          </div>
+
+          {/* Chart Content Area with Grid Lines */}
+          <div style={{ position: 'relative', flex: 1, height: '195px', minWidth: 0 }}>
+            {/* Horizontal Grid Lines */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+              {clientYConfig.ticks.map((val, idx) => (
+                <div key={val} style={{ borderTop: idx === clientYConfig.ticks.length - 1 ? '1px solid var(--border)' : '1px dashed var(--border)', height: '0', width: '100%' }} />
+              ))}
             </div>
-          ) : null}
+
+            {/* Stacked Bars Container */}
+            <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', alignItems: 'flex-start', height: '195px', position: 'relative', zIndex: 1, paddingLeft: '8px' }}>
+              {Object.entries(analytics.clientCounts).map(([clientId, data]) => {
+                const { name, ...counts } = data
+                return (
+                  <div key={clientId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px', flex: 1 }}>
+                    <div style={{ position: 'relative', width: '16px', height: '150px', background: 'var(--hover-bg, #F5F5F2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
+                      {Object.entries(counts).map(([status, count]) => {
+                        if (count === 0) return null
+                        const heightPct = (count / clientYConfig.max) * 100
+                        return (
+                          <div
+                            key={status}
+                            style={{
+                              height: `${heightPct}%`,
+                              backgroundColor: statusColors[status as keyof typeof statusColors],
+                              cursor: 'pointer'
+                            }}
+                            onMouseMove={(e) => handleBarMouseMove(e, name, status, count, 'client')}
+                            onMouseLeave={handleBarMouseLeave}
+                          />
+                        )
+                      })}
+                    </div>
+                    <span 
+                      style={{ fontSize: '10px', color: 'var(--secondary-text)', marginTop: '8px', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center', height: '22px' }}
+                      title={name}
+                    >
+                      {name}
+                    </span>
+                  </div>
+                )
+              })}
+              {Object.keys(analytics.clientCounts).length === 0 ? (
+                <div style={{ display: 'flex', flex: 1, height: '150px', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-text)', fontSize: '12px', fontStyle: 'italic' }}>
+                  No brands queried
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         {/* Status Legend Row */}
@@ -445,50 +533,70 @@ export function TaskChartsView({ filters }: TaskChartsViewProps) {
           </div>
         )}
       </div>
+    </div>
 
       {/* 4. Members Workload Stacked Bar Chart */}
       <div className="panel" style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', position: 'relative' }}>
         <h3 style={{ margin: '0 0 24px 0', fontSize: '15px', fontWeight: '600', color: 'var(--text)' }}>
           Resource Capacity
         </h3>
-        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', alignItems: 'flex-end', height: '220px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-          {Object.entries(analytics.memberCounts).map(([memberId, data]) => {
-            const { name, ...counts } = data
-            const total = Object.values(counts).reduce((s, c) => s + c, 0)
-            return (
-              <div key={memberId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px', flex: 1 }}>
-                <div style={{ position: 'relative', width: '16px', height: '130px', background: 'var(--hover-bg, #F5F5F2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
-                  {Object.entries(counts).map(([status, count]) => {
-                    if (count === 0) return null
-                    const heightPct = total > 0 ? (count / total) * 100 : 0
-                    return (
-                      <div
-                        key={status}
-                        style={{
-                          height: `${heightPct}%`,
-                          backgroundColor: statusColors[status as keyof typeof statusColors],
-                          cursor: 'pointer'
-                        }}
-                        onMouseMove={(e) => handleBarMouseMove(e, name, status, count, 'member')}
-                        onMouseLeave={handleBarMouseLeave}
-                      />
-                    )
-                  })}
-                </div>
-                <span 
-                  style={{ fontSize: '10px', color: 'var(--secondary-text)', marginTop: '8px', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}
-                  title={name}
-                >
-                  {name.split(' ')[0]}
-                </span>
-              </div>
-            )
-          })}
-          {Object.keys(analytics.memberCounts).length === 0 ? (
-            <div style={{ display: 'flex', flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-text)', fontSize: '12px', fontStyle: 'italic' }}>
-              No members assigned
+        <div style={{ display: 'flex', gap: '12px', position: 'relative', marginTop: '12px' }}>
+          {/* Y-axis Labels */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '150px', width: '20px', fontSize: '11px', color: 'var(--secondary)', textAlign: 'right', paddingRight: '8px', borderRight: '1px solid var(--border)' }}>
+            {memberYConfig.ticks.map(val => (
+              <span key={val}>{val}</span>
+            ))}
+          </div>
+
+          {/* Chart Content Area with Grid Lines */}
+          <div style={{ position: 'relative', flex: 1, height: '195px', minWidth: 0 }}>
+            {/* Horizontal Grid Lines */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+              {memberYConfig.ticks.map((val, idx) => (
+                <div key={val} style={{ borderTop: idx === memberYConfig.ticks.length - 1 ? '1px solid var(--border)' : '1px dashed var(--border)', height: '0', width: '100%' }} />
+              ))}
             </div>
-          ) : null}
+
+            {/* Stacked Bars Container */}
+            <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', alignItems: 'flex-start', height: '195px', position: 'relative', zIndex: 1, paddingLeft: '8px' }}>
+              {Object.entries(analytics.memberCounts).map(([memberId, data]) => {
+                const { name, ...counts } = data
+                return (
+                  <div key={memberId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px', flex: 1 }}>
+                    <div style={{ position: 'relative', width: '16px', height: '150px', background: 'var(--hover-bg, #F5F5F2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column-reverse' }}>
+                      {Object.entries(counts).map(([status, count]) => {
+                        if (count === 0) return null
+                        const heightPct = (count / memberYConfig.max) * 100
+                        return (
+                          <div
+                            key={status}
+                            style={{
+                              height: `${heightPct}%`,
+                              backgroundColor: statusColors[status as keyof typeof statusColors],
+                              cursor: 'pointer'
+                            }}
+                            onMouseMove={(e) => handleBarMouseMove(e, name, status, count, 'member')}
+                            onMouseLeave={handleBarMouseLeave}
+                          />
+                        )
+                      })}
+                    </div>
+                    <span 
+                      style={{ fontSize: '10px', color: 'var(--secondary-text)', marginTop: '8px', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center', height: '22px' }}
+                      title={name}
+                    >
+                      {name.split(' ')[0]}
+                    </span>
+                  </div>
+                )
+              })}
+              {Object.keys(analytics.memberCounts).length === 0 ? (
+                <div style={{ display: 'flex', flex: 1, height: '150px', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-text)', fontSize: '12px', fontStyle: 'italic' }}>
+                  No members assigned
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         {/* Status Legend Row */}
@@ -526,7 +634,6 @@ export function TaskChartsView({ filters }: TaskChartsViewProps) {
         )}
       </div>
 
-    </div>
   </div>
 )
 }

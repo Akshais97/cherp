@@ -26,6 +26,8 @@ import {
   type UserOption,
 } from '../workflows/api'
 import { type ClientRow } from '../clients/api'
+import { ModeSwitcher } from '../../components/ui/ModeSwitcher'
+import { MyTasksView } from './components/MyTasksView'
 
 // View subcomponents
 import { TaskGridView } from './components/TaskGridView'
@@ -110,6 +112,7 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
   const parsed = useMemo(() => parseURLParams(), [])
 
   // State Management
+  const [activeMainTab, setActiveMainTab] = useState<'overall' | 'my-tasks'>('overall')
   const [activeTab, setActiveTab] = useState(parsed.activeTab)
   const [groupBy, setGroupBy] = useState<'bucket' | 'assigned_to' | 'label' | 'due_date' | 'priority' | 'status' | 'slot'>(parsed.groupBy as any)
   const [searchText, setSearchText] = useState(parsed.searchText)
@@ -318,6 +321,16 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
             </h1>
           </div>
 
+          <div style={{ display: 'flex', justifyContent: 'center', flex: 1, minWidth: '200px' }}>
+            <ModeSwitcher
+              isAdminMode={activeMainTab === 'my-tasks'}
+              onChange={(checked) => setActiveMainTab(checked ? 'my-tasks' : 'overall')}
+              leftLabel="My Plans"
+              rightLabel="My Tasks"
+              id="tasks-view-toggle"
+            />
+          </div>
+
           {/* Create Task Button (Only if PM/Admin) */}
           {canManage && (
             <button
@@ -331,13 +344,14 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
         </div>
 
         {/* Row 2: Tabs & View Controls */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px'
-        }}>
+        {activeMainTab === 'overall' && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}>
           {/* Tab switches & Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Tab switches */}
@@ -492,71 +506,80 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
             </div>
           </div>
         </div>
-      </div>
-
-      {errorMessage ? <div className="notice error" style={{ margin: '16px 24px 0' }}>{errorMessage}</div> : null}
-
-      {/* Main Scrollable View Area */}
-      <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-        {tasksLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--secondary)' }}>
-            <span>Loading workspace tasks...</span>
-          </div>
-        ) : (
-          <>
-            {activeTab === 'grid' && (
-              <TaskGridView
-                tasks={tasks}
-                users={allUsers}
-                onTaskClick={setSelectedTask}
-                onUpdateTask={handleUpdateTask}
-              />
-            )}
-            {activeTab === 'board' && (
-              <TaskBoardView
-                tasks={tasks}
-                users={allUsers}
-                groupBy={groupBy}
-                onTaskClick={setSelectedTask}
-                onRefresh={handleRefresh}
-              />
-            )}
-            {activeTab === 'calendar' && (
-              <TaskCalendarView
-                filters={queryParams}
-                users={allUsers}
-                onTaskClick={setSelectedTask}
-                onUpdateTask={handleUpdateTask}
-              />
-            )}
-            {activeTab === 'charts' && (
-              <TaskChartsView
-                filters={queryParams}
-              />
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Slide Drawer/Modal details edit */}
-      {selectedTask && (
-        <TaskDetailsDrawer
-          task={selectedTask}
-          users={allUsers}
-          onClose={() => setSelectedTask(null)}
-          onSuccess={handleRefresh}
-          onUpdateTask={handleUpdateTask}
-        />
       )}
+    </div>
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <CreateTaskModal
-          users={allUsers}
-          clients={clients}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={handleRefresh}
-        />
+      {activeMainTab === 'overall' ? (
+        <>
+          {errorMessage ? <div className="notice error" style={{ margin: '16px 24px 0' }}>{errorMessage}</div> : null}
+
+          {/* Main Scrollable View Area */}
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+            {tasksLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--secondary)' }}>
+                <span>Loading workspace tasks...</span>
+              </div>
+            ) : (
+              <>
+                {activeTab === 'grid' && (
+                  <TaskGridView
+                    tasks={tasks}
+                    users={allUsers}
+                    onTaskClick={setSelectedTask}
+                    onUpdateTask={handleUpdateTask}
+                  />
+                )}
+                {activeTab === 'board' && (
+                  <TaskBoardView
+                    tasks={tasks}
+                    users={allUsers}
+                    groupBy={groupBy}
+                    onTaskClick={setSelectedTask}
+                    onRefresh={handleRefresh}
+                  />
+                )}
+                {activeTab === 'calendar' && (
+                  <TaskCalendarView
+                    filters={queryParams}
+                    users={allUsers}
+                    onTaskClick={setSelectedTask}
+                    onUpdateTask={handleUpdateTask}
+                  />
+                )}
+                {activeTab === 'charts' && (
+                  <TaskChartsView
+                    filters={queryParams}
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Slide Drawer/Modal details edit */}
+          {selectedTask && (
+            <TaskDetailsDrawer
+              task={selectedTask}
+              users={allUsers}
+              onClose={() => setSelectedTask(null)}
+              onSuccess={handleRefresh}
+              onUpdateTask={handleUpdateTask}
+            />
+          )}
+
+          {/* Create Modal */}
+          {showCreateModal && (
+            <CreateTaskModal
+              users={allUsers}
+              clients={clients}
+              onClose={() => setShowCreateModal(false)}
+              onSuccess={handleRefresh}
+            />
+          )}
+        </>
+      ) : (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <MyTasksView />
+        </div>
       )}
 
     </section>
