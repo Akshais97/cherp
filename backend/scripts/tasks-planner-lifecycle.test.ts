@@ -44,6 +44,7 @@ async function run() {
   await testLifecycleRequestApproval()
   await testLifecyclePMApprove()
   await testLifecyclePMRequestChanges()
+  await testMyTasksServiceFiltering()
 
   console.log('All Task Planner Lifecycle and Log tests passed!')
 }
@@ -182,6 +183,29 @@ async function testLifecyclePMRequestChanges() {
   assert.equal(updatePayload.data.status, 'rework')
   assert.equal(updatePayload.reason, 'Need to align fonts')
   assert.ok(addedComment.includes('Need to align fonts'))
+}
+
+async function testMyTasksServiceFiltering() {
+  let passedInput: any = null
+  const repository = {
+    findMany: async (input: any) => {
+      passedInput = input
+      return [baseTask]
+    }
+  }
+
+  const service = new TasksService(repository as never)
+
+  // Test 1: Team Member queries their own tasks (My Tasks)
+  const result = await service.findMany({}, teamMember)
+  assert.equal(result.length, 1)
+  assert.equal(passedInput.userId, teamMember.id)
+  assert.equal(passedInput.role, 'team_member')
+
+  // Test 2: PM queries tasks filtering by specific assignee ID
+  const resultPm = await service.findMany({ assigneeIds: [teamMember.id] }, admin)
+  assert.equal(resultPm.length, 1)
+  assert.deepEqual(passedInput.assigneeIds, [teamMember.id])
 }
 
 run().catch((error) => {

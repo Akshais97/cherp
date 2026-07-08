@@ -17,6 +17,20 @@ import { UsersService } from './users.service'
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('me')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember, UserRole.Client)
+  @ApiOkResponse({ description: 'Retrieves the currently authenticated user profile.' })
+  getMe(@CurrentUser() user: RequestUser) {
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      tenantId: user.tenantId,
+    }
+  }
+
   @Get('history')
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Historical completed task records for a user.' })
