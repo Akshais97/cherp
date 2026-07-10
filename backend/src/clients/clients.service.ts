@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
@@ -31,7 +32,7 @@ export class ClientsService {
     return this.clientsRepository.findByTenant({
       tenantId: user.tenantId,
       filters,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
   }
 
@@ -39,7 +40,7 @@ export class ClientsService {
     const client = await this.clientsRepository.findById({
       tenantId: user.tenantId,
       id,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
       includeFinancials:
         user.role === UserRole.SuperAdmin || user.role === UserRole.ProjectManager,
     })
@@ -105,7 +106,7 @@ export class ClientsService {
       userId: user.id,
       templateId: template.id,
       client: clientData,
-      workflowTitle: `${dto.name} - Month 1 Workflow`,
+      workflowTitle: `${dto.name} — Month 1`,
       workflowStartDate: startDate,
       workflowEndDate: endDate,
       tasks,
@@ -120,6 +121,28 @@ export class ClientsService {
 
     if (!existing) {
       throw new NotFoundException('Client not found.')
+    }
+
+    if (user.role === UserRole.TeamMember) {
+      const allowedBrandFields = [
+        'brand_url',
+        'instagram_profile',
+        'social_profiles',
+        'brand_guidelines',
+        'logo_assets',
+        'color_palette',
+        'fonts',
+        'target_audience',
+        'competitor_list',
+        'positioning_statement',
+        'campaign_history',
+        'communication_history',
+      ]
+      const keys = Object.keys(dto).filter((k) => (dto as any)[k] !== undefined)
+      const forbiddenKeys = keys.filter((k) => !allowedBrandFields.includes(k))
+      if (forbiddenKeys.length > 0) {
+        throw new ForbiddenException('Team members can only update brand profile fields.')
+      }
     }
 
     const contractStart = dto.contract_start
@@ -156,6 +179,18 @@ export class ClientsService {
         : {}),
       ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
       ...(dto.retainer_hours !== undefined ? { retainer_hours: dto.retainer_hours } : {}),
+      ...(dto.brand_url !== undefined ? { brand_url: dto.brand_url } : {}),
+      ...(dto.instagram_profile !== undefined ? { instagram_profile: dto.instagram_profile } : {}),
+      ...(dto.social_profiles !== undefined ? { social_profiles: dto.social_profiles } : {}),
+      ...(dto.brand_guidelines !== undefined ? { brand_guidelines: dto.brand_guidelines } : {}),
+      ...(dto.logo_assets !== undefined ? { logo_assets: dto.logo_assets } : {}),
+      ...(dto.color_palette !== undefined ? { color_palette: dto.color_palette } : {}),
+      ...(dto.fonts !== undefined ? { fonts: dto.fonts } : {}),
+      ...(dto.target_audience !== undefined ? { target_audience: dto.target_audience } : {}),
+      ...(dto.competitor_list !== undefined ? { competitor_list: dto.competitor_list } : {}),
+      ...(dto.positioning_statement !== undefined ? { positioning_statement: dto.positioning_statement } : {}),
+      ...(dto.campaign_history !== undefined ? { campaign_history: dto.campaign_history } : {}),
+      ...(dto.communication_history !== undefined ? { communication_history: dto.communication_history } : {}),
     }
 
     return this.clientsRepository.updateWithLog({
@@ -266,25 +301,7 @@ export class ClientsService {
     return []
   }
 
-  private clientSnapshot(client: {
-    name: string
-    industry: string
-    service_type: string
-    contact_name: string | null
-    contact_email: string | null
-    contact_phone: string | null
-    address: string | null
-    status: string
-    monthly_retainer: Prisma.Decimal | null
-    currency: string
-    contract_duration: number | null
-    contract_start: Date | null
-    contract_end: Date | null
-    payment_terms: string | null
-    renewal_date: Date | null
-    notes: string | null
-    retainer_hours: number | null
-  }): Prisma.InputJsonObject {
+  private clientSnapshot(client: any): Prisma.InputJsonObject {
     return {
       name: client.name,
       industry: client.industry,
@@ -303,6 +320,62 @@ export class ClientsService {
       renewal_date: client.renewal_date?.toISOString() ?? null,
       notes: client.notes,
       retainer_hours: client.retainer_hours,
+      brand_url: client.brand_url,
+      instagram_profile: client.instagram_profile,
+      social_profiles: client.social_profiles,
+      brand_guidelines: client.brand_guidelines,
+      logo_assets: client.logo_assets,
+      color_palette: client.color_palette,
+      fonts: client.fonts,
+      target_audience: client.target_audience,
+      competitor_list: client.competitor_list,
+      positioning_statement: client.positioning_statement,
+      campaign_history: client.campaign_history,
+      communication_history: client.communication_history,
     }
+  }
+
+  async getClientDashboard(user: RequestUser) {
+    const clientUserMapping = await this.clientsRepository.findClientMappingForUser(user.tenantId, user.id)
+    if (!clientUserMapping) {
+      throw new NotFoundException('No client assigned to this user.')
+    }
+    const clientId = clientUserMapping.client_id
+
+    const client = await this.clientsRepository.findById({
+      tenantId: user.tenantId,
+      id: clientId,
+      includeFinancials: true,
+    })
+
+    if (!client) {
+      throw new NotFoundException('Client details not found.')
+    }
+
+    const activeWorkflow = client.workflows[0]
+    let tasks: any[] = []
+    if (activeWorkflow) {
+      const fullWorkflow = await this.clientsRepository.findWorkflowTasks(user.tenantId, activeWorkflow.id)
+      tasks = fullWorkflow?.tasks ?? []
+    }
+
+    return {
+      client,
+      activeWorkflow,
+      tasks,
+    }
+  }
+
+  async getLogs(id: string, user: RequestUser) {
+    const existing = await this.clientsRepository.findSnapshotById({
+      tenantId: user.tenantId,
+      id,
+    })
+
+    if (!existing) {
+      throw new NotFoundException('Client not found.')
+    }
+
+    return this.clientsRepository.findLogs(user.tenantId, id)
   }
 }

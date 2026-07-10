@@ -5,7 +5,10 @@
   "description": "Selenium E2E tests and reports for the Phase 1 ERP flow.",
   "type": "commonjs",
   "scripts": {
-    "test": "node tests/phase1-flow.test.js"
+    "test": "node tests/phase1-flow.test.js",
+    "test:roles": "node tests/role-journeys.test.js",
+    "test:ux": "node tests/UX_Revamp.test.js",
+    "test:planner": "node tests/planner-tasks.test.js"
   },
   "dependencies": {
     "selenium-webdriver": "^4.38.0"

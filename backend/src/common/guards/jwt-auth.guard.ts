@@ -28,18 +28,41 @@ export class JwtAuthGuard implements CanActivate {
     this.supabase = createSupabaseAdminClient(this.configService)
   }
 
+  private static tokenCache = new Map<string, { promise: Promise<any>; expiresAt: number }>()
+
+  private async getSupabaseUserCached(token: string): Promise<any> {
+    const now = Date.now()
+    const cached = JwtAuthGuard.tokenCache.get(token)
+    if (cached && cached.expiresAt > now) {
+      return cached.promise
+    }
+
+    const promise = this.supabase.auth.getUser(token).then(({ data, error }) => {
+      if (error || !data.user) {
+        throw new UnauthorizedException('Invalid or expired access token.')
+      }
+      return data.user
+    }).catch(err => {
+      JwtAuthGuard.tokenCache.delete(token)
+      throw new UnauthorizedException(err.message || 'Invalid or expired access token.')
+    })
+
+    JwtAuthGuard.tokenCache.set(token, {
+      promise,
+      expiresAt: now + 5000,
+    })
+
+    return promise
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>()
     const token = getBearerTokenFromRequest(request)
 
-    const { data, error } = await this.supabase.auth.getUser(token)
-
-    if (error || !data.user) {
-      throw new UnauthorizedException('Invalid or expired access token.')
-    }
+    const supabaseUser = await this.getSupabaseUserCached(token)
 
     const erpUser = await this.prisma.user.findUnique({
-      where: { auth_user_id: data.user.id },
+      where: { auth_user_id: supabaseUser.id },
       select: {
         id: true,
         tenant_id: true,
@@ -61,7 +84,7 @@ export class JwtAuthGuard implements CanActivate {
 
     request.user = {
       id: erpUser.id,
-      authUserId: data.user.id,
+      authUserId: supabaseUser.id,
       tenantId: erpUser.tenant_id,
       email: erpUser.email,
       fullName: erpUser.full_name,

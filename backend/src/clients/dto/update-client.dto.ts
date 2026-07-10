@@ -91,4 +91,57 @@ export class UpdateClientDto {
   @IsInt()
   @Min(0)
   retainer_hours?: number
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  brand_url?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  instagram_profile?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  social_profiles?: any
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  brand_guidelines?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  logo_assets?: any
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  color_palette?: any
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  fonts?: any
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  target_audience?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  competitor_list?: any
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  positioning_statement?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  campaign_history?: any
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  communication_history?: any
 }

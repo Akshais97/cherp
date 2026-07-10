@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -16,6 +18,7 @@ import { UsersRepository } from './users.repository'
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name)
   private readonly supabase: SupabaseClient
 
   constructor(
@@ -27,6 +30,43 @@ export class UsersService {
 
   list(user: RequestUser) {
     return this.usersRepository.findByTenant(user.tenantId)
+  }
+
+  listTeamMembers(user: RequestUser) {
+    return this.usersRepository.findTeamMembersByTenant(user.tenantId)
+  }
+
+  async getHistory(
+    targetUserId: string | undefined,
+    query: { startDate?: string; endDate?: string },
+    user: RequestUser,
+  ) {
+    const userIdToQuery = targetUserId || user.id
+
+    if (user.role === 'team_member' && userIdToQuery !== user.id) {
+      throw new ForbiddenException('Team members can only view their own history.')
+    }
+
+    return this.usersRepository.findHistory(
+      user.tenantId,
+      userIdToQuery,
+      query.startDate,
+      query.endDate,
+    )
+  }
+
+  async getTeamMemberWorkload(id: string, user: RequestUser) {
+    const member = await this.usersRepository.findTeamMemberById(user.tenantId, id)
+
+    if (!member) {
+      throw new NotFoundException('Team member not found.')
+    }
+
+    return {
+      member,
+      tasks: await this.usersRepository.findAssignedTasks(user.tenantId, id),
+      blockers: await this.usersRepository.findAssignedTaskBlockers(user.tenantId, id),
+    }
   }
 
   async create(dto: CreateUserDto, actor: RequestUser) {
@@ -139,5 +179,106 @@ export class UsersService {
     })
 
     return updated
+  }
+
+  async remove(id: string, actor: RequestUser) {
+    if (id === actor.id) {
+      throw new ForbiddenException('You cannot delete your own user account.')
+    }
+
+    const existing = await this.usersRepository.findById(actor.tenantId, id)
+
+    if (!existing) {
+      throw new NotFoundException('User not found.')
+    }
+
+    if (existing.role.name === 'super_admin') {
+      const superAdminCount = await this.usersRepository.countUsersByRole(
+        actor.tenantId,
+        'super_admin',
+      )
+
+      if (superAdminCount <= 1) {
+        throw new ConflictException('At least one Super Admin must remain active in this tenant.')
+      }
+    }
+
+    const references = await this.usersRepository.countProtectedDeleteReferences(
+      actor.tenantId,
+      id,
+    )
+    const blockingLabels = Object.entries(references)
+      .filter(([, count]) => count > 0)
+      .map(([label, count]) => `${count} ${label}`)
+
+    if (blockingLabels.length > 0) {
+      throw new ConflictException(
+        `User cannot be deleted because they are linked to ${blockingLabels.join(', ')}. Reassign or archive that operational history first.`,
+      )
+    }
+
+    let deleted: typeof existing
+
+    try {
+      deleted = await this.usersRepository.deleteWithLog({
+        tenantId: actor.tenantId,
+        actorId: actor.id,
+        user: existing,
+      })
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException(
+          'User cannot be deleted because operational records still reference this account. Reassign or archive the linked records first.',
+        )
+      }
+
+      this.logger.error(`Failed to delete ERP user ${existing.id}.`)
+      throw error
+    }
+
+    const { error } = await this.supabase.auth.admin.deleteUser(existing.auth_user_id)
+
+    if (error) {
+      this.logger.error(
+        `ERP user ${existing.id} was deleted, but Supabase Auth cleanup failed: ${error.message}`,
+      )
+      throw new InternalServerErrorException(
+        'User was removed from the ERP, but Supabase Auth cleanup failed. Please contact an administrator to remove the login account.',
+      )
+    }
+
+    return deleted
+  }
+
+  async getWorkloadSummary(actor: RequestUser) {
+    const users = await this.usersRepository.findTeamMembersByTenant(actor.tenantId)
+
+    const summaryList = await Promise.all(
+      users.map(async (u) => {
+        const clientUsers = await this.usersRepository.findClientUsersForUser(actor.tenantId, u.id)
+        const assignedClients = clientUsers.map((cu: any) => cu.client.name)
+
+        const openTasksCount = await this.usersRepository.countOpenTasksForUser(actor.tenantId, u.id)
+
+        // Workload calculation: 8 open tasks = 100% capacity (12.5% per task)
+        const computedWorkload = Math.min(100, openTasksCount * 12.5)
+
+        return {
+          id: u.id,
+          fullName: u.full_name,
+          email: u.email,
+          designation: u.designation || 'Team Member',
+          availability: u.availability || 'Full-time',
+          assignedClients,
+          openTasksCount,
+          workloadPercentage: computedWorkload,
+        }
+      })
+    )
+
+    return summaryList
   }
 }

@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, UserPlus } from 'lucide-react'
+import { ShieldCheck, Trash2, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { normalizeApiError } from '../../lib/api/errors'
 import { roleLabels } from '../../lib/permissions/roles'
 import type { UserRole } from '../../types/auth'
-import { createUser, getUsers, updateUser, type UserRow } from './api'
+import { createUser, deleteUser, getUsers, updateUser, type UserRow } from './api'
 import {
   createUserSchema,
   roleValues,
@@ -17,8 +17,8 @@ import {
 export function UserManagementPage() {
   const queryClient = useQueryClient()
   const [pageError, setPageError] = useState<string | null>(null)
-  const usersQuery = useQuery({
-    queryKey: ['users'],
+  const { data: users = [], error: usersQueryError, isLoading: isUsersLoading } = useQuery({
+    queryKey: ['users-admin'],
     queryFn: getUsers,
   })
   const {
@@ -35,11 +35,11 @@ export function UserManagementPage() {
     onSuccess: () => {
       reset({ role: 'team_member', email: '', full_name: '', password: '' })
       setPageError(null)
-      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['users-admin'] })
     },
     onError: (error) => setPageError(normalizeApiError(error).message),
   })
-  const usersError = usersQuery.error ? normalizeApiError(usersQuery.error).message : null
+  const usersError = usersQueryError ? normalizeApiError(usersQueryError).message : null
 
   return (
     <section className="users-page" data-testid="users-page">
@@ -112,7 +112,7 @@ export function UserManagementPage() {
           <div className="panel-header">
             <h2>User directory</h2>
             <span className="muted">
-              {usersQuery.isLoading ? 'Loading...' : `${usersQuery.data?.length ?? 0} users`}
+              {isUsersLoading ? 'Loading...' : `${users.length} users`}
             </span>
           </div>
 
@@ -124,15 +124,16 @@ export function UserManagementPage() {
                   <th>Email</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {(usersQuery.data ?? []).map((user) => (
+                {users.map((user) => (
                   <UserRowItem key={user.id} user={user} />
                 ))}
-                {!usersQuery.isLoading && (usersQuery.data?.length ?? 0) === 0 ? (
+                {!isUsersLoading && users.length === 0 ? (
                   <tr>
-                    <td colSpan={4}>No users found.</td>
+                    <td colSpan={5}>No users found.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -152,10 +153,29 @@ function UserRowItem({ user }: { user: UserRow }) {
       updateUser(user.id, payload),
     onSuccess: () => {
       setRowError(null)
-      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['users-admin'] })
     },
     onError: (error) => setRowError(normalizeApiError(error).message),
   })
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteUser(user.id),
+    onSuccess: () => {
+      setRowError(null)
+      queryClient.invalidateQueries({ queryKey: ['users-admin'] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: (error) => setRowError(normalizeApiError(error).message),
+  })
+
+  function handleDelete() {
+    const shouldDelete = window.confirm(
+      `Delete ${user.full_name}? This will remove the ERP user and Supabase Auth user when no protected records depend on them.`,
+    )
+
+    if (shouldDelete) {
+      deleteMutation.mutate()
+    }
+  }
 
   return (
     <>
@@ -197,8 +217,20 @@ function UserRowItem({ user }: { user: UserRow }) {
             {user.is_active ? 'Active' : 'Inactive'}
           </label>
         </td>
+        <td>
+          <button
+            aria-label={`Delete ${user.full_name}`}
+            className="ghost-button danger"
+            data-testid="button-delete-user"
+            disabled={deleteMutation.isPending}
+            onClick={handleDelete}
+            type="button"
+          >
+            <Trash2 size={14} />
+            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+          </button>
+        </td>
       </tr>
     </>
   )
 }
-

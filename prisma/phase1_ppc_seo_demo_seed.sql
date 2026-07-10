@@ -277,11 +277,11 @@ begin
   where not exists (select 1 from erp.tasks where tenant_id = v_tenant_id and workflow_id = v_ppc_workflow_id and title = 'Audit landing page conversion path');
 
   insert into erp.tasks (tenant_id, workflow_id, assigned_to, title, description, status, priority, sort_order, due_date)
-  select v_tenant_id, v_ppc_workflow_id, v_user_id, 'Build PPC campaign structure', 'Create campaign, ad group, keyword, and negative keyword map.', 'in_progress', 'high', 2, current_date + 3
+  select v_tenant_id, v_ppc_workflow_id, v_user_id, 'Build PPC campaign structure', 'Create campaign, ad group, keyword, and negative keyword map.', 'ongoing', 'high', 2, current_date + 3
   where not exists (select 1 from erp.tasks where tenant_id = v_tenant_id and workflow_id = v_ppc_workflow_id and title = 'Build PPC campaign structure');
 
   insert into erp.tasks (tenant_id, workflow_id, assigned_to, title, description, status, priority, sort_order, due_date)
-  select v_tenant_id, v_ppc_workflow_id, v_user_id, 'Launch tracking QA', 'Verify pixel, conversions, UTMs, and lead routing.', 'pending', 'medium', 3, current_date + 5
+  select v_tenant_id, v_ppc_workflow_id, v_user_id, 'Launch tracking QA', 'Verify pixel, conversions, UTMs, and lead routing.', 'yet_to_start', 'medium', 3, current_date + 5
   where not exists (select 1 from erp.tasks where tenant_id = v_tenant_id and workflow_id = v_ppc_workflow_id and title = 'Launch tracking QA');
 
   insert into erp.tasks (
@@ -301,11 +301,11 @@ begin
   where not exists (select 1 from erp.tasks where tenant_id = v_tenant_id and workflow_id = v_seo_workflow_id and title = 'Technical SEO crawl');
 
   insert into erp.tasks (tenant_id, workflow_id, assigned_to, title, description, status, priority, sort_order, due_date)
-  select v_tenant_id, v_seo_workflow_id, v_user_id, 'Local SEO profile cleanup', 'Update GBP, NAP, categories, and appointment links.', 'in_progress', 'medium', 2, current_date + 4
+  select v_tenant_id, v_seo_workflow_id, v_user_id, 'Local SEO profile cleanup', 'Update GBP, NAP, categories, and appointment links.', 'ongoing', 'medium', 2, current_date + 4
   where not exists (select 1 from erp.tasks where tenant_id = v_tenant_id and workflow_id = v_seo_workflow_id and title = 'Local SEO profile cleanup');
 
   insert into erp.tasks (tenant_id, workflow_id, assigned_to, title, description, status, priority, sort_order, due_date)
-  select v_tenant_id, v_seo_workflow_id, v_user_id, 'Service-page keyword mapping', 'Map procedures/services to target pages and queries.', 'pending', 'medium', 3, current_date + 6
+  select v_tenant_id, v_seo_workflow_id, v_user_id, 'Service-page keyword mapping', 'Map procedures/services to target pages and queries.', 'yet_to_start', 'medium', 3, current_date + 6
   where not exists (select 1 from erp.tasks where tenant_id = v_tenant_id and workflow_id = v_seo_workflow_id and title = 'Service-page keyword mapping');
 
   update erp.workflows

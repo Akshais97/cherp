@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/auth/supabase'
 import { normalizeSupabaseAuthError } from '../../lib/auth/errors'
 import type { CurrentUser, UserRole } from '../../types/auth'
 import { AuthContext, type AuthContextValue } from './auth-context'
+import { apiClient } from '../../lib/api/client'
 
 const allowedRoles = new Set<UserRole>([
   'super_admin',
@@ -17,13 +18,13 @@ function getCurrentUser(user: User): CurrentUser {
   const role = metadata.role
 
   return {
-    id: user.id,
+    id: metadata.erp_user_id ?? user.id,
     email: user.email ?? '',
     name:
       metadata.full_name ??
       metadata.name ??
       user.email?.split('@')[0] ??
-      'CHERP User',
+      'Saarthii Cherp User',
     role: allowedRoles.has(role) ? role : 'team_member',
     avatar_url: metadata.avatar_url,
   }
@@ -40,17 +41,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    const syncUserDbProfile = async (session: Session | null) => {
+      const sbUser = getSessionUser(session)
+      if (!sbUser) {
+        if (mounted) {
+          setCurrentUser(null)
+          setIsLoading(false)
+        }
+        return
+      }
+
+      if (mounted) {
+        setCurrentUser(prev => {
+          if (prev && prev.email === sbUser.email && prev.id !== sbUser.id) {
+            return prev
+          }
+
+          apiClient.get('/users/me')
+            .then(res => {
+              if (mounted) {
+                setCurrentUser({
+                  ...sbUser,
+                  id: res.data.id
+                })
+                setIsLoading(false)
+              }
+            })
+            .catch(err => {
+              console.error('Failed to sync DB user profile', err)
+              if (mounted) {
+                setCurrentUser(sbUser)
+                setIsLoading(false)
+              }
+            })
+
+          return sbUser
+        })
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
-      setCurrentUser(getSessionUser(data.session))
-      setIsLoading(false)
+      if (data.session) {
+        syncUserDbProfile(data.session)
+      } else {
+        setCurrentUser(null)
+        setIsLoading(false)
+      }
     })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(getSessionUser(session))
-      setIsLoading(false)
+      if (!mounted) return
+      syncUserDbProfile(session)
     })
 
     return () => {

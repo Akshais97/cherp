@@ -1,0 +1,71 @@
+.soft-aurora-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.soft-aurora-ambient {
+  position: absolute;
+  inset: 0;
+  filter: blur(120px);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+  filter: opacity(0.85);
+  animation: moveBlob 25s infinite alternate ease-in-out;
+}
+
+.blob-1 {
+  width: 70%;
+  height: 70%;
+  top: -10%;
+  left: -10%;
+  animation-duration: 22s;
+}
+
+.blob-2 {
+  width: 65%;
+  height: 65%;
+  bottom: -15%;
+  right: -10%;
+  animation-duration: 28s;
+  animation-delay: -5s;
+}
+
+.blob-3 {
+  width: 55%;
+  height: 55%;
+  top: 35%;
+  left: 25%;
+  animation-duration: 35s;
+  animation-delay: -10s;
+}
+
+@keyframes moveBlob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(40px, -60px) scale(1.15);
+  }
+  66% {
+    transform: translate(-30px, 30px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.soft-aurora-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}

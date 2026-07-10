@@ -22,9 +22,9 @@ export class ClientsRepository {
     }
 
     if (input.assignedUserId) {
-      where.workflows = {
+      where.client_users = {
         some: {
-          tasks: { some: { assigned_to: input.assignedUserId } },
+          user_id: input.assignedUserId,
         },
       }
     }
@@ -60,6 +60,18 @@ export class ClientsRepository {
         contract_start: true,
         contract_end: true,
         created_at: true,
+        brand_url: true,
+        instagram_profile: true,
+        social_profiles: true,
+        brand_guidelines: true,
+        logo_assets: true,
+        color_palette: true,
+        fonts: true,
+        target_audience: true,
+        competitor_list: true,
+        positioning_statement: true,
+        campaign_history: true,
+        communication_history: true,
       },
     })
   }
@@ -76,9 +88,9 @@ export class ClientsRepository {
         tenant_id: input.tenantId,
         ...(input.assignedUserId
           ? {
-              workflows: {
+              client_users: {
                 some: {
-                  tasks: { some: { assigned_to: input.assignedUserId } },
+                  user_id: input.assignedUserId,
                 },
               },
             }
@@ -104,6 +116,18 @@ export class ClientsRepository {
         renewal_date: Boolean(input.includeFinancials),
         notes: true,
         retainer_hours: Boolean(input.includeFinancials),
+        brand_url: true,
+        instagram_profile: true,
+        social_profiles: true,
+        brand_guidelines: true,
+        logo_assets: true,
+        color_palette: true,
+        fonts: true,
+        target_audience: true,
+        competitor_list: true,
+        positioning_statement: true,
+        campaign_history: true,
+        communication_history: true,
         created_by: true,
         created_at: true,
         updated_at: true,
@@ -162,6 +186,18 @@ export class ClientsRepository {
         renewal_date: true,
         notes: true,
         retainer_hours: true,
+        brand_url: true,
+        instagram_profile: true,
+        social_profiles: true,
+        brand_guidelines: true,
+        logo_assets: true,
+        color_palette: true,
+        fonts: true,
+        target_audience: true,
+        competitor_list: true,
+        positioning_statement: true,
+        campaign_history: true,
+        communication_history: true,
       },
     })
   }
@@ -197,6 +233,18 @@ export class ClientsRepository {
             contract_end: client.contract_end,
             payment_terms: client.payment_terms,
             renewal_date: client.renewal_date,
+            brand_url: client.brand_url,
+            instagram_profile: client.instagram_profile,
+            social_profiles: client.social_profiles,
+            brand_guidelines: client.brand_guidelines,
+            logo_assets: client.logo_assets,
+            color_palette: client.color_palette,
+            fonts: client.fonts,
+            target_audience: client.target_audience,
+            competitor_list: client.competitor_list,
+            positioning_statement: client.positioning_statement,
+            campaign_history: client.campaign_history,
+            communication_history: client.communication_history,
           },
         },
       })
@@ -272,6 +320,32 @@ export class ClientsRepository {
     return this.prisma.$transaction(async (tx) => {
       const client = await tx.client.create({ data: input.client })
 
+      await tx.clientUser.create({
+        data: {
+          tenant_id: input.tenantId,
+          client_id: client.id,
+          user_id: input.userId,
+        },
+      })
+
+      // Automatically link any client-role users who do not have a client assignment
+      const unassignedClientUsers = await tx.user.findMany({
+        where: {
+          tenant_id: input.tenantId,
+          role: { name: 'client' },
+          client_users: { none: {} },
+        },
+      })
+      for (const cu of unassignedClientUsers) {
+        await tx.clientUser.create({
+          data: {
+            tenant_id: input.tenantId,
+            client_id: client.id,
+            user_id: cu.id,
+          },
+        })
+      }
+
       const workflow = await tx.workflow.create({
         data: {
           tenant_id: input.tenantId,
@@ -292,9 +366,11 @@ export class ClientsRepository {
         data: input.tasks.map((task) => ({
           tenant_id: input.tenantId,
           workflow_id: workflow.id,
+          client_id: client.id,
+          assigned_by: input.userId,
           title: task.title,
           description: task.description,
-          status: 'pending',
+          status: 'yet_to_start',
           priority: task.priority,
           sort_order: task.sort_order,
           due_date: task.due_date,
@@ -334,6 +410,67 @@ export class ClientsRepository {
       })
 
       return { client, workflow, tasks: createdTasks }
+    })
+  }
+
+  findClientMappingForUser(tenantId: string, userId: string) {
+    return this.prisma.clientUser.findFirst({
+      where: { tenant_id: tenantId, user_id: userId },
+      select: { client_id: true },
+    })
+  }
+
+  findWorkflowTasks(tenantId: string, workflowId: string) {
+    return this.prisma.workflow.findFirst({
+      where: { id: workflowId, tenant_id: tenantId },
+      select: {
+        id: true,
+        tasks: {
+          orderBy: { sort_order: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            due_date: true,
+            completed_at: true,
+            completed_by: true,
+            description: true,
+            assignee: { select: { full_name: true } },
+          },
+        },
+      },
+    })
+  }
+
+  findLogs(tenantId: string, clientId: string) {
+    return this.prisma.activityLog.findMany({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'client',
+        entity_id: clientId,
+      },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        action_type: true,
+        entity_type: true,
+        entity_id: true,
+        before_values: true,
+        after_values: true,
+        created_at: true,
+        user: {
+          select: {
+            id: true,
+            full_name: true,
+            role: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
     })
   }
 

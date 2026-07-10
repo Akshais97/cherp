@@ -93,8 +93,8 @@ async function testDeadlinesClassifyOverdueAndUpcoming() {
     deadlines.map((deadline) => deadline.urgency),
     ['overdue', 'upcoming'],
   )
-  assert.equal(deadlines[0].workflow.id, 'workflow-overdue-task')
-  assert.equal(deadlines[0].client.id, 'client-overdue-task')
+  assert.equal(deadlines[0].workflow?.id, 'workflow-overdue-task')
+  assert.equal(deadlines[0].client?.id, 'client-overdue-task')
 }
 
 async function testOpenBlockersSortBySeverityThenFlaggedAt() {

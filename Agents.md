@@ -386,6 +386,7 @@ Rules:
 - return consistent error shapes.
 - never expose raw Prisma/database errors.
 - document implemented APIs in Swagger.
+- always test newly implemented API endpoints directly after implementation before treating them as complete.
 - do not create public API/versioning layers for Phase 1 unless needed internally.
 
 ## 15. Changelog Rules

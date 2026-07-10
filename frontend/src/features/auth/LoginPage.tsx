@@ -13,6 +13,14 @@ import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
 import { loginSchema, type LoginFormValues } from '../../schemas/auth'
 import { requestPasswordReset } from './api'
+import { SoftAurora } from '../../components/ui/SoftAurora'
+import { Noise } from '../../components/ui/Noise'
+import { SpotlightCard } from '../../components/ui/SpotlightCard'
+import { RotatingText } from '../../components/ui/RotatingText'
+import { ShinyText } from '../../components/ui/ShinyText'
+import { Magnet } from '../../components/ui/Magnet'
+
+const ROTATING_TEXTS = ['Outcomes.', 'Visibility.', 'Accountability.', 'Efficiency.']
 
 export function LoginPage() {
   const { signIn, isConfigured } = useAuth()
@@ -62,52 +70,76 @@ export function LoginPage() {
   return (
     <main className="login-page" data-testid="login-page">
       <section className="login-story" aria-label="Product overview">
-        <div className="brand-mark">
-          <img alt="CHERP" className="brand-icon" src="/cherp-logo.png" />
-          <div>
-            <h1>CHERP</h1>
-            <p>Enterprise Resource Planning</p>
-          </div>
-        </div>
+        <SoftAurora>
+          <Noise />
+          <div className="login-story-content">
+            <div className="brand-mark">
+              <img alt="Saarthii Cherp" className="brand-icon" src="/cherp-logo.png" />
+              <div>
+                <h1>
+                  <ShinyText text="Saarthii Cherp" speed={6} />
+                </h1>
+                <p>
+                  <ShinyText text="ENTERPRISE RESOURCE PLANNING" speed={6} />
+                </p>
+              </div>
+            </div>
 
-        <div className="login-copy">
-          <h2>
-            Intelligence. Operations.
-            <span> Outcomes.</span>
-          </h2>
-          <p>
-            Unified execution for client onboarding, Month 1 workflows,
-            operational blockers, and internal delivery visibility.
-          </p>
+            <div className="login-copy">
+              <h2>
+                Intelligence. Operations.
+                <br />
+                <RotatingText
+                  texts={ROTATING_TEXTS}
+                  interval={3000}
+                />
+              </h2>
+              <p>
+                Unified execution for client onboarding, Month 1 workflows,
+                operational blockers, and internal delivery visibility.
+              </p>
 
-          <div className="login-benefits">
-            <Feature
-              icon={<BarChart3 size={18} />}
-              title="Operational dashboard"
-              text="Live summaries for active clients, workflows, tasks, and blockers."
-            />
-            <Feature
-              icon={<CheckCircle2 size={18} />}
-              title="Workflow accountability"
-              text="Phase 1 task status, ownership, and completion signals stay clear."
-            />
-            <Feature
-              icon={<ShieldCheck size={18} />}
-              title="RBAC from day one"
-              text="Super Admin, Project Manager, Team Member, and Client roles are explicit."
-            />
+              <div className="login-benefits">
+                <SpotlightCard className="feature-card-spotlight">
+                  <Feature
+                    icon={<BarChart3 size={18} />}
+                    title="Operational dashboard"
+                    text="Live summaries for active clients, workflows, tasks, and blockers."
+                  />
+                </SpotlightCard>
+                <SpotlightCard className="feature-card-spotlight">
+                  <Feature
+                    icon={<CheckCircle2 size={18} />}
+                    title="Workflow accountability"
+                    text="Phase 1 task status, ownership, and completion signals stay clear."
+                  />
+                </SpotlightCard>
+                <SpotlightCard className="feature-card-spotlight">
+                  <Feature
+                    icon={<ShieldCheck size={18} />}
+                    title="RBAC from day one"
+                    text="Super Admin, Project Manager, Team Member, and Client roles are explicit."
+                  />
+                </SpotlightCard>
+              </div>
+            </div>
           </div>
-        </div>
+        </SoftAurora>
       </section>
 
       <section className="login-panel" aria-label="Sign in form">
-        <form className="login-card" data-testid="login-form" onSubmit={handleSubmit(onSubmit)}>
+        <SpotlightCard
+          as="form"
+          className="login-card-spotlight-wrapper"
+          data-testid="login-form"
+          onSubmit={handleSubmit(onSubmit)}
+        >
           <div className="login-card-icon">
             <LockKeyhole size={30} />
           </div>
           <div className="form-heading">
             <h2>Welcome Back</h2>
-            <p>Sign in with your CHERP account.</p>
+            <p>Sign in with your Saarthii Cherp account.</p>
           </div>
 
           {!isConfigured ? (
@@ -155,10 +187,12 @@ export function LoginPage() {
             <span>Remember this device</span>
           </label>
 
-          <button className="primary-action" data-testid="button-sign-in" disabled={isSubmitting} type="submit">
-            <LogIn size={18} />
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
-          </button>
+          <Magnet className="magnet-button-wrapper">
+            <button className="primary-action" data-testid="button-sign-in" disabled={isSubmitting} type="submit">
+              <LogIn size={18} />
+              {isSubmitting ? 'Signing in...' : 'Sign In'}
+            </button>
+          </Magnet>
 
           <button
             className="ghost-button full-width"
@@ -173,7 +207,7 @@ export function LoginPage() {
           <p className="admin-note">
             Need access? Contact your system administrator to create an account.
           </p>
-        </form>
+        </SpotlightCard>
       </section>
     </main>
   )

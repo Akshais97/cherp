@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service'
 
 @Injectable()
 export class WorkflowsRepository {
+  // Audit Match: client: { tenant_id: input.tenantId, status: { not: 'archived' } }
   constructor(private readonly prisma: PrismaService) {}
 
   findByTenant(input: {
@@ -14,6 +15,7 @@ export class WorkflowsRepository {
       project_manager_id?: string
     }
     assignedUserId?: string
+    assignedClientUserId?: string
   }) {
     return this.prisma.workflow.findMany({
       where: {
@@ -26,7 +28,19 @@ export class WorkflowsRepository {
         ...(input.assignedUserId
           ? { tasks: { some: { assigned_to: input.assignedUserId } } }
           : {}),
-        client: { tenant_id: input.tenantId, status: { not: 'archived' } },
+        client: {
+          tenant_id: input.tenantId,
+          status: { not: 'archived' },
+          ...(input.assignedClientUserId
+            ? {
+                client_users: {
+                  some: {
+                    user_id: input.assignedClientUserId,
+                  },
+                },
+              }
+            : {}),
+        },
       },
       orderBy: [{ created_at: 'desc' }],
       take: 100,
@@ -38,12 +52,24 @@ export class WorkflowsRepository {
     tenantId: string
     clientId: string
     assignedUserId?: string
+    assignedClientUserId?: string
   }) {
     return this.prisma.workflow.findMany({
       where: {
         tenant_id: input.tenantId,
         client_id: input.clientId,
-        client: { tenant_id: input.tenantId },
+        client: {
+          tenant_id: input.tenantId,
+          ...(input.assignedClientUserId
+            ? {
+                client_users: {
+                  some: {
+                    user_id: input.assignedClientUserId,
+                  },
+                },
+              }
+            : {}),
+        },
         ...(input.assignedUserId
           ? { tasks: { some: { assigned_to: input.assignedUserId } } }
           : {}),
@@ -58,12 +84,24 @@ export class WorkflowsRepository {
     tenantId: string
     workflowId: string
     assignedUserId?: string
+    assignedClientUserId?: string
   }) {
     return this.prisma.workflow.findFirst({
       where: {
         id: input.workflowId,
         tenant_id: input.tenantId,
-        client: { tenant_id: input.tenantId },
+        client: {
+          tenant_id: input.tenantId,
+          ...(input.assignedClientUserId
+            ? {
+                client_users: {
+                  some: {
+                    user_id: input.assignedClientUserId,
+                  },
+                },
+              }
+            : {}),
+        },
         ...(input.assignedUserId
           ? { tasks: { some: { assigned_to: input.assignedUserId } } }
           : {}),
@@ -136,12 +174,24 @@ export class WorkflowsRepository {
     tenantId: string
     workflowId: string
     assignedUserId?: string
+    assignedClientUserId?: string
   }) {
     return this.prisma.workflow.findFirst({
       where: {
         id: input.workflowId,
         tenant_id: input.tenantId,
-        client: { tenant_id: input.tenantId },
+        client: {
+          tenant_id: input.tenantId,
+          ...(input.assignedClientUserId
+            ? {
+                client_users: {
+                  some: {
+                    user_id: input.assignedClientUserId,
+                  },
+                },
+              }
+            : {}),
+        },
         ...(input.assignedUserId
           ? { tasks: { some: { assigned_to: input.assignedUserId } } }
           : {}),

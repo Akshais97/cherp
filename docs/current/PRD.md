@@ -20,7 +20,7 @@ PM, Project Manager — the person accountable for client delivery workflows
 KPI, Key Performance Indicator — a measurable metric tracking campaign/service success
 Scope Template, "A pre-configured set of tasks, KPIs, and timelines for a specific industry and service type"
 Blocker, An obstacle that prevents a task from progressing; requires resolution to continue
-CRM, Customer Relationship Management system (Sakhaa) — manages sales pipeline and client relationships
+CRM, Customer Relationship Management system (Saarthi) — manages sales pipeline and client relationships
 RBAC, Role-Based Access Control — permissions system based on user roles
 Tenant, A single agency instance in the multi-tenant SaaS architecture
 

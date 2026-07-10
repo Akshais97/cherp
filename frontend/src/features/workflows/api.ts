@@ -1,7 +1,14 @@
 import { apiClient } from '../../lib/api/client'
 
 export type WorkflowStatus = 'draft' | 'active' | 'paused' | 'completed'
-export type TaskStatus = 'pending' | 'in_progress' | 'blocked' | 'completed'
+export type TaskStatus =
+  | 'yet_to_start'
+  | 'ongoing'
+  | 'blocked'
+  | 'completed'
+  | 'task_approved_by_manager'
+  | 'rework'
+  | 'task_approved_by_client'
 export type TaskPriority = 'high' | 'medium' | 'low'
 
 export type UserOption = {
@@ -9,6 +16,7 @@ export type UserOption = {
   email: string
   full_name: string
   role: { name: string; description: string }
+  avatar_url?: string
 }
 
 export type WorkflowRow = {
@@ -36,9 +44,17 @@ export type WorkflowRow = {
   _count: { tasks: number }
 }
 
+export type ChecklistItem = {
+  id: string
+  text: string
+  is_completed: boolean
+}
+
 export type WorkflowTask = {
   id: string
-  workflow_id: string
+  workflow_id?: string | null
+  client_id?: string | null
+  slot?: string | null
   assigned_to?: string
   completed_by?: string
   title: string
@@ -47,10 +63,24 @@ export type WorkflowTask = {
   priority: TaskPriority
   sort_order: number
   due_date?: string
+  is_daily?: boolean
   completed_at?: string
-  assignee?: { id: string; full_name: string; email: string }
-  completer?: { id: string; full_name: string; email: string }
+  created_at: string
+  updated_at: string
+  assignee?: { id: string; full_name: string; email: string; avatar_url?: string }
+  completer?: { id: string; full_name: string; email: string; avatar_url?: string }
   open_blocker_count: number
+  checklist?: ChecklistItem[]
+  client?: { id: string; name: string } | null
+  workflow?: { id: string; title: string; project_manager_id?: string | null; client?: { id: string; name: string } | null } | null
+  assigned_by?: string | null
+  assignor?: { id: string; full_name: string; email: string; avatar_url?: string } | null
+  start_date?: string | null
+  labels?: string[]
+  recurrence_series_id?: string | null
+  recurrence_rule?: string | null
+  recurrence_end_date?: string | null
+  recurrence_type?: string | null
 }
 
 export type WorkflowDetail = WorkflowRow & {
@@ -69,7 +99,11 @@ export type CreateTaskPayload = {
   description?: string
   priority?: TaskPriority
   due_date?: string
+  is_daily?: boolean
   assigned_to?: string
+  slot?: string
+  client_id?: string
+  workflow_id?: string
 }
 
 export type UpdateTaskPayload = Partial<{
@@ -77,9 +111,19 @@ export type UpdateTaskPayload = Partial<{
   description: string
   status: TaskStatus
   priority: TaskPriority
-  due_date: string
+  due_date: string | null
+  start_date: string | null
+  is_daily: boolean | null
   assigned_to: string | null
   sort_order: number
+  checklist: ChecklistItem[]
+  reason: string
+  slot: string | null
+  client_id: string | null
+  labels: string[]
+  recurrence_rule: string | null
+  recurrence_end_date: string | null
+  recurrence_type: string | null
 }>
 
 export function getWorkflows(filters?: WorkflowFilters) {
@@ -114,6 +158,63 @@ export function completeTask(id: string) {
   return apiClient.patch<WorkflowTask>(`/tasks/${id}/complete`).then((response) => response.data)
 }
 
+export function deleteTask(id: string) {
+  return apiClient.delete<{ id: string; deleted: true }>(`/tasks/${id}`).then((response) => response.data)
+}
+
 export function getUsers() {
   return apiClient.get<UserOption[]>('/users').then((response) => response.data)
 }
+
+export function getTaskComments(id: string) {
+  return apiClient.get<any[]>(`/tasks/${id}/comments`).then((response) => response.data)
+}
+
+export function addTaskComment(id: string, payload: { content: string }) {
+  return apiClient.post<any>(`/tasks/${id}/comments`, payload).then((response) => response.data)
+}
+
+export function getTaskAttachments(id: string) {
+  return apiClient.get<any[]>(`/tasks/${id}/attachments`).then((response) => response.data)
+}
+
+export function addTaskAttachment(id: string, payload: { file_name: string; file_url: string }) {
+  return apiClient.post<any>(`/tasks/${id}/attachments`, payload).then((response) => response.data)
+}
+
+export function deleteTaskAttachment(id: string, attachmentId: string) {
+  return apiClient.delete<any>(`/tasks/${id}/attachments/${attachmentId}`).then((response) => response.data)
+}
+
+export function getTaskLogs(id: string) {
+  return apiClient.get<any[]>(`/tasks/${id}/logs`).then((response) => response.data)
+}
+
+export function requestTaskApproval(id: string, payload: { reason?: string }) {
+  return apiClient.patch<any>(`/tasks/${id}/request-approval`, payload).then((response) => response.data)
+}
+
+export function approveTask(id: string, payload: { reason?: string }) {
+  return apiClient.patch<any>(`/tasks/${id}/approve`, payload).then((response) => response.data)
+}
+
+export function requestTaskChanges(id: string, payload: { reason?: string }) {
+  return apiClient.patch<any>(`/tasks/${id}/request-changes`, payload).then((response) => response.data)
+}
+
+export function getTeamWorkloadSummary() {
+  return apiClient.get<any[]>('/users/workload-summary').then((response) => response.data)
+}
+
+export function getTask(id: string) {
+  return apiClient.get<WorkflowTask>(`/tasks/${id}`).then((response) => response.data)
+}
+
+export function getTasks(params?: any) {
+  return apiClient.get<WorkflowTask[]>('/tasks', { params }).then((response) => response.data)
+}
+
+export function createTask(payload: any) {
+  return apiClient.post<WorkflowTask>('/tasks', payload).then((response) => response.data)
+}
+

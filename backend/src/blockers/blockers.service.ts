@@ -4,9 +4,11 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common'
 import { UserRole } from '../common/enums/user-role.enum'
 import { RequestUser } from '../common/types/request-user.type'
+import { NotificationsService } from '../notifications/notifications.service'
 import { BlockersRepository } from './blockers.repository'
 import { BlockerQueryDto } from './dto/blocker-query.dto'
 import { CreateBlockerDto } from './dto/create-blocker.dto'
@@ -22,7 +24,10 @@ const severityRank: Record<BlockerSeverity, number> = {
 
 @Injectable()
 export class BlockersService {
-  constructor(private readonly repository: BlockersRepository) {}
+  constructor(
+    private readonly repository: BlockersRepository,
+    @Optional() private readonly notifications?: NotificationsService,
+  ) {}
 
   async create(dto: CreateBlockerDto, user: RequestUser) {
     const task = await this.repository.findTaskForBlocker({
@@ -40,8 +45,8 @@ export class BlockersService {
       )
     }
 
-    if (task.status === 'completed') {
-      throw new BadRequestException('Completed tasks cannot be blocked.')
+    if (task.status === 'task_approved_by_client') {
+      throw new BadRequestException('Client-approved tasks cannot be blocked.')
     }
 
     const duplicate = await this.repository.findDuplicateOpenBlocker({
@@ -54,12 +59,27 @@ export class BlockersService {
       throw new ConflictException('An open blocker with this title already exists.')
     }
 
-    return this.repository.createAndBlockTask({
+    const blocker = await this.repository.createAndBlockTask({
       tenantId: user.tenantId,
       userId: user.id,
       task,
       data: dto,
     })
+
+    await this.notifications?.notifyBlockerCreated({
+      tenantId: user.tenantId,
+      actorId: user.id,
+      blockerId: blocker.id,
+      blockerTitle: blocker.title,
+      taskId: task.id,
+      taskTitle: task.title,
+      assigneeId: task.assigned_to,
+      projectManagerId: blocker.task?.workflow?.project_manager_id,
+      clientName: task.workflow?.client?.name || task.client?.name || '',
+      notify: blocker.notify ? (blocker.notify as string[]) : undefined,
+    })
+
+    return blocker
   }
 
   async list(filters: BlockerQueryDto, user: RequestUser) {
@@ -67,6 +87,7 @@ export class BlockersService {
       tenantId: user.tenantId,
       filters,
       assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
 
     return blockers.sort((a, b) => {
@@ -83,6 +104,7 @@ export class BlockersService {
       tenantId: user.tenantId,
       blockerId: id,
       assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
 
     if (!blocker) {
@@ -96,10 +118,21 @@ export class BlockersService {
     const blocker = await this.repository.findDetail({
       tenantId: user.tenantId,
       blockerId: id,
+      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     })
 
     if (!blocker) {
       throw new NotFoundException('Blocker not found.')
+    }
+
+    if (
+      user.role === UserRole.TeamMember &&
+      blocker.flagged_by !== user.id &&
+      blocker.assigned_to !== user.id
+    ) {
+      throw new ForbiddenException(
+        'Team members can resolve blockers only if they assigned it or are assigned to it.',
+      )
     }
 
     if (blocker.status === 'resolved') {

@@ -5,6 +5,7 @@ export const createBlockerSchema = z.object({
   description: z.string().trim().min(2, 'Description is required.'),
   severity: z.enum(['high', 'medium', 'low']).default('medium'),
   impact: z.string().trim().optional(),
+  assigned_to: z.string().uuid('Please select an assignee.'),
 })
 
 export const resolveBlockerSchema = z.object({

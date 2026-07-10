@@ -138,7 +138,7 @@ async function measureDatabase(
             from tasks t
             where t.tenant_id = $1::uuid
               and t.assigned_to = u.id
-              and t.status in ('pending', 'in_progress', 'blocked')
+              and t.status in ('yet_to_start', 'ongoing', 'blocked', 'rework')
           )
         limit 100
       `,

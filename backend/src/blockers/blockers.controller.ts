@@ -45,7 +45,7 @@ export class BlockersController {
   }
 
   @Patch(':id/resolve')
-  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Resolves a blocker and restores the task when allowed.' })
   resolve(
     @Param('id') id: string,

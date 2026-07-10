@@ -26,6 +26,7 @@ export type DashboardDeadline = {
   status: string
   priority: 'high' | 'medium' | 'low'
   dueDate?: string | null
+  completedAt?: string | null
   urgency: 'overdue' | 'upcoming'
   workflow: {
     id: string
@@ -145,4 +146,30 @@ function isDashboardActivity(value: unknown): value is DashboardActivity {
     'entity_type' in value &&
     'created_at' in value
   )
+}
+
+export type SearchResult = {
+  clients: Array<{ id: string; name: string }>
+  workflows: Array<{ id: string; title: string; month_number: number; client: { name: string } }>
+  tasks: Array<{ id: string; title: string; status: string; workflow: { id: string; title: string } }>
+  blockers: Array<{ id: string; title: string; status: string; task: { workflow_id: string } }>
+  users: Array<{ id: string; full_name: string; email: string }>
+}
+
+export function searchWorkspace(query: string) {
+  return apiClient
+    .get<SearchResult>('/dashboard/search', { params: { q: query } })
+    .then((response) => response.data)
+}
+
+export type ClientDashboardData = {
+  client: any
+  activeWorkflow?: any
+  tasks: any[]
+}
+
+export function getClientDashboard() {
+  return apiClient
+    .get<ClientDashboardData>('/clients/my-dashboard')
+    .then((res) => res.data)
 }

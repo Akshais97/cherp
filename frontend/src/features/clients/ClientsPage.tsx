@@ -1,72 +1,64 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Archive,
-  ArrowDownUp,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
-  Pencil,
+  CheckCircle2,
+  ClipboardList,
   Plus,
-  Save,
   Sparkles,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
-import { canArchiveClients, canManageClients } from '../../lib/permissions/roles'
+import { canManageClients } from '../../lib/permissions/roles'
 import {
-  archiveClient,
   createClient,
-  getClient,
-  getClients,
   getScopeTemplates,
   seedScopeTemplates,
-  updateClient,
-  updateClientStatus,
-  type ClientDetail,
-  type ClientFilters,
-  type ClientRow,
-  type ClientStatus,
   type ScopeTemplate,
 } from './api'
 import {
-  clientEditSchema,
   clientOnboardingSchema,
-  type ClientEditInput,
-  type ClientEditValues,
   type ClientOnboardingInput,
   type ClientOnboardingValues,
 } from './clientSchemas'
 
-const statusLabels: Record<ClientStatus, string> = {
-  active: 'Active',
-  paused: 'Paused',
-  completed: 'Completed',
-  archived: 'Archived',
+type OnboardingStep = 'client_details' | 'scope_templates' | 'review'
+
+const clientDetailFields: Array<keyof ClientOnboardingInput> = [
+  'name',
+  'contact_email',
+  'contact_name',
+  'contact_phone',
+  'monthly_retainer',
+  'currency',
+  'contract_start',
+  'contract_duration',
+  'payment_terms',
+  'renewal_date',
+]
+
+const onboardingSteps: Array<{ id: OnboardingStep; label: string }> = [
+  { id: 'client_details', label: 'Client Details' },
+  { id: 'scope_templates', label: 'Scope Templates' },
+  { id: 'review', label: 'Review' },
+]
+
+const defaultOnboardingValues: Partial<ClientOnboardingInput> = {
+  currency: 'INR',
+  contract_duration: 3,
+  contract_start: new Date().toISOString().slice(0, 10),
 }
 
-export function ClientsPage({ initialClientId }: { initialClientId?: string | null }) {
+export function ClientsPage() {
   const queryClient = useQueryClient()
   const { currentUser } = useAuth()
   const canManage = currentUser ? canManageClients(currentUser.role) : false
   const [pageError, setPageError] = useState<string | null>(null)
-  const [sortKey, setSortKey] = useState<keyof ClientRow>('name')
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
-  const [searchValue, setSearchValue] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | ''>('')
-  const debouncedSearch = useDebouncedValue(searchValue, 250)
-  const filters = useMemo<ClientFilters>(
-    () => ({
-      search: debouncedSearch || undefined,
-      status: statusFilter || undefined,
-    }),
-    [debouncedSearch, statusFilter],
-  )
-  const clientsQuery = useQuery({
-    queryKey: ['clients', filters],
-    queryFn: () => getClients(filters),
-  })
-  const templatesQuery = useQuery({
+  const { data: templatesData, error: templatesQueryError } = useQuery({
     queryKey: ['scope-templates'],
     queryFn: getScopeTemplates,
     enabled: canManage,
@@ -80,39 +72,24 @@ export function ClientsPage({ initialClientId }: { initialClientId?: string | nu
     onError: (error) => setPageError(normalizeApiError(error).message),
   })
 
-  const clients = useMemo(() => {
-    return [...(clientsQuery.data ?? [])].sort((a, b) =>
-      String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? '')),
-    )
-  }, [clientsQuery.data, sortKey])
-
-  const templates = canManage ? templatesQuery.data ?? [] : []
-  const clientsError = clientsQuery.error
-    ? normalizeApiError(clientsQuery.error).message
+  const templates = canManage ? templatesData ?? [] : []
+  const templatesError = canManage && templatesQueryError
+    ? normalizeApiError(templatesQueryError).message
     : null
-  const templatesError = canManage && templatesQuery.error
-    ? normalizeApiError(templatesQuery.error).message
-    : null
-
-  useEffect(() => {
-    if (initialClientId) {
-      setSelectedClientId(initialClientId)
-    }
-  }, [initialClientId])
 
   return (
     <section className="clients-page" data-testid="clients-page">
       <div className="page-heading">
         <div>
           <p>Client onboarding</p>
-          <h1>Clients</h1>
+          <h1>Onboarding</h1>
         </div>
         <span className="pill">Slice 1 and 2 closure</span>
       </div>
 
-      {pageError || clientsError || templatesError ? (
+      {pageError || templatesError ? (
         <div className="notice error">
-          {pageError ?? clientsError ?? templatesError}
+          {pageError ?? templatesError}
         </div>
       ) : null}
 
@@ -135,23 +112,8 @@ export function ClientsPage({ initialClientId }: { initialClientId?: string | nu
         </section>
       ) : null}
 
-      <div className="slice-grid">
+      <div className="onboarding-grid">
         {canManage ? <ClientOnboardingForm templates={templates} /> : null}
-        <div className="client-side-stack">
-          <ClientDirectory
-            clients={clients}
-            isLoading={clientsQuery.isLoading}
-            searchValue={searchValue}
-            selectedClientId={selectedClientId}
-            sortKey={sortKey}
-            statusFilter={statusFilter}
-            onSearchChange={setSearchValue}
-            onSelect={setSelectedClientId}
-            onSort={setSortKey}
-            onStatusFilterChange={setStatusFilter}
-          />
-          <ClientDetailPanel clientId={selectedClientId} />
-        </div>
       </div>
     </section>
   )
@@ -159,22 +121,22 @@ export function ClientsPage({ initialClientId }: { initialClientId?: string | nu
 
 function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
   const queryClient = useQueryClient()
+  const [step, setStep] = useState<OnboardingStep>('client_details')
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null)
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    trigger,
     reset,
     formState: { errors },
   } = useForm<ClientOnboardingInput, unknown, ClientOnboardingValues>({
     resolver: zodResolver(clientOnboardingSchema),
-    defaultValues: {
-      currency: 'INR',
-      contract_duration: 3,
-      contract_start: new Date().toISOString().slice(0, 10),
-    },
+    defaultValues: defaultOnboardingValues,
   })
+  const formValues = useWatch({ control })
   const selectedTemplateId = useWatch({ control, name: 'scope_template_id' })
   const selectedTemplate = templates.find(
     (template) => template.id === selectedTemplateId,
@@ -186,9 +148,14 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       setSubmitError(null)
-      reset()
+      setSubmitSuccess('Client has been created')
+      reset(defaultOnboardingValues)
+      setStep('client_details')
     },
-    onError: (error) => setSubmitError(normalizeApiError(error).message),
+    onError: (error) => {
+      setSubmitSuccess(null)
+      setSubmitError(formatClientCreationError(error))
+    },
   })
   const contractEnd = useMemo(() => {
     return calculateContractEnd(contractStart, contractDuration)
@@ -207,6 +174,22 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
     })
   }
 
+  async function goToScopeTemplates() {
+    if (await trigger(clientDetailFields)) {
+      setSubmitError(null)
+      setSubmitSuccess(null)
+      setStep('scope_templates')
+    }
+  }
+
+  async function goToReview() {
+    if (await trigger('scope_template_id')) {
+      setSubmitError(null)
+      setSubmitSuccess(null)
+      setStep('review')
+    }
+  }
+
   return (
     <form className="panel onboarding-panel" data-testid="client-onboarding-form" onSubmit={handleSubmit(submit)}>
       <div className="panel-header">
@@ -214,10 +197,43 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
         <Plus size={18} />
       </div>
 
-      {submitError ? <div className="notice error">{submitError}</div> : null}
+      {createMutation.isPending ? (
+        <div className="notice" data-testid="alert-client-creation-pending" role="status">
+          Creating client...
+        </div>
+      ) : null}
+      {submitError ? (
+        <div className="notice error" data-testid="alert-client-creation-error" role="alert">
+          {submitError}
+        </div>
+      ) : null}
+      {submitSuccess ? (
+        <div className="notice success" data-testid="alert-client-creation" role="status">
+          {submitSuccess}
+        </div>
+      ) : null}
 
-      <div className="onboarding-columns">
-        <div className="form-stack">
+      <div className="stepper" aria-label="Client onboarding steps">
+        {onboardingSteps.map((item, index) => {
+          const activeIndex = onboardingSteps.findIndex((inner) => inner.id === step)
+          return (
+            <div
+              className={index === activeIndex ? 'stepper-item active' : index < activeIndex ? 'stepper-item complete' : 'stepper-item'}
+              key={item.id}
+            >
+              <span>{index + 1}</span>
+              {item.label}
+            </div>
+          )
+        })}
+      </div>
+
+      {step === 'client_details' ? (
+        <section className="onboarding-step" data-testid="onboarding-step-client-details">
+          <div className="panel-header compact-header">
+            <h2>Client Details</h2>
+            <ClipboardList size={16} />
+          </div>
           <label className="field">
             <span>Client Name</span>
             <input data-testid="input-client-name" {...register('name')} />
@@ -273,41 +289,175 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
               {errors.renewal_date ? <small>{errors.renewal_date.message}</small> : null}
             </label>
           </div>
-        </div>
+          <div className="onboarding-actions">
+            <button
+              className="primary-action compact"
+              data-testid="button-onboarding-next-client-details"
+              onClick={goToScopeTemplates}
+              type="button"
+            >
+              Next
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </section>
+      ) : null}
 
-        <div className="template-preview">
-          <label className="field">
-            <span>Scope Template</span>
-            <select data-testid="select-scope-template" {...register('scope_template_id')}>
-              <option value="">Select template</option>
-              {templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.industry} - {template.service_type}
-                </option>
-              ))}
-            </select>
-            {errors.scope_template_id ? (
-              <small>{errors.scope_template_id.message}</small>
-            ) : null}
-          </label>
+      {step === 'scope_templates' ? (
+        <section className="onboarding-step" data-testid="onboarding-step-scope-templates">
+          <div className="panel-header compact-header">
+            <h2>Scope Templates</h2>
+            <Sparkles size={16} />
+          </div>
+          <div className="template-preview">
+            <label className="field">
+              <span>Scope Template</span>
+              <select data-testid="select-scope-template" {...register('scope_template_id')}>
+                <option value="">Select template</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.industry} - {template.service_type}
+                  </option>
+                ))}
+              </select>
+              {errors.scope_template_id ? (
+                <small>{errors.scope_template_id.message}</small>
+              ) : null}
+            </label>
 
-          {selectedTemplate ? (
-            <TemplatePreview template={selectedTemplate} />
-          ) : (
-            <div className="template-card muted-card">Select a template to preview tasks, KPIs, and duration.</div>
-          )}
-        </div>
-      </div>
+            {selectedTemplate ? (
+              <TemplatePreview template={selectedTemplate} />
+            ) : (
+              <div className="template-card muted-card">Select a template to preview tasks, KPIs, and duration.</div>
+            )}
+          </div>
+          <div className="onboarding-actions spread">
+            <button
+              className="ghost-button"
+              data-testid="button-onboarding-back-scope-templates"
+              onClick={() => setStep('client_details')}
+              type="button"
+            >
+              <ArrowLeft size={14} />
+              Back
+            </button>
+            <button
+              className="primary-action compact"
+              data-testid="button-onboarding-next-scope-templates"
+              disabled={templates.length === 0}
+              onClick={goToReview}
+              type="button"
+            >
+              Next
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </section>
+      ) : null}
 
-      <button
-        className="primary-action compact"
-        data-testid="button-create-client"
-        disabled={createMutation.isPending || templates.length === 0}
-        type="submit"
-      >
-        {createMutation.isPending ? 'Creating...' : 'Create client and workflow'}
-      </button>
+      {step === 'review' ? (
+        <section className="onboarding-step" data-testid="onboarding-step-review">
+          <div className="panel-header compact-header">
+            <h2>Review</h2>
+            <CheckCircle2 size={16} />
+          </div>
+          <ReviewSection
+            contractEnd={contractEnd}
+            selectedTemplate={selectedTemplate}
+            values={formValues}
+          />
+          <div className="onboarding-actions spread">
+            <button
+              className="ghost-button"
+              data-testid="button-onboarding-back-review"
+              onClick={() => setStep('scope_templates')}
+              type="button"
+            >
+              <ArrowLeft size={14} />
+              Back
+            </button>
+            <button
+              className="primary-action compact"
+              data-testid="button-create-client"
+              disabled={createMutation.isPending || templates.length === 0}
+              type="submit"
+            >
+              {createMutation.isPending ? 'Creating...' : 'Confirm'}
+            </button>
+          </div>
+        </section>
+      ) : null}
     </form>
+  )
+}
+
+function formatClientCreationError(error: unknown) {
+  const apiError = normalizeApiError(error)
+  const statusPrefix = apiError.status ? `Request failed with ${apiError.status}. ` : ''
+  return `Client Creation Unsuccessful due to ${statusPrefix}${apiError.message}`
+}
+
+function ReviewSection({
+  contractEnd,
+  selectedTemplate,
+  values,
+}: {
+  contractEnd: string
+  selectedTemplate: ScopeTemplate | undefined
+  values: Partial<ClientOnboardingInput>
+}) {
+  return (
+    <div className="review-grid">
+      <section className="review-card">
+        <h3>Client Details</h3>
+        <dl>
+          <div>
+            <dt>Name</dt>
+            <dd>{displayValue(values.name)}</dd>
+          </div>
+          <div>
+            <dt>Contact Email</dt>
+            <dd>{displayValue(values.contact_email)}</dd>
+          </div>
+          <div>
+            <dt>Contact Name</dt>
+            <dd>{displayValue(values.contact_name)}</dd>
+          </div>
+          <div>
+            <dt>Contact Phone</dt>
+            <dd>{displayValue(values.contact_phone)}</dd>
+          </div>
+          <div>
+            <dt>Monthly Retainer</dt>
+            <dd>{displayValue(values.monthly_retainer)}</dd>
+          </div>
+          <div>
+            <dt>Currency</dt>
+            <dd>{displayValue(values.currency)}</dd>
+          </div>
+          <div>
+            <dt>Contract Start</dt>
+            <dd>{displayValue(values.contract_start)}</dd>
+          </div>
+          <div>
+            <dt>Contract End</dt>
+            <dd>{displayValue(contractEnd)}</dd>
+          </div>
+          <div>
+            <dt>Payment Terms</dt>
+            <dd>{displayValue(values.payment_terms)}</dd>
+          </div>
+          <div>
+            <dt>Renewal Date</dt>
+            <dd>{displayValue(values.renewal_date)}</dd>
+          </div>
+        </dl>
+      </section>
+      <section className="review-card">
+        <h3>Scope Template</h3>
+        {selectedTemplate ? <TemplatePreview template={selectedTemplate} /> : <p>No template selected.</p>}
+      </section>
+    </div>
   )
 }
 
@@ -339,329 +489,6 @@ function TemplatePreview({ template }: { template: ScopeTemplate }) {
   )
 }
 
-function ClientDirectory({
-  clients,
-  isLoading,
-  searchValue,
-  selectedClientId,
-  sortKey,
-  statusFilter,
-  onSearchChange,
-  onSelect,
-  onSort,
-  onStatusFilterChange,
-}: {
-  clients: ClientRow[]
-  isLoading: boolean
-  searchValue: string
-  selectedClientId: string | null
-  sortKey: keyof ClientRow
-  statusFilter: ClientStatus | ''
-  onSearchChange: (value: string) => void
-  onSelect: (id: string) => void
-  onSort: (key: keyof ClientRow) => void
-  onStatusFilterChange: (status: ClientStatus | '') => void
-}) {
-  return (
-    <section className="panel directory-panel" data-testid="client-directory">
-      <div className="panel-header">
-        <h2>Client directory</h2>
-        <span className="muted">{isLoading ? 'Loading...' : `${clients.length} clients`}</span>
-      </div>
-
-      <div className="client-filters">
-        <label className="field">
-          <span>Search</span>
-          <input
-            value={searchValue}
-            data-testid="input-client-search"
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>Status</span>
-          <select
-            value={statusFilter}
-            data-testid="select-client-status-filter"
-            onChange={(event) =>
-              onStatusFilterChange(event.target.value as ClientStatus | '')
-            }
-          >
-            <option value="">Visible</option>
-            {Object.entries(statusLabels).map(([status, label]) => (
-              <option key={status} value={status}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              {[
-                ['name', 'Name'],
-                ['industry', 'Industry'],
-                ['service_type', 'Service'],
-                ['status', 'Status'],
-              ].map(([key, label]) => (
-                <th key={key}>
-                  <button
-                className={sortKey === key ? 'table-sort active' : 'table-sort'}
-                    data-testid={`button-sort-${key}`}
-                    onClick={() => onSort(key as keyof ClientRow)}
-                    type="button"
-                  >
-                    {label}
-                    <ArrowDownUp size={12} />
-                  </button>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((client) => (
-              <tr
-                key={client.id}
-                className={selectedClientId === client.id ? 'selected-row' : undefined}
-                data-testid="client-row"
-                onClick={() => onSelect(client.id)}
-              >
-                <td>{client.name}</td>
-                <td>{client.industry}</td>
-                <td>{client.service_type}</td>
-                <td>
-                  <span className={`status-badge ${client.status}`}>
-                    {statusLabels[client.status]}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && clients.length === 0 ? (
-              <tr>
-                <td colSpan={4}>No clients found.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )
-}
-
-function ClientDetailPanel({ clientId }: { clientId: string | null }) {
-  const queryClient = useQueryClient()
-  const { currentUser } = useAuth()
-  const canManage = currentUser ? canManageClients(currentUser.role) : false
-  const canArchive = currentUser ? canArchiveClients(currentUser.role) : false
-  const [panelError, setPanelError] = useState<string | null>(null)
-  const clientQuery = useQuery({
-    queryKey: ['client', clientId],
-    queryFn: () => getClient(clientId ?? ''),
-    enabled: Boolean(clientId),
-  })
-  const client = clientQuery.data
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<ClientEditInput, unknown, ClientEditValues>({
-    resolver: zodResolver(clientEditSchema),
-  })
-  const updateMutation = useMutation({
-    mutationFn: (values: ClientEditValues) => updateClient(clientId ?? '', values),
-    onSuccess: () => {
-      setPanelError(null)
-      queryClient.invalidateQueries({ queryKey: ['clients'] })
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-    },
-    onError: (error) => setPanelError(normalizeApiError(error).message),
-  })
-  const statusMutation = useMutation({
-    mutationFn: (status: ClientStatus) => updateClientStatus(clientId ?? '', status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] })
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-    },
-    onError: (error) => setPanelError(normalizeApiError(error).message),
-  })
-  const archiveMutation = useMutation({
-    mutationFn: () => archiveClient(clientId ?? ''),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] })
-      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-    },
-    onError: (error) => setPanelError(normalizeApiError(error).message),
-  })
-
-  useEffect(() => {
-    if (!client) return
-    reset(toEditDefaults(client))
-  }, [client, reset])
-
-  if (!clientId) {
-    return (
-      <section className="panel muted-card" data-testid="client-detail-empty">
-        Select a client to view profile, workflow summary, and lifecycle controls.
-      </section>
-    )
-  }
-
-  if (clientQuery.isLoading) {
-    return <section className="panel muted-card" data-testid="client-detail-loading">Loading client detail...</section>
-  }
-
-  if (!client) {
-    return <section className="panel muted-card" data-testid="client-detail-unavailable">Client detail unavailable.</section>
-  }
-
-  return (
-    <section className="panel client-detail-panel" data-testid="client-detail-panel">
-      <div className="panel-header">
-        <div>
-          <h2>{client.name}</h2>
-          <span className={`status-badge ${client.status}`}>
-            {statusLabels[client.status]}
-          </span>
-        </div>
-        {canManage ? (
-          <div className="action-row">
-            <select
-              aria-label="Client status"
-              data-testid="select-client-detail-status"
-              disabled={statusMutation.isPending}
-              value={client.status}
-              onChange={(event) => statusMutation.mutate(event.target.value as ClientStatus)}
-            >
-              {Object.entries(statusLabels).map(([status, label]) => (
-                <option key={status} value={status}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {canArchive ? (
-              <button
-                className="ghost-button danger"
-                data-testid="button-archive-client"
-                disabled={archiveMutation.isPending || client.status === 'archived'}
-                onClick={() => archiveMutation.mutate()}
-                type="button"
-              >
-                <Archive size={14} />
-                Archive
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
-      {panelError ? <div className="notice error">{panelError}</div> : null}
-
-      {canManage ? (
-      <form className="client-edit-form" data-testid="client-edit-form" onSubmit={handleSubmit((values) => updateMutation.mutate(values))}>
-        <div className="form-pair">
-          <label className="field">
-            <span>Name</span>
-            <input data-testid="input-edit-client-name" {...register('name')} />
-            {errors.name ? <small>{errors.name.message}</small> : null}
-          </label>
-          <label className="field">
-            <span>Industry</span>
-            <input data-testid="input-edit-client-industry" {...register('industry')} />
-            {errors.industry ? <small>{errors.industry.message}</small> : null}
-          </label>
-        </div>
-        <div className="form-pair">
-          <label className="field">
-            <span>Service</span>
-            <input data-testid="input-edit-client-service" {...register('service_type')} />
-            {errors.service_type ? <small>{errors.service_type.message}</small> : null}
-          </label>
-          <label className="field">
-            <span>Contact Email</span>
-            <input data-testid="input-edit-client-email" {...register('contact_email')} />
-          </label>
-        </div>
-        <div className="form-pair">
-          <label className="field">
-            <span>Contract Start</span>
-            <input type="date" {...register('contract_start')} />
-          </label>
-          <label className="field">
-            <span>Duration Months</span>
-            <input type="number" {...register('contract_duration')} />
-          </label>
-        </div>
-        <div className="form-pair">
-          <label className="field">
-            <span>Payment Terms</span>
-            <input data-testid="input-edit-client-payment-terms" {...register('payment_terms')} />
-          </label>
-          <label className="field">
-            <span>Renewal Date</span>
-            <input data-testid="input-edit-client-renewal-date" type="date" {...register('renewal_date')} />
-            {errors.renewal_date ? <small>{errors.renewal_date.message}</small> : null}
-          </label>
-        </div>
-          <button className="primary-action compact" data-testid="button-save-client" disabled={updateMutation.isPending} type="submit">
-          <Save size={14} />
-          {updateMutation.isPending ? 'Saving...' : 'Save changes'}
-        </button>
-      </form>
-      ) : (
-        <div className="muted-card" data-testid="client-readonly-detail">
-          You have read-only access to this assigned client.
-        </div>
-      )}
-
-      <div className="workflow-summary">
-        <div className="panel-header compact-header">
-          <h2>Month 1 workflow</h2>
-          <Pencil size={15} />
-        </div>
-        {client.workflows.map((workflow) => (
-          <div key={workflow.id} className="workflow-row">
-            <div>
-              <strong>{workflow.title}</strong>
-              <p>
-                {workflow._count.tasks} tasks · {Number(workflow.completion_percentage)}%
-                complete
-              </p>
-            </div>
-            <span className={`status-badge ${workflow.status}`}>{workflow.status}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function toEditDefaults(client: ClientDetail): ClientEditInput {
-  return {
-    name: client.name,
-    industry: client.industry,
-    service_type: client.service_type,
-    contact_name: client.contact_name ?? '',
-    contact_email: client.contact_email ?? '',
-    contact_phone: client.contact_phone ?? '',
-    address: client.address ?? '',
-    monthly_retainer:
-      client.monthly_retainer === undefined || client.monthly_retainer === null
-        ? undefined
-        : Number(client.monthly_retainer),
-    currency: client.currency ?? 'INR',
-    contract_duration: client.contract_duration ?? 1,
-    contract_start: client.contract_start?.slice(0, 10) ?? '',
-    payment_terms: client.payment_terms ?? '',
-    renewal_date: client.renewal_date?.slice(0, 10) ?? '',
-    notes: client.notes ?? '',
-    retainer_hours: client.retainer_hours ?? undefined,
-  }
-}
-
 function calculateContractEnd(
   contractStart: unknown,
   contractDuration: unknown,
@@ -680,15 +507,9 @@ function calculateContractEnd(
   return date.toISOString().slice(0, 10)
 }
 
-function useDebouncedValue<T>(value: T, delayMs: number) {
-  const [debounced, setDebounced] = useState(value)
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setDebounced(value), delayMs)
-    return () => window.clearTimeout(timeout)
-  }, [delayMs, value])
-
-  return debounced
+function displayValue(value: unknown) {
+  if (value === undefined || value === null || value === '') return '-'
+  return String(value)
 }
 
 function formatKpis(kpiFramework: Record<string, unknown>) {

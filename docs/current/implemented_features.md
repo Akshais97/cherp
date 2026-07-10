@@ -44,6 +44,8 @@
 
 - Admin-only user creation via `POST /api/auth/register`; Supabase Auth owns passwords, ERP stores profile/role only.
 - Tenant users API: `GET /api/users` for PM/Admin and `PATCH /api/users/:id` for Super Admin updates.
+- Super Admin user deletion via `DELETE /api/users/:id`, guarded against self-delete, last-Super-Admin delete, and protected historical references.
+- Team Members tab backed by `GET /api/users/team-members` and `GET /api/users/team-members/:id/workload` for searchable members, assigned tasks, and related blockers.
 - Supabase password reset delegation through `POST /api/auth/forgot-password` and login-page reset action.
 - Clear backend auth failures for missing bearer, invalid/expired token, inactive ERP user, missing ERP user, and forbidden role.
 - Client lifecycle APIs: detail, edit, status change, and soft archive.
@@ -51,6 +53,11 @@
 - Frontend client detail panel with editable profile fields and linked Month 1 workflow summary.
 - Scope template CRUD, detail, deactivate, seed audit logging, and exact/fallback resolution endpoint.
 - Scope template preview now includes duration and KPI framework, not only task list.
+- Client Onboarding and Client Directory are separate sidebar tabs.
+- Client Onboarding uses a step workflow: Client Details, Scope Templates, Review/Confirm.
+- Client Onboarding Review uses the full step width, and client creation shows pending, success, and readable failure alerts.
+- Client Directory uses a responsive master-detail layout with the selected client detail on the right on desktop.
+- Client Directory table containment keeps the Status column visible in the left list panel.
 
 ## Slice 3 — Workflows + Tasks
 

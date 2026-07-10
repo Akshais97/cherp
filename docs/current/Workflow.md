@@ -277,7 +277,7 @@ Default values:
 
 | Field | Default |
 |---|---|
-| `status` | `pending` |
+| `status` | `yet_to_start` |
 | `priority` | `medium` |
 | `is_subtask` | `false` |
 
@@ -294,22 +294,35 @@ sort_order ASC
 Allowed task states:
 
 ```txt
-pending
-in_progress
+yet_to_start
+ongoing
 blocked
 completed
+task_approved_by_manager
+rework
+task_approved_by_client
 ```
 
 Allowed transitions:
 
 | From | To | Rule |
 |---|---|---|
-| `pending` | `in_progress` | Work starts |
-| `in_progress` | `completed` | User completes task |
-| `pending` | `blocked` | Blocker is created |
-| `in_progress` | `blocked` | Blocker is created |
-| `blocked` | `in_progress` | All blockers resolved |
-| `blocked` | `completed` | Not allowed directly |
+| `yet_to_start` | `ongoing` | Work starts |
+| `yet_to_start` | `blocked` | Work is blocked before starting |
+| `yet_to_start` | `completed` | User completes simple task and requests review |
+| `ongoing` | `blocked` | Work is blocked |
+| `ongoing` | `completed` | User completes task and requests review |
+| `completed` | `task_approved_by_manager` | PM approves task |
+| `completed` | `blocked` | Review identifies a blocking issue |
+| `completed` | `rework` | PM requests corrections |
+| `task_approved_by_manager` | `task_approved_by_client` | Client approval is complete |
+| `task_approved_by_manager` | `blocked` | Client approval is blocked |
+| `task_approved_by_manager` | `rework` | Client requests corrections |
+| `blocked` | `ongoing` | Blocker is cleared and work resumes |
+| `blocked` | `rework` | Blocker requires corrections |
+| `rework` | `ongoing` | Corrections begin |
+| `rework` | `blocked` | Corrections are blocked |
+| `rework` | `completed` | Corrections are submitted for review |
 
 Completion rules:
 
@@ -349,7 +362,6 @@ When a blocker is created, the system must:
 Create Blocker
 → Link to Task
 → Link to Client
-→ Set Task Status = blocked
 → Write Activity Log
 ```
 
@@ -359,7 +371,6 @@ When a blocker is resolved, the system must:
 Set Blocker Status = resolved
 → Set resolved_by
 → Set resolved_at
-→ Set Task Status = in_progress
 → Write Activity Log
 ```
 
@@ -367,7 +378,8 @@ Rules:
 
 - A blocker must always reference a task.
 - A blocker must always reference the affected client.
-- A task remains blocked while any open blocker exists.
+- Open blockers are shown from the blockers table and normally correspond to task status `blocked`.
+- The `blocked` task status is the visible state; the blockers table stores the detailed blocker records.
 - Resolving one blocker must not unblock the task if another open blocker still exists.
 
 ---
@@ -384,8 +396,8 @@ Rules:
 
 - Only tasks belonging to the workflow are counted.
 - Deleted/archived tasks are excluded if soft-delete is implemented.
-- Blocked tasks are not counted as complete.
-- Completion must recalculate after task creation, task completion, or blocker-driven status changes.
+- Tasks with status `completed`, `task_approved_by_manager`, or `task_approved_by_client` are counted as complete.
+- Completion must recalculate after task creation, task completion, or task status changes.
 
 A workflow can move to `completed` only when:
 

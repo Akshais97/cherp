@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -17,6 +17,32 @@ import { UsersService } from './users.service'
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('me')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember, UserRole.Client)
+  @ApiOkResponse({ description: 'Retrieves the currently authenticated user profile.' })
+  getMe(@CurrentUser() user: RequestUser) {
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      tenantId: user.tenantId,
+    }
+  }
+
+  @Get('history')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Historical completed task records for a user.' })
+  getHistory(
+    @Query('userId') targetUserId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.usersService.getHistory(targetUserId, { startDate, endDate }, user)
+  }
+
   @Get()
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
   @ApiOkResponse({ description: 'Tenant users with safe profile and role fields.' })
@@ -31,6 +57,30 @@ export class UsersController {
     return this.usersService.create(dto, user)
   }
 
+  @Get('workload-summary')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Workload summary of all team members.' })
+  getWorkloadSummary(@CurrentUser() user: RequestUser) {
+    return this.usersService.getWorkloadSummary(user)
+  }
+
+  @Get('team-members')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Tenant team members available for workload review.' })
+  listTeamMembers(@CurrentUser() user: RequestUser) {
+    return this.usersService.listTeamMembers(user)
+  }
+
+  @Get('team-members/:id/workload')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Assigned tasks and related blockers for a team member.' })
+  getTeamMemberWorkload(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.usersService.getTeamMemberWorkload(id, user)
+  }
+
   @Patch(':id')
   @Roles(UserRole.SuperAdmin)
   @ApiOkResponse({ description: 'Updates role-sensitive user fields.' })
@@ -40,5 +90,12 @@ export class UsersController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.usersService.update(id, dto, user)
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.SuperAdmin)
+  @ApiOkResponse({ description: 'Deletes a tenant user when no protected historical records depend on them.' })
+  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.usersService.remove(id, user)
   }
 }

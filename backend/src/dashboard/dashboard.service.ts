@@ -90,13 +90,16 @@ export class DashboardService {
       status: task.status,
       priority: task.priority,
       dueDate: task.due_date,
+      completedAt: task.completed_at,
       urgency: task.due_date && task.due_date < today ? 'overdue' : 'upcoming',
-      workflow: {
-        id: task.workflow.id,
-        title: task.workflow.title,
-        monthNumber: task.workflow.month_number,
-      },
-      client: task.workflow.client,
+      workflow: task.workflow
+        ? {
+            id: task.workflow.id,
+            title: task.workflow.title,
+            monthNumber: task.workflow.month_number,
+          }
+        : null,
+      client: task.workflow?.client || task.client || null,
     }))
   }
 
@@ -127,13 +130,57 @@ export class DashboardService {
     }
   }
 
+  async search(query: string, user: RequestUser) {
+    const q = query?.trim()
+    if (!q || q.length < 2) {
+      return { clients: [], workflows: [], tasks: [], blockers: [], users: [] }
+    }
+
+    const filters = {
+      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+    }
+
+    const showClients = user.role !== UserRole.TeamMember
+    const showWorkflows = true
+    const showTasks = true
+    const showBlockers = true
+    const showUsers = true
+    const showSystemUsers = user.role === UserRole.SuperAdmin
+
+    const [clients, workflows, tasks, blockers, users] = await Promise.all([
+      showClients
+        ? this.repository.searchClients(user.tenantId, q, filters)
+        : this.repository.searchBrandsOnly(user.tenantId, q, filters),
+      showWorkflows
+        ? this.repository.searchWorkflows(user.tenantId, q, filters)
+        : [],
+      showTasks
+        ? this.repository.searchTasks(user.tenantId, q, filters)
+        : [],
+      showBlockers
+        ? this.repository.searchBlockers(user.tenantId, q, filters)
+        : [],
+      showUsers
+        ? this.repository.searchUsers(user.tenantId, q, showSystemUsers)
+        : [],
+    ])
+
+    return {
+      clients,
+      workflows,
+      tasks,
+      blockers,
+      users,
+    }
+  }
+
   private toFilters(query: DashboardQueryDto, user: RequestUser) {
     return {
       projectManagerId: query.project_manager_id,
       clientStatus: query.client_status,
       dateFrom: query.date_from ? this.toDayStart(query.date_from) : undefined,
       dateTo: query.date_to ? this.toDayEnd(query.date_to) : undefined,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
+      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
     }
   }
 

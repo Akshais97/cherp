@@ -122,10 +122,15 @@ async function main() {
     await screenshot('03-dashboard-metrics')
   })
 
-  await step('Clients screen loads clients and templates', {}, async () => {
+  await step('Client Onboarding screen loads templates', {}, async () => {
     await clickByTestId('nav-clients')
     await waitForTestId('clients-page', 30000)
-    await waitForTestId('client-directory', 30000)
+    await waitForTestId('client-onboarding-form', 30000)
+    await waitForTestId('onboarding-step-client-details', 30000)
+    await assertElementAbsent('client-directory')
+    await assertElementAbsent('select-scope-template')
+    await assertElementAbsent('button-create-client')
+    await assertOnboardingStepUsesPageWidth('onboarding-step-client-details')
     const seedButtons = await driver.findElements(cssTestId('button-seed-templates'))
     if (seedButtons.length > 0) {
       try {
@@ -137,12 +142,37 @@ async function main() {
         }
       }
     }
-    await waitForNonEmptySelect('select-scope-template', 45000)
     await assertNoHorizontalOverflow()
-    await screenshot('04-clients-loaded')
+    await screenshot('04-client-onboarding-loaded')
   })
 
-  await step('Scope template preview shows tasks, KPIs, and duration', {}, async () => {
+  await step('Client Directory screen loads and lists clients', {}, async () => {
+    await clickByTestId('nav-client-directory')
+    await waitForTestId('client-directory-page', 30000)
+    await waitForTestId('client-directory', 30000)
+    await assertElementAbsent('client-onboarding-form')
+    await assertDirectoryStatusColumnVisible()
+    await assertNoHorizontalOverflow()
+    await screenshot('04b-client-directory-loaded')
+  })
+
+  await step('Onboarding step workflow validates, preserves, and reviews entered data', {}, async () => {
+    await clickByTestId('nav-clients')
+    await waitForTestId('clients-page', 30000)
+    await clickByTestId('button-onboarding-next-client-details')
+    await waitForText('Client name is required.', 30000)
+    createdClientName = `Selenium Client ${Date.now()}`
+    await typeByTestId('input-client-name', createdClientName)
+    await typeByTestId('input-client-contact-email', `selenium.${Date.now()}@example.com`)
+    await typeByTestId('input-client-contact-name', 'Selenium Tester')
+    await typeByTestId('input-client-retainer', '5000')
+    await typeByTestId('input-client-currency', 'INR')
+    await setValueByTestId('input-client-contract-start', today())
+    await typeByTestId('input-client-payment-terms', 'Net 15')
+    await setValueByTestId('input-client-renewal-date', datePlusDays(90))
+    await clickByTestId('button-onboarding-next-client-details')
+    await waitForTestId('onboarding-step-scope-templates', 30000)
+    await assertOnboardingStepUsesPageWidth('onboarding-step-scope-templates')
     const select = await waitForTestId('select-scope-template')
     const options = await select.findElements(By.css('option'))
     if (options.length < 2) {
@@ -151,32 +181,33 @@ async function main() {
     selectedTemplateName = await options[1].getText()
     await options[1].click()
     await waitForTestId('template-preview-card')
+    await clickByTestId('button-onboarding-back-scope-templates')
+    await waitForTestId('onboarding-step-client-details', 30000)
+    await assertInputValue('input-client-name', createdClientName)
+    await clickByTestId('button-onboarding-next-client-details')
+    await waitForTestId('onboarding-step-scope-templates', 30000)
+    await waitForTestId('template-preview-card')
+    await clickByTestId('button-onboarding-next-scope-templates')
+    await waitForTestId('onboarding-step-review')
+    await assertOnboardingStepUsesPageWidth('onboarding-step-review')
+    await assertReviewUsesFullStepWidth()
+    await waitForText(createdClientName, 30000)
+    await waitForText(selectedTemplateName.split(' - ')[0], 30000)
     await screenshot('05-template-preview')
   })
 
   await step('Create client and Month 1 workflow', {}, async () => {
-    createdClientName = `Selenium Client ${Date.now()}`
     const payload = {
       name: createdClientName,
-      contact_email: `selenium.${Date.now()}@example.com`,
-      contact_name: 'Selenium Tester',
-      monthly_retainer: 5000,
-      currency: 'INR',
-      contract_start: today(),
-      payment_terms: 'Net 15',
-      renewal_date: datePlusDays(90),
       selected_template: selectedTemplateName,
     }
-    await typeByTestId('input-client-name', payload.name)
-    await typeByTestId('input-client-contact-email', payload.contact_email)
-    await typeByTestId('input-client-contact-name', payload.contact_name)
-    await typeByTestId('input-client-retainer', String(payload.monthly_retainer))
-    await typeByTestId('input-client-currency', payload.currency)
-    await setValueByTestId('input-client-contract-start', payload.contract_start)
-    await typeByTestId('input-client-payment-terms', payload.payment_terms)
-    await setValueByTestId('input-client-renewal-date', payload.renewal_date)
     await clickByTestId('button-create-client')
+    await waitForTestId('alert-client-creation', 45000)
+    await waitForText('Client has been created', 30000)
+    await clickByTestId('nav-client-directory')
+    await waitForTestId('client-directory-page', 30000)
     await waitForClientRow(createdClientName, 45000)
+    await assertDirectoryStatusColumnVisible()
     await screenshot('06-client-created')
     return payload
   })
@@ -195,21 +226,27 @@ async function main() {
     await typeByTestId('input-task-title', taskTitle)
     await setValueByTestId('input-task-due-date', today())
     await clickByTestId('button-create-task')
-    await waitForTaskCardText(taskTitle, 'Pending', 30000)
+    await waitForTaskCardText(taskTitle, 'Yet to start', 30000)
     await typeTaskCardField(taskTitle, 'input-edit-task-title', editedTaskTitle)
     await typeTaskCardField(
-      taskTitle,
+      editedTaskTitle,
       'textarea-edit-task-description',
       'Edited by Slice 3 Selenium coverage',
     )
-    await setTaskCardValue(taskTitle, 'input-edit-task-due-date', datePlusDays(1))
-    await selectTaskCardOption(taskTitle, 'select-edit-task-priority', 'High')
-    await clickTaskCardButton(taskTitle, 'button-save-task')
-    await waitForTaskCardText(editedTaskTitle, 'Edited by Slice 3 Selenium coverage', 30000)
+    await setTaskCardValue(editedTaskTitle, 'input-edit-task-due-date', datePlusDays(1))
+    await selectTaskCardOption(editedTaskTitle, 'select-edit-task-priority', 'High')
+    await clickTaskCardButton(editedTaskTitle, 'button-save-task')
+    await driver.wait(async () => {
+      const textarea = await driver.findElement(cssTestId('textarea-edit-task-description'))
+      return (await textarea.getAttribute('value')) === 'Edited by Slice 3 Selenium coverage'
+    }, 30000)
     await waitForTaskCardText(editedTaskTitle, 'High', 30000)
+    await setTaskCardExpanded(editedTaskTitle, false)
     await dragTaskToFirstAvailable(editedTaskTitle)
-    await selectTaskCardOption(editedTaskTitle, 'select-task-status', 'In progress')
-    await waitForTaskCardText(editedTaskTitle, 'In progress', 30000)
+    await waitForTaskCardExpanded(editedTaskTitle, false, 30000)
+    await selectTaskCardOption(editedTaskTitle, 'select-task-status', 'Ongoing')
+    await clickTaskCardButton(editedTaskTitle, 'button-save-task')
+    await waitForTaskCardText(editedTaskTitle, 'Ongoing', 30000)
     await typeTaskCardField(editedTaskTitle, 'input-blocker-title', createdBlockerTitle)
     await typeTaskCardField(
       editedTaskTitle,
@@ -246,7 +283,7 @@ async function main() {
     await waitForTestId('workflows-page', 30000)
     await typeByTestId('input-workflow-search', createdClientName)
     await clickWorkflowRow(createdClientName, 30000)
-    await waitForTaskCardText(createdTaskTitle, 'In progress', 30000)
+    await waitForTaskCardText(createdTaskTitle, 'Ongoing', 30000)
     await ensureTaskCardOpen(createdTaskTitle)
     await clickTaskCardButton(createdTaskTitle, 'button-complete-task')
     await waitForTaskCardText(createdTaskTitle, 'Completed', 30000)
@@ -256,16 +293,22 @@ async function main() {
   })
 
   await step('Search and open client detail', {}, async () => {
-    await clickByTestId('nav-clients')
-    await waitForTestId('clients-page', 30000)
+    await clickByTestId('nav-client-directory')
+    await waitForTestId('client-directory-page', 30000)
     await typeByTestId('input-client-search', createdClientName)
     await clickClientRow(createdClientName, 30000)
     await waitForTestId('client-detail-panel')
+    await assertClientDetailRightOfList()
     await screenshot('10-client-detail')
   })
 
   await step('Edit client profile', {}, async () => {
     const editedName = `${createdClientName} Edited`
+    await clickByTestId('nav-client-directory')
+    await waitForTestId('client-directory-page', 30000)
+    await typeByTestId('input-client-search', createdClientName)
+    await clickClientRow(createdClientName, 30000)
+    await waitForTestId('client-detail-panel')
     await typeByTestId('input-edit-client-name', editedName)
     await typeByTestId('input-edit-client-payment-terms', 'Advance monthly')
     await setValueByTestId('input-edit-client-renewal-date', datePlusDays(120))
@@ -277,6 +320,11 @@ async function main() {
   })
 
   await step('Change client status to paused and back to active', {}, async () => {
+    await clickByTestId('nav-client-directory')
+    await waitForTestId('client-directory-page', 30000)
+    await typeByTestId('input-client-search', createdClientName)
+    await clickClientRow(createdClientName, 30000)
+    await waitForTestId('client-detail-panel')
     await selectByVisibleText('select-client-detail-status', 'Paused')
     await waitForSelectValue('select-client-detail-status', 'paused', 30000)
     await selectByVisibleText('select-client-detail-status', 'Active')
@@ -285,6 +333,11 @@ async function main() {
   })
 
   await step('Archive created test client and verify archived filter', {}, async () => {
+    await clickByTestId('nav-client-directory')
+    await waitForTestId('client-directory-page', 30000)
+    await typeByTestId('input-client-search', createdClientName)
+    await clickClientRow(createdClientName, 30000)
+    await waitForTestId('client-detail-panel')
     await clickByTestId('button-archive-client')
     await waitForText('Archived', 30000)
     await typeByTestId('input-client-search', createdClientName)
@@ -587,6 +640,132 @@ async function waitForText(text, timeoutMs) {
   await driver.wait(async () => (await driver.getPageSource()).includes(text), timeoutMs)
 }
 
+async function assertInputValue(id, expectedValue) {
+  const input = await waitForTestId(id)
+  const actualValue = await input.getAttribute('value')
+  if (actualValue !== expectedValue) {
+    throw new Error(`${id} expected value "${expectedValue}" but found "${actualValue}".`)
+  }
+}
+
+async function assertOnboardingStepUsesPageWidth(stepTestId) {
+  const measurements = await driver.executeScript(
+    `
+      const form = document.querySelector('[data-testid="client-onboarding-form"]');
+      const step = document.querySelector('[data-testid="${stepTestId}"]');
+      const content = document.querySelector('.content-area');
+      if (!form || !step || !content) return null;
+      const formRect = form.getBoundingClientRect();
+      const stepRect = step.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      return {
+        formWidth: formRect.width,
+        stepWidth: stepRect.width,
+        contentWidth: contentRect.width,
+      };
+    `,
+  )
+
+  if (!measurements) throw new Error(`Could not measure ${stepTestId}.`)
+  const minimumWidth = measurements.contentWidth * 0.82
+  if (measurements.formWidth < minimumWidth || measurements.stepWidth < minimumWidth) {
+    throw new Error(
+      `${stepTestId} is too narrow. Form ${measurements.formWidth}px, step ${measurements.stepWidth}px, content ${measurements.contentWidth}px.`,
+    )
+  }
+}
+
+async function assertReviewUsesFullStepWidth() {
+  const measurements = await driver.executeScript(
+    `
+      const step = document.querySelector('[data-testid="onboarding-step-review"]');
+      const review = document.querySelector('[data-testid="onboarding-step-review"] .review-grid');
+      if (!step || !review) return null;
+      const stepRect = step.getBoundingClientRect();
+      const reviewRect = review.getBoundingClientRect();
+      return {
+        stepWidth: stepRect.width,
+        reviewWidth: reviewRect.width,
+        reviewLeft: reviewRect.left,
+        stepLeft: stepRect.left,
+      };
+    `,
+  )
+
+  if (!measurements) throw new Error('Could not measure onboarding review layout.')
+  if (measurements.reviewWidth < measurements.stepWidth * 0.94) {
+    throw new Error(
+      `Review content is too narrow. Review ${measurements.reviewWidth}px, step ${measurements.stepWidth}px.`,
+    )
+  }
+  if (Math.abs(measurements.reviewLeft - measurements.stepLeft) > 4) {
+    throw new Error('Review content should align to the left edge of the review step.')
+  }
+}
+
+async function assertClientDetailRightOfList() {
+  const layout = await driver.executeScript(
+    `
+      const directory = document.querySelector('[data-testid="client-directory"]');
+      const detail = document.querySelector('[data-testid="client-detail-panel"]');
+      if (!directory || !detail) return null;
+      const directoryRect = directory.getBoundingClientRect();
+      const detailRect = detail.getBoundingClientRect();
+      return {
+        directoryRight: directoryRect.right,
+        detailLeft: detailRect.left,
+        directoryTop: directoryRect.top,
+        detailTop: detailRect.top,
+        viewportWidth: window.innerWidth,
+      };
+    `,
+  )
+
+  if (!layout) throw new Error('Could not measure client directory master-detail layout.')
+  if (layout.viewportWidth >= 1180 && layout.detailLeft <= layout.directoryRight) {
+    throw new Error(
+      `Client detail should render to the right of the list on desktop. List right ${layout.directoryRight}px, detail left ${layout.detailLeft}px.`,
+    )
+  }
+  if (layout.viewportWidth >= 1180 && Math.abs(layout.detailTop - layout.directoryTop) > 12) {
+    throw new Error('Client detail should align with the top of the list on desktop.')
+  }
+}
+
+async function assertDirectoryStatusColumnVisible() {
+  const layout = await driver.executeScript(
+    `
+      const panel = document.querySelector('[data-testid="client-directory"]');
+      const wrap = panel?.querySelector('.table-wrap');
+      const statusHeader = panel?.querySelector('thead th:nth-child(4)');
+      const firstStatusCell = panel?.querySelector('tbody tr[data-testid="client-row"] td:nth-child(4)');
+      if (!panel || !wrap || !statusHeader) return null;
+      const wrapRect = wrap.getBoundingClientRect();
+      const statusRect = (firstStatusCell || statusHeader).getBoundingClientRect();
+      return {
+        wrapLeft: wrapRect.left,
+        wrapRight: wrapRect.right,
+        statusLeft: statusRect.left,
+        statusRight: statusRect.right,
+        scrollWidth: wrap.scrollWidth,
+        clientWidth: wrap.clientWidth,
+      };
+    `,
+  )
+
+  if (!layout) throw new Error('Could not measure Client Directory status column.')
+  if (layout.statusRight > layout.wrapRight + 2 || layout.statusLeft < layout.wrapLeft - 2) {
+    throw new Error(
+      `Client Directory status column is clipped. Status ${layout.statusLeft}-${layout.statusRight}px, wrapper ${layout.wrapLeft}-${layout.wrapRight}px.`,
+    )
+  }
+  if (layout.scrollWidth - layout.clientWidth > 2) {
+    throw new Error(
+      `Client Directory table requires horizontal scroll (${layout.scrollWidth}px vs ${layout.clientWidth}px).`,
+    )
+  }
+}
+
 async function waitForClientRow(clientName, timeoutMs) {
   const row = await driver.wait(async () => {
     const rows = await driver.findElements(cssTestId('client-row'))
@@ -643,10 +822,8 @@ async function waitForTaskCardText(taskTitle, text, timeoutMs) {
 async function selectTaskCardOption(taskTitle, testId, text) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const select = await card.findElement(cssTestId(testId))
+      const select = await driver.findElement(cssTestId(testId))
       const options = await select.findElements(By.css('option'))
       for (const option of options) {
         if ((await option.getText()).trim() === text) {
@@ -667,10 +844,8 @@ async function selectTaskCardOption(taskTitle, testId, text) {
 async function clickTaskCardButton(taskTitle, testId) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const button = await card.findElement(cssTestId(testId))
+      const button = await driver.findElement(cssTestId(testId))
       if (!(await button.isEnabled())) return false
       await button.click()
       return true
@@ -686,10 +861,8 @@ async function clickTaskCardButton(taskTitle, testId) {
 async function typeTaskCardField(taskTitle, testId, value) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const element = await card.findElement(cssTestId(testId))
+      const element = await driver.findElement(cssTestId(testId))
       await element.sendKeys(Key.chord(Key.CONTROL, 'a'), Key.BACK_SPACE)
       if (value) await element.sendKeys(value)
       return true
@@ -705,10 +878,8 @@ async function typeTaskCardField(taskTitle, testId, value) {
 async function setTaskCardValue(taskTitle, testId, value) {
   await driver.wait(async () => {
     await ensureTaskCardOpen(taskTitle)
-    const card = await findTaskCard(taskTitle)
-    if (!card) return false
     try {
-      const element = await card.findElement(cssTestId(testId))
+      const element = await driver.findElement(cssTestId(testId))
       await driver.executeScript(
         `
           const element = arguments[0];
@@ -747,19 +918,15 @@ async function dragTaskToFirstAvailable(taskTitle) {
 
     try {
       const handle = await source.findElement(cssTestId('button-task-drag-handle'))
-      await driver.executeScript(
-        `
-          const handle = arguments[0];
-          const target = arguments[1];
-          const dataTransfer = new DataTransfer();
-          handle.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
-          target.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer }));
-          target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer }));
-          handle.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
-        `,
-        handle,
-        target,
-      )
+      await driver
+        .actions({ async: true })
+        .move({ origin: handle })
+        .press()
+        .pause(120)
+        .move({ origin: target })
+        .pause(120)
+        .release()
+        .perform()
       await sleep(1000)
       return true
     } catch (error) {
@@ -786,16 +953,62 @@ async function findTaskCard(taskTitle) {
 }
 
 async function ensureTaskCardOpen(taskTitle) {
+  const modals = await driver.findElements(By.css('.task-detail-modal'))
+  if (modals.length > 0) {
+    try {
+      const titleInput = await driver.findElement(cssTestId('input-edit-task-title'))
+      const currentTitle = await titleInput.getAttribute('value')
+      if (currentTitle.trim() === taskTitle.trim()) {
+        return true
+      }
+    } catch {
+      // Ignore
+    }
+  }
   const card = await findTaskCard(taskTitle)
   if (!card) return false
-
-  const buttons = await card.findElements(cssTestId('button-task-accordion'))
-  if (buttons.length === 0) return true
-  const expanded = await buttons[0].getAttribute('aria-expanded')
-  if (expanded === 'true') return true
-  await buttons[0].click()
+  await driver.wait(async () => {
+    const backdrops = await driver.findElements(By.css('.modal-backdrop'))
+    return backdrops.length === 0
+  }, 5000)
+  await card.click()
+  await driver.wait(until.elementLocated(By.css('.task-detail-modal')), 10000)
   await sleep(250)
   return true
+}
+
+async function setTaskCardExpanded(taskTitle, shouldExpand) {
+  await driver.wait(async () => {
+    const modals = await driver.findElements(By.css('.task-detail-modal'))
+    const isOpen = modals.length > 0
+    if (isOpen === shouldExpand) {
+      return true
+    }
+    if (shouldExpand) {
+      await ensureTaskCardOpen(taskTitle)
+    } else {
+      const closeButtons = await driver.findElements(By.css('.task-detail-modal button[aria-label="Close modal"]'))
+      if (closeButtons.length > 0) {
+        await closeButtons[0].click()
+        await driver.wait(async () => {
+          const m = await driver.findElements(By.css('.task-detail-modal'))
+          const b = await driver.findElements(By.css('.modal-backdrop'))
+          return m.length === 0 && b.length === 0
+        }, 5000)
+      }
+    }
+    return true
+  }, 30000)
+
+  await waitForTaskCardExpanded(taskTitle, shouldExpand, 30000)
+}
+
+async function waitForTaskCardExpanded(taskTitle, shouldExpand, timeoutMs) {
+  await driver.wait(async () => {
+    const modals = await driver.findElements(By.css('.task-detail-modal'))
+    const isOpen = modals.length > 0
+    return isOpen === shouldExpand
+  }, timeoutMs)
 }
 
 async function clickBlockerRow(blockerText, timeoutMs) {
@@ -863,6 +1076,11 @@ async function assertNoHorizontalOverflow() {
   if (overflow > 2) {
     throw new Error(`Page has horizontal overflow of ${overflow}px.`)
   }
+}
+
+async function assertElementAbsent(id) {
+  const elements = await driver.findElements(cssTestId(id))
+  if (elements.length > 0) throw new Error(`${id} should not be present.`)
 }
 
 async function screenshot(name) {

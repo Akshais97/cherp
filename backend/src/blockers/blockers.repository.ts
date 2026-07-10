@@ -18,12 +18,16 @@ export class BlockersRepository {
       where: {
         id: input.taskId,
         tenant_id: input.tenantId,
-        workflow: { tenant_id: input.tenantId, client: { tenant_id: input.tenantId } },
+        OR: [
+          { workflow: { tenant_id: input.tenantId } },
+          { client: { tenant_id: input.tenantId } },
+        ],
       },
       select: {
         id: true,
         tenant_id: true,
         workflow_id: true,
+        client_id: true,
         assigned_to: true,
         status: true,
         title: true,
@@ -32,6 +36,12 @@ export class BlockersRepository {
             id: true,
             client_id: true,
             client: { select: { id: true, name: true } },
+          },
+        },
+        client: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -58,6 +68,7 @@ export class BlockersRepository {
     tenantId: string
     filters?: BlockerFilters
     assignedUserId?: string
+    assignedClientUserId?: string
   }) {
     return this.prisma.blocker.findMany({
       where: this.blockerWhere(input),
@@ -71,6 +82,7 @@ export class BlockersRepository {
     tenantId: string
     blockerId: string
     assignedUserId?: string
+    assignedClientUserId?: string
   }) {
     return this.prisma.blocker.findFirst({
       where: {
@@ -78,6 +90,7 @@ export class BlockersRepository {
         ...this.blockerWhere({
           tenantId: input.tenantId,
           assignedUserId: input.assignedUserId,
+          assignedClientUserId: input.assignedClientUserId,
         }),
       },
       select: this.detailSelect(),
@@ -89,48 +102,53 @@ export class BlockersRepository {
     userId: string
     task: {
       id: string
-      workflow_id: string
+      workflow_id: string | null
+      client_id: string | null
       status: string
       title: string
-      workflow: { client_id: string }
+      workflow: { client_id: string } | null
     }
     data: {
       title: string
       description: string
       severity: string
       impact?: string
+      assigned_to?: string | null
+      notify?: any
     }
   }) {
     return this.prisma.$transaction(async (tx) => {
+      const isAlreadyBlocked = input.task.status === 'blocked'
+      await tx.task.update({
+        where: { id: input.task.id, tenant_id: input.tenantId },
+        data: {
+          status: 'blocked',
+          ...(!isAlreadyBlocked ? { blocked_previous_status: input.task.status } : {}),
+          completed_at: null,
+          completed_by: null,
+        },
+      })
+
       const blocker = await tx.blocker.create({
         data: {
           tenant_id: input.tenantId,
           task_id: input.task.id,
-          client_id: input.task.workflow.client_id,
+          client_id: input.task.workflow?.client_id || input.task.client_id || '',
           flagged_by: input.userId,
           title: input.data.title,
           description: input.data.description,
           severity: input.data.severity,
           impact: input.data.impact,
           status: 'open',
+          assigned_to: input.data.assigned_to || null,
+          notify: input.data.notify || [],
         },
         select: this.detailSelect(),
       })
 
-      const taskStatusChanged = input.task.status !== 'blocked'
-      if (taskStatusChanged) {
-        await tx.task.update({
-          where: { id: input.task.id, tenant_id: input.tenantId },
-          data: {
-            status: 'blocked',
-            completed_at: null,
-            completed_by: null,
-          },
-          select: { id: true },
-        })
+      if (input.task.workflow_id) {
+        await this.recalculateCompletion(tx, input.tenantId, input.task.workflow_id)
       }
-
-      await this.recalculateCompletion(tx, input.tenantId, input.task.workflow_id)
 
       await tx.activityLog.create({
         data: {
@@ -141,27 +159,14 @@ export class BlockersRepository {
           entity_id: blocker.id,
           after_values: {
             task_id: input.task.id,
-            client_id: input.task.workflow.client_id,
+            client_id: input.task.workflow?.client_id || input.task.client_id || '',
             title: blocker.title,
             severity: blocker.severity,
             status: blocker.status,
+            task_status: 'blocked',
           },
         },
       })
-
-      if (taskStatusChanged) {
-        await tx.activityLog.create({
-          data: {
-            tenant_id: input.tenantId,
-            user_id: input.userId,
-            action_type: 'status_changed',
-            entity_type: 'task',
-            entity_id: input.task.id,
-            before_values: { status: input.task.status },
-            after_values: { status: 'blocked', blocker_id: blocker.id },
-          },
-        })
-      }
 
       return blocker
     })
@@ -176,7 +181,7 @@ export class BlockersRepository {
       status: string
       severity: string
       title: string
-      task: { id: string; workflow_id: string; status: string }
+      task: { id: string; workflow_id: string | null; status: string; blocked_previous_status: string | null }
     }
     resolutionNotes: string
   }) {
@@ -200,22 +205,25 @@ export class BlockersRepository {
           status: 'open',
         },
       })
-      const shouldRestoreTask =
-        remainingOpenBlockers === 0 && input.blocker.task.status === 'blocked'
 
-      if (shouldRestoreTask) {
+      if (remainingOpenBlockers === 0 && input.blocker.task.status === 'blocked') {
+        const targetStatus = input.blocker.task.blocked_previous_status || 'ongoing'
         await tx.task.update({
           where: { id: input.blocker.task_id, tenant_id: input.tenantId },
-          data: { status: 'in_progress' },
-          select: { id: true },
+          data: { 
+            status: targetStatus,
+            blocked_previous_status: null
+          },
         })
       }
 
-      await this.recalculateCompletion(
-        tx,
-        input.tenantId,
-        input.blocker.task.workflow_id,
-      )
+      if (input.blocker.task.workflow_id) {
+        await this.recalculateCompletion(
+          tx,
+          input.tenantId,
+          input.blocker.task.workflow_id,
+        )
+      }
 
       await tx.activityLog.create({
         data: {
@@ -232,23 +240,10 @@ export class BlockersRepository {
             status: 'resolved',
             resolution_notes: input.resolutionNotes,
             resolved_at: resolvedAt.toISOString(),
+            task_status: remainingOpenBlockers === 0 ? (input.blocker.task.blocked_previous_status || 'ongoing') : input.blocker.task.status,
           },
         },
       })
-
-      if (shouldRestoreTask) {
-        await tx.activityLog.create({
-          data: {
-            tenant_id: input.tenantId,
-            user_id: input.userId,
-            action_type: 'status_changed',
-            entity_type: 'task',
-            entity_id: input.blocker.task_id,
-            before_values: { status: 'blocked' },
-            after_values: { status: 'in_progress', blocker_id: input.blocker.id },
-          },
-        })
-      }
 
       return blocker
     })
@@ -258,6 +253,7 @@ export class BlockersRepository {
     tenantId: string
     filters?: BlockerFilters
     assignedUserId?: string
+    assignedClientUserId?: string
   }): Prisma.BlockerWhereInput {
     return {
       tenant_id: input.tenantId,
@@ -267,10 +263,20 @@ export class BlockersRepository {
       ...(input.filters?.task_id ? { task_id: input.filters.task_id } : {}),
       task: {
         tenant_id: input.tenantId,
-        workflow: { tenant_id: input.tenantId, client: { tenant_id: input.tenantId } },
         ...(input.assignedUserId ? { assigned_to: input.assignedUserId } : {}),
       },
-      client: { tenant_id: input.tenantId },
+      client: {
+        tenant_id: input.tenantId,
+        ...(input.assignedClientUserId
+          ? {
+              client_users: {
+                some: {
+                  user_id: input.assignedClientUserId,
+                },
+              },
+            }
+          : {}),
+      },
     }
   }
 
@@ -283,7 +289,13 @@ export class BlockersRepository {
       where: { tenant_id: tenantId, workflow_id: workflowId },
     })
     const completed = await tx.task.count({
-      where: { tenant_id: tenantId, workflow_id: workflowId, status: 'completed' },
+      where: {
+        tenant_id: tenantId,
+        workflow_id: workflowId,
+        status: {
+          in: ['completed', 'task_approved_by_manager', 'task_approved_by_client'],
+        },
+      },
     })
     const completion = total === 0 ? 0 : Math.round((completed / total) * 10000) / 100
 
@@ -300,12 +312,14 @@ export class BlockersRepository {
       client_id: true,
       flagged_by: true,
       resolved_by: true,
+      assigned_to: true,
       title: true,
       description: true,
       severity: true,
       status: true,
       impact: true,
       resolution_notes: true,
+      notify: true,
       flagged_at: true,
       resolved_at: true,
       created_at: true,
@@ -316,10 +330,12 @@ export class BlockersRepository {
           title: true,
           status: true,
           priority: true,
+          blocked_previous_status: true,
           workflow: {
             select: {
               id: true,
               title: true,
+              project_manager_id: true,
             },
           },
         },
@@ -334,6 +350,7 @@ export class BlockersRepository {
       },
       flagger: { select: { id: true, full_name: true, email: true } },
       resolver: { select: { id: true, full_name: true, email: true } },
+      assignee: { select: { id: true, full_name: true, email: true } },
     } satisfies Prisma.BlockerSelect
   }
 
@@ -350,6 +367,7 @@ export class BlockersRepository {
           priority: true,
           due_date: true,
           assigned_to: true,
+          blocked_previous_status: true,
           assignee: { select: { id: true, full_name: true, email: true } },
           workflow: {
             select: {
@@ -357,6 +375,7 @@ export class BlockersRepository {
               title: true,
               month_number: true,
               completion_percentage: true,
+              project_manager_id: true,
             },
           },
         },

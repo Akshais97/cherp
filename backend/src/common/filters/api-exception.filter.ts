@@ -17,6 +17,7 @@ type ErrorPayload = {
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
+    console.error('[ApiExceptionFilter] Caught exception:', exception)
     const response = host.switchToHttp().getResponse<Response>()
     const payload = this.toPayload(exception)
 

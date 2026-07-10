@@ -10,12 +10,14 @@ export type BlockerRow = {
   client_id: string
   flagged_by: string
   resolved_by?: string | null
+  assigned_to?: string | null
   title: string
   description?: string | null
   severity: BlockerSeverity
   status: BlockerStatus
   impact?: string | null
   resolution_notes?: string | null
+  notify?: any
   flagged_at: string
   resolved_at?: string | null
   created_at: string
@@ -41,6 +43,7 @@ export type BlockerRow = {
   }
   flagger: { id: string; full_name: string; email: string }
   resolver?: { id: string; full_name: string; email: string } | null
+  assignee?: { id: string; full_name: string; email: string } | null
 }
 
 export type BlockerDetail = BlockerRow & {
@@ -64,6 +67,8 @@ export type CreateBlockerPayload = {
   description: string
   severity: BlockerSeverity
   impact?: string
+  assigned_to: string
+  notify?: string[]
 }
 
 export type ResolveBlockerPayload = {
