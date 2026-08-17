@@ -14,11 +14,34 @@ import { CreateClientDto } from './dto/create-client.dto'
 import { UpdateClientStatusDto } from './dto/update-client-status.dto'
 import { UpdateClientDto } from './dto/update-client.dto'
 
+export type ExtractedSubtaskBlueprint = {
+  title: string
+  description?: string
+  priority: string
+  due_date?: Date
+  target_role?: string
+  checklist: Array<{ id: string; text: string; completed: boolean }>
+}
+
+export type ExtractedTaskBlueprint = {
+  title: string
+  description?: string
+  priority: string
+  sort_order: number
+  due_date?: Date
+  target_role?: string
+  checklist: Array<{ id: string; text: string; completed: boolean }>
+  subtasks: ExtractedSubtaskBlueprint[]
+}
+
 type TemplateTask = {
   title?: unknown
   description?: unknown
   priority?: unknown
   due_offset_days?: unknown
+  target_role?: unknown
+  checklist?: unknown
+  subtasks?: unknown
 }
 
 @Injectable()
@@ -32,7 +55,10 @@ export class ClientsService {
     return this.clientsRepository.findByTenant({
       tenantId: user.tenantId,
       filters,
-      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedUserId:
+        user.role !== UserRole.SuperAdmin && user.role !== UserRole.ProjectManager
+          ? user.id
+          : undefined,
     })
   }
 
@@ -40,7 +66,10 @@ export class ClientsService {
     const client = await this.clientsRepository.findById({
       tenantId: user.tenantId,
       id,
-      assignedUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedUserId:
+        user.role !== UserRole.SuperAdmin && user.role !== UserRole.ProjectManager
+          ? user.id
+          : undefined,
       includeFinancials:
         user.role === UserRole.SuperAdmin || user.role === UserRole.ProjectManager,
     })
@@ -63,11 +92,14 @@ export class ClientsService {
     }
 
     if (
-      template.industry !== dto.industry ||
-      template.service_type !== dto.service_type
+      (dto.industry && dto.industry !== template.industry) ||
+      (dto.service_type && dto.service_type !== template.service_type)
     ) {
       throw new BadRequestException('Selected template does not match client industry/service type.')
     }
+
+    const industry = template.industry
+    const service_type = template.service_type
 
     const startDate = this.toDate(dto.contract_start)
     const endDate = this.addMonths(startDate, dto.contract_duration)
@@ -82,8 +114,8 @@ export class ClientsService {
       creator: { connect: { id: user.id } },
       scope_template: { connect: { id: template.id } },
       name: dto.name,
-      industry: dto.industry,
-      service_type: dto.service_type,
+      industry,
+      service_type,
       contact_name: dto.contact_name,
       contact_email: dto.contact_email,
       contact_phone: dto.contact_phone,
@@ -110,6 +142,7 @@ export class ClientsService {
       workflowStartDate: startDate,
       workflowEndDate: endDate,
       tasks,
+      teamAssignments: dto.team_assignments,
     })
   }
 
@@ -258,7 +291,10 @@ export class ClientsService {
     return next
   }
 
-  private extractMonthOneTasks(defaultTasks: Prisma.JsonValue, startDate: Date) {
+  private extractMonthOneTasks(
+    defaultTasks: Prisma.JsonValue,
+    startDate: Date,
+  ): ExtractedTaskBlueprint[] {
     const source = this.getMonthOneTaskArray(defaultTasks)
 
     return source.map((task, index) => {
@@ -266,6 +302,9 @@ export class ClientsService {
         typeof task.due_offset_days === 'number' ? task.due_offset_days : index * 3
       const dueDate = new Date(startDate)
       dueDate.setUTCDate(dueDate.getUTCDate() + offset)
+
+      const checklist = this.parseChecklist(task.checklist)
+      const subtasks = this.parseSubtasks(task.subtasks, startDate, dueDate)
 
       return {
         title:
@@ -280,6 +319,65 @@ export class ClientsService {
             : 'medium',
         sort_order: index + 1,
         due_date: dueDate,
+        target_role:
+          typeof task.target_role === 'string' && task.target_role.trim()
+            ? task.target_role.trim()
+            : undefined,
+        checklist,
+        subtasks,
+      }
+    })
+  }
+
+  private parseChecklist(rawChecklist: unknown): Array<{ id: string; text: string; completed: boolean }> {
+    if (!Array.isArray(rawChecklist)) return []
+    return rawChecklist
+      .map((item, idx) => {
+        if (typeof item === 'string' && item.trim()) {
+          return { id: `cl-${idx + 1}`, text: item.trim(), completed: false }
+        }
+        if (item && typeof item === 'object' && typeof (item as any).text === 'string') {
+          return {
+            id: typeof (item as any).id === 'string' ? (item as any).id : `cl-${idx + 1}`,
+            text: (item as any).text.trim(),
+            completed: Boolean((item as any).completed),
+          }
+        }
+        return null
+      })
+      .filter((item): item is { id: string; text: string; completed: boolean } => item !== null)
+  }
+
+  private parseSubtasks(
+    rawSubtasks: unknown,
+    startDate: Date,
+    parentDueDate: Date,
+  ): ExtractedSubtaskBlueprint[] {
+    if (!Array.isArray(rawSubtasks)) return []
+    return rawSubtasks.map((sub, idx) => {
+      const offset = typeof sub?.due_offset_days === 'number' ? sub.due_offset_days : undefined
+      let subDueDate: Date | undefined = undefined
+      if (offset !== undefined) {
+        subDueDate = new Date(startDate)
+        subDueDate.setUTCDate(subDueDate.getUTCDate() + offset)
+      } else {
+        subDueDate = parentDueDate
+      }
+
+      return {
+        title:
+          typeof sub?.title === 'string' && sub.title.trim()
+            ? sub.title.trim()
+            : `Subtask ${idx + 1}`,
+        description: typeof sub?.description === 'string' ? sub.description : undefined,
+        priority:
+          sub?.priority === 'high' || sub?.priority === 'low' ? sub.priority : 'medium',
+        due_date: subDueDate,
+        target_role:
+          typeof sub?.target_role === 'string' && sub.target_role.trim()
+            ? sub.target_role.trim()
+            : undefined,
+        checklist: this.parseChecklist(sub?.checklist),
       }
     })
   }

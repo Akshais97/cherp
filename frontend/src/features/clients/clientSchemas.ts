@@ -44,6 +44,7 @@ export const clientOnboardingSchema = z.object({
   notes: z.string().trim().optional(),
   retainer_hours: optionalNumber,
   scope_template_id: z.string().uuid('Select a scope template.'),
+  team_assignments: z.record(z.string(), z.array(z.string())).optional(),
 })
 
 export const clientEditSchema = clientOnboardingSchema

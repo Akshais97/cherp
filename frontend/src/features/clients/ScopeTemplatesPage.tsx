@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Edit3, Plus, Trash2, X } from 'lucide-react'
+import { Copy, Edit3, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
-import { getScopeTemplates, updateScopeTemplate, type ScopeTemplate } from './api'
+import { getScopeTemplates, seedScopeTemplates, updateScopeTemplate, type ScopeTemplate } from './api'
 import { normalizeApiError } from '../../lib/api/errors'
 
 export function ScopeTemplatesPage() {
@@ -11,6 +11,13 @@ export function ScopeTemplatesPage() {
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ['scope-templates-page'],
     queryFn: getScopeTemplates,
+  })
+
+  const seedMutation = useMutation({
+    mutationFn: seedScopeTemplates,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scope-templates-page'] })
+    },
   })
 
   const updateMutation = useMutation({
@@ -42,11 +49,21 @@ export function ScopeTemplatesPage() {
 
   return (
     <section className="scope-templates-page" data-testid="scope-templates-page" style={{ padding: '8px' }}>
-      <div className="page-heading">
+      <div className="page-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <p>Service Configurations</p>
           <h1>Scope Templates</h1>
         </div>
+        <button
+          className="ghost-button"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+          onClick={() => seedMutation.mutate()}
+          disabled={seedMutation.isPending}
+          type="button"
+        >
+          <RefreshCw size={15} className={seedMutation.isPending ? 'animate-spin' : ''} />
+          {seedMutation.isPending ? 'Syncing...' : 'Sync System Presets'}
+        </button>
       </div>
 
       {updateMutation.isError ? (

@@ -20,13 +20,14 @@ import {
   seedScopeTemplates,
   type ScopeTemplate,
 } from './api'
+import { getUsers } from '../users/api'
 import {
   clientOnboardingSchema,
   type ClientOnboardingInput,
   type ClientOnboardingValues,
 } from './clientSchemas'
 
-type OnboardingStep = 'client_details' | 'scope_templates' | 'review'
+type OnboardingStep = 'client_details' | 'scope_templates' | 'team_mapping' | 'review'
 
 const clientDetailFields: Array<keyof ClientOnboardingInput> = [
   'name',
@@ -44,6 +45,7 @@ const clientDetailFields: Array<keyof ClientOnboardingInput> = [
 const onboardingSteps: Array<{ id: OnboardingStep; label: string }> = [
   { id: 'client_details', label: 'Client Details' },
   { id: 'scope_templates', label: 'Scope Templates' },
+  { id: 'team_mapping', label: 'Team Mapping' },
   { id: 'review', label: 'Review' },
 ]
 
@@ -51,6 +53,7 @@ const defaultOnboardingValues: Partial<ClientOnboardingInput> = {
   currency: 'INR',
   contract_duration: 3,
   contract_start: new Date().toISOString().slice(0, 10),
+  team_assignments: {},
 }
 
 export function ClientsPage() {
@@ -143,12 +146,14 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
   )
   const contractStart = useWatch({ control, name: 'contract_start' })
   const contractDuration = useWatch({ control, name: 'contract_duration' })
+  const teamAssignments = (useWatch({ control, name: 'team_assignments' }) as Record<string, string[]> | undefined) || {}
+
   const createMutation = useMutation({
     mutationFn: createClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       setSubmitError(null)
-      setSubmitSuccess('Client has been created')
+      setSubmitSuccess('Client has been created and workflow tasks auto-assigned to team members!')
       reset(defaultOnboardingValues)
       setStep('client_details')
     },
@@ -157,6 +162,7 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
       setSubmitError(formatClientCreationError(error))
     },
   })
+
   const contractEnd = useMemo(() => {
     return calculateContractEnd(contractStart, contractDuration)
   }, [contractStart, contractDuration])
@@ -171,6 +177,7 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
       ...values,
       industry: selectedTemplate?.industry ?? '',
       service_type: selectedTemplate?.service_type ?? '',
+      team_assignments: teamAssignments,
     })
   }
 
@@ -182,12 +189,18 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
     }
   }
 
-  async function goToReview() {
+  async function goToTeamMapping() {
     if (await trigger('scope_template_id')) {
       setSubmitError(null)
       setSubmitSuccess(null)
-      setStep('review')
+      setStep('team_mapping')
     }
+  }
+
+  async function goToReview() {
+    setSubmitError(null)
+    setSubmitSuccess(null)
+    setStep('review')
   }
 
   return (
@@ -199,7 +212,7 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
 
       {createMutation.isPending ? (
         <div className="notice" data-testid="alert-client-creation-pending" role="status">
-          Creating client...
+          Creating client & generating workflow tasks...
         </div>
       ) : null}
       {submitError ? (
@@ -316,7 +329,7 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
                 <option value="">Select template</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
-                    {template.industry} - {template.service_type}
+                    {template.name ? `${template.name} (${template.industry} - ${template.service_type})` : `${template.industry} - ${template.service_type}`}
                   </option>
                 ))}
               </select>
@@ -345,10 +358,44 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
               className="primary-action compact"
               data-testid="button-onboarding-next-scope-templates"
               disabled={templates.length === 0}
+              onClick={goToTeamMapping}
+              type="button"
+            >
+              Next: Team Mapping
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {step === 'team_mapping' ? (
+        <section className="onboarding-step" data-testid="onboarding-step-team-mapping">
+          <div className="panel-header compact-header">
+            <h2>Team Mapping & Candidates Selection</h2>
+            <Sparkles size={16} />
+          </div>
+          <TeamMappingSection
+            selectedTemplate={selectedTemplate}
+            teamAssignments={teamAssignments}
+            onChangeAssignments={(newAssignments) => setValue('team_assignments', newAssignments)}
+          />
+          <div className="onboarding-actions spread">
+            <button
+              className="ghost-button"
+              data-testid="button-onboarding-back-team-mapping"
+              onClick={() => setStep('scope_templates')}
+              type="button"
+            >
+              <ArrowLeft size={14} />
+              Back
+            </button>
+            <button
+              className="primary-action compact"
+              data-testid="button-onboarding-next-team-mapping"
               onClick={goToReview}
               type="button"
             >
-              Next
+              Next: Review
               <ArrowRight size={14} />
             </button>
           </div>
@@ -364,13 +411,14 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
           <ReviewSection
             contractEnd={contractEnd}
             selectedTemplate={selectedTemplate}
-            values={formValues}
+            teamAssignments={teamAssignments}
+            values={formValues as any}
           />
           <div className="onboarding-actions spread">
             <button
               className="ghost-button"
               data-testid="button-onboarding-back-review"
-              onClick={() => setStep('scope_templates')}
+              onClick={() => setStep('team_mapping')}
               type="button"
             >
               <ArrowLeft size={14} />
@@ -397,15 +445,160 @@ function formatClientCreationError(error: unknown) {
   return `Client Creation Unsuccessful due to ${statusPrefix}${apiError.message}`
 }
 
+function TeamMappingSection({
+  selectedTemplate,
+  teamAssignments,
+  onChangeAssignments,
+}: {
+  selectedTemplate: ScopeTemplate | undefined
+  teamAssignments: Record<string, string[]>
+  onChangeAssignments: (newAssignments: Record<string, string[]>) => void
+}) {
+  const { data: users = [] } = useQuery({
+    queryKey: ['all-users-list'],
+    queryFn: getUsers,
+  })
+
+  const requiredRoles = useMemo(() => {
+    if (!selectedTemplate || !selectedTemplate.default_tasks?.month_1) return []
+    const roles = new Set<string>()
+    for (const task of selectedTemplate.default_tasks.month_1) {
+      if (task.target_role) roles.add(task.target_role)
+      if (task.subtasks) {
+        for (const sub of task.subtasks) {
+          if (sub.target_role) roles.add(sub.target_role)
+        }
+      }
+    }
+    if (roles.size === 0) {
+      return [
+        'Brand Manager',
+        'Creative Designer',
+        'Copywriter',
+        'Performance Marketer',
+        'SEO Specialist',
+        'CRM Specialist',
+        'Social Media Manager',
+      ]
+    }
+    return Array.from(roles)
+  }, [selectedTemplate])
+
+  const toggleUser = (role: string, userId: string) => {
+    const current = teamAssignments[role] || []
+    const updated = current.includes(userId)
+      ? current.filter((id) => id !== userId)
+      : [...current, userId]
+
+    onChangeAssignments({
+      ...teamAssignments,
+      [role]: updated,
+    })
+  }
+
+  if (!selectedTemplate) {
+    return (
+      <div className="template-card muted-card">
+        Please select a Scope Template first to see required team roles.
+      </div>
+    )
+  }
+
+  return (
+    <div className="team-mapping-container" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <p style={{ fontSize: '0.875rem', color: 'var(--secondary)' }}>
+        Map team members to the required task roles in <strong>{selectedTemplate.name}</strong>. Multiple candidates per role can be selected for load distribution.
+      </p>
+
+      {requiredRoles.map((role) => {
+        const matchingUsers = users.filter((u) => {
+          if (u.role?.name === 'client') return false
+          const uDesig = (u.designation || '').toLowerCase()
+          const uTeam = (u.team || '').toLowerCase()
+          const rLower = role.toLowerCase()
+
+          return (
+            uTeam.includes(rLower) ||
+            uDesig.includes(rLower) ||
+            (rLower.includes('graphic') && (uDesig.includes('graphic') || uTeam.includes('creative'))) ||
+            (rLower.includes('designer') && (uDesig.includes('graphic') || uTeam.includes('creative'))) ||
+            (rLower.includes('writer') && (uDesig.includes('writer') || uTeam.includes('copywriter'))) ||
+            (rLower.includes('performance') && (uDesig.includes('performance') || uTeam.includes('performance'))) ||
+            (rLower.includes('seo') && (uDesig.includes('seo') || uTeam.includes('seo'))) ||
+            (rLower.includes('crm') && (uDesig.includes('crm') || uTeam.includes('automation'))) ||
+            (rLower.includes('social') && (uDesig.includes('social') || uTeam.includes('video'))) ||
+            (rLower.includes('brand') && (uDesig.includes('brand') || uDesig.includes('project')))
+          )
+        })
+
+        const displayUsers = matchingUsers.length > 0 ? matchingUsers : users.filter((u) => u.role?.name !== 'client')
+        const selectedIds = teamAssignments[role] || []
+
+        return (
+          <div key={role} className="role-mapping-card" style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--surface)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>🏷️ Required Role: {role}</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>
+                {selectedIds.length} candidate{selectedIds.length === 1 ? '' : 's'} selected
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+              {displayUsers.map((user) => {
+                const isSelected = selectedIds.includes(user.id)
+                return (
+                  <label
+                    key={user.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border)',
+                      background: isSelected ? 'rgba(59,130,246,0.1)' : 'transparent',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleUser(role, user.id)}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 500 }}>{user.full_name}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--secondary)' }}>
+                        {user.designation || user.team || user.role?.name}
+                      </div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function ReviewSection({
   contractEnd,
   selectedTemplate,
+  teamAssignments,
   values,
 }: {
   contractEnd: string
   selectedTemplate: ScopeTemplate | undefined
+  teamAssignments: Record<string, string[]>
   values: Partial<ClientOnboardingInput>
 }) {
+  const { data: users = [] } = useQuery({
+    queryKey: ['all-users-list'],
+    queryFn: getUsers,
+  })
+
   return (
     <div className="review-grid">
       <section className="review-card">
@@ -454,8 +647,29 @@ function ReviewSection({
         </dl>
       </section>
       <section className="review-card">
-        <h3>Scope Template</h3>
+        <h3>Scope Template & Team Assignments</h3>
         {selectedTemplate ? <TemplatePreview template={selectedTemplate} /> : <p>No template selected.</p>}
+
+        <div style={{ marginTop: '16px' }}>
+          <h4>Assigned Team Members per Role:</h4>
+          {Object.keys(teamAssignments).length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--secondary)' }}>No explicit team members mapped.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+              {Object.entries(teamAssignments).map(([role, userIds]) => {
+                const assignedUsers = users.filter((u) => userIds.includes(u.id))
+                return (
+                  <div key={role} style={{ fontSize: '0.85rem' }}>
+                    <strong>{role}:</strong>{' '}
+                    {assignedUsers.length > 0
+                      ? assignedUsers.map((u) => u.full_name).join(', ')
+                      : 'Unassigned'}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )

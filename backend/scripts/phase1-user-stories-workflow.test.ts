@@ -198,7 +198,7 @@ function testRepositoryPersistsTheDocumentedOnboardingTransaction() {
   assertInOrder(source, [
     'tx.client.create',
     'tx.workflow.create',
-    'tx.task.createManyAndReturn',
+    'tx.task.create',
     'tx.activityLog.createMany',
   ])
   assert.match(source, /status: 'active'/)

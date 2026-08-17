@@ -21,6 +21,7 @@ import {
   type ClientFilters,
   type ClientRow,
   type ClientStatus,
+  type CreateClientPayload,
 } from './api'
 import {
   clientEditSchema,
@@ -230,7 +231,7 @@ function ClientDetailPanel({ clientId }: { clientId: string | null }) {
     resolver: zodResolver(clientEditSchema),
   })
   const updateMutation = useMutation({
-    mutationFn: (values: ClientEditValues) => updateClient(clientId ?? '', values),
+    mutationFn: (values: ClientEditValues) => updateClient(clientId ?? '', values as Partial<CreateClientPayload>),
     onSuccess: () => {
       setPanelError(null)
       queryClient.invalidateQueries({ queryKey: ['clients'] })

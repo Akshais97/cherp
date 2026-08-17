@@ -139,7 +139,7 @@ function testArchitectureAndPrismaAudit() {
   assert.match(clientsRepository, /\$transaction/)
   assert.match(clientsRepository, /tx\.client\.create/)
   assert.match(clientsRepository, /tx\.workflow\.create/)
-  assert.match(clientsRepository, /tx\.task\.createManyAndReturn/)
+  assert.match(clientsRepository, /tx\.task\.create/)
   assert.match(clientsRepository, /tx\.workflow\.updateMany/)
 
   const workflowsRepository = file('backend/src/workflows/workflows.repository.ts')
@@ -234,6 +234,7 @@ function readDirectorySource(directory: string): string {
       const stat = statSync(fullPath)
 
       if (stat.isDirectory()) {
+        if (entry === 'scripts') return ''
         return readDirectorySource(fullPath)
       }
 

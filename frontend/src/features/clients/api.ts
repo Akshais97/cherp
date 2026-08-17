@@ -13,6 +13,14 @@ export type ScopeTemplate = {
       description?: string
       priority?: 'high' | 'medium' | 'low'
       due_offset_days?: number
+      target_role?: string
+      subtasks?: Array<{
+        title: string
+        description?: string
+        priority?: 'high' | 'medium' | 'low'
+        due_offset_days?: number
+        target_role?: string
+      }>
     }>
   }
   kpi_framework: Record<string, unknown>
@@ -98,6 +106,7 @@ export type CreateClientPayload = {
   notes?: string
   retainer_hours?: number
   scope_template_id: string
+  team_assignments?: Record<string, string[]>
 }
 
 export function getClients(filters?: ClientFilters) {

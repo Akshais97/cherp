@@ -18,7 +18,8 @@
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-hook-form": "^7.75.0"
+    "react-hook-form": "^7.75.0",
+    "reicon-react": "^1.1.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

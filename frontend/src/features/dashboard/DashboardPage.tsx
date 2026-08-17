@@ -388,7 +388,6 @@ function RoleDashboard({
           <p>{isPm ? 'Project manager dashboard' : 'Team member dashboard'}</p>
           <h1>Dashboard</h1>
         </div>
-        <button className="ghost-button" type="button">Customize</button>
       </div>
 
       <div className="role-metric-grid" aria-busy={isLoading} data-testid="dashboard-metrics">

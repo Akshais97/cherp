@@ -1,23 +1,30 @@
 import {
   AlertTriangle,
-  BarChart3,
-  BriefcaseBusiness,
+  AngleDown,
+  AngleRight,
+  Briefcase,
   Calendar,
+  Category2,
+  ChartBar,
   ClipboardList,
-  Contact,
-  FileText,
+  File,
+  FolderBookmark,
   FolderOpen,
-  LayoutDashboard,
-  LayoutTemplate,
-  LogOut,
+  Home,
+  Layers,
+  Layout,
+  Logout,
   Menu,
   Palette,
+  People,
+  Personalcard,
+  Plug,
   Search,
-  UserPlus,
-  UserRoundCheck,
-  Users,
-  Network
-} from 'lucide-react'
+  Settings,
+  UserAdd,
+  UserCheck,
+  Users
+} from 'reicon-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../app/providers/useAuth'
@@ -71,23 +78,57 @@ const baseNavItems: {
   label: string
   icon: React.ReactNode
 }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} /> },
-  { id: 'client-dashboard', label: 'Client Dashboard', icon: <LayoutDashboard size={17} /> },
-  { id: 'daily-report', label: 'Daily Report', icon: <FileText size={17} /> },
-  { id: 'tasks', label: 'Tasks', icon: <ClipboardList size={17} /> },
-  { id: 'calendar', label: 'Calendar', icon: <Calendar size={17} /> },
-  { id: 'client-directory', label: 'Client Directory', icon: <FolderOpen size={17} /> },
-  { id: 'brands', label: 'Brands', icon: <Palette size={17} /> },
-  { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={17} /> },
+  { id: 'dashboard', label: 'Dashboard', icon: <Layout size={18} /> },
+  { id: 'client-dashboard', label: 'Client Dashboard', icon: <Home size={18} /> },
+  { id: 'daily-report', label: 'Daily Report', icon: <File size={18} /> },
+  { id: 'tasks', label: 'Tasks', icon: <ClipboardList size={18} /> },
+  { id: 'calendar', label: 'Calendar', icon: <Calendar size={18} /> },
+  { id: 'client-directory', label: 'Client Directory', icon: <FolderOpen size={18} /> },
+  { id: 'brands', label: 'Brands', icon: <Palette size={18} /> },
+  { id: 'analytics', label: 'Analytics', icon: <ChartBar size={18} /> },
   {
     id: 'workflows',
     label: 'Workflows',
-    icon: <BriefcaseBusiness size={17} />,
+    icon: <Briefcase size={18} />,
   },
-  { id: 'scope-templates', label: 'Scope Templates', icon: <LayoutTemplate size={17} /> },
-  { id: 'team-members', label: 'Team Members', icon: <UserRoundCheck size={17} /> },
-  { id: 'employee-profiles', label: 'Employee Profiles', icon: <Contact size={17} /> },
-  { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={17} /> },
+  { id: 'scope-templates', label: 'Scope Templates', icon: <Layers size={18} /> },
+  { id: 'team-members', label: 'Team Members', icon: <UserCheck size={18} /> },
+  { id: 'employee-profiles', label: 'Employee Profiles', icon: <Personalcard size={18} /> },
+  { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={18} /> },
+]
+
+interface NavSection {
+  id: string
+  label: string
+  icon: React.ReactNode
+  items: AppRoute[]
+}
+
+const navSections: NavSection[] = [
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    icon: <Category2 size={15} />,
+    items: ['dashboard', 'client-dashboard', 'daily-report', 'tasks', 'calendar', 'blockers']
+  },
+  {
+    id: 'clients-delivery',
+    label: 'Clients & Delivery',
+    icon: <FolderBookmark size={15} />,
+    items: ['client-directory', 'clients', 'workflows', 'scope-templates', 'brands']
+  },
+  {
+    id: 'team-performance',
+    label: 'Team & Performance',
+    icon: <People size={15} />,
+    items: ['team-members', 'employee-profiles', 'analytics']
+  },
+  {
+    id: 'platform',
+    label: 'Platform',
+    icon: <Settings size={15} />,
+    items: ['users', 'integrations']
+  }
 ]
 
 export function AppShell() {
@@ -101,6 +142,19 @@ export function AppShell() {
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    workspace: false,
+    'clients-delivery': false,
+    'team-performance': false,
+    platform: false,
+  })
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }))
+  }
 
   useEffect(() => {
     const q = searchQuery.trim()
@@ -170,14 +224,14 @@ export function AppShell() {
   const operationalNavItems = currentUser?.role && canManageClients(currentUser.role)
     ? [
         visibleBaseNavItems[0],
-        { id: 'clients' as const, label: 'Client Onboarding', icon: <UserPlus size={17} /> },
+        { id: 'clients' as const, label: 'Client Onboarding', icon: <UserAdd size={18} /> },
         ...visibleBaseNavItems.slice(1),
       ]
     : visibleBaseNavItems
   const navItems = currentUser?.role && canManageUsers(currentUser.role)
     ? [
         ...operationalNavItems,
-        { id: 'users' as const, label: 'Users', icon: <Users size={17} /> },
+        { id: 'users' as const, label: 'Users', icon: <Users size={18} /> },
       ]
     : operationalNavItems
   
@@ -186,7 +240,7 @@ export function AppShell() {
     finalNavItems.push({
       id: 'integrations' as any,
       label: 'Integrations',
-      icon: <Network size={17} />
+      icon: <Plug size={18} />
     })
   }
 
@@ -223,27 +277,52 @@ export function AppShell() {
         </div>
 
         <nav aria-label="Primary navigation">
-          <p>Operations</p>
-          {finalNavItems.map((item) => (
-            <button
-              className={activeRoute === item.id ? 'active' : ''}
-              data-testid={`nav-${item.id}`}
-              key={item.id}
-              onClick={() => {
-                setTargetWorkflowId(null)
-                setRoute(item.id)
-              }}
-              type="button"
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {navSections.map((section) => {
+            const sectionItems = finalNavItems.filter((item) => section.items.includes(item.id))
+            if (sectionItems.length === 0) return null
+
+            const isExpanded = sidebarCollapsed || (expandedSections[section.id] !== false)
+
+            return (
+              <div className="nav-section" key={section.id}>
+                <button
+                  type="button"
+                  className="sidebar-section-header"
+                  onClick={() => toggleSection(section.id)}
+                >
+                  <div className="sidebar-section-header-left">
+                    {section.icon}
+                    <span>{section.label}</span>
+                  </div>
+                  {isExpanded && !sidebarCollapsed ? <AngleDown size={13} /> : <AngleRight size={13} />}
+                </button>
+                {isExpanded && (
+                  <div className="nav-section-items">
+                    {sectionItems.map((item) => (
+                      <button
+                        className={activeRoute === item.id ? 'active' : ''}
+                        data-testid={`nav-${item.id}`}
+                        key={item.id}
+                        onClick={() => {
+                          setTargetWorkflowId(null)
+                          setRoute(item.id)
+                        }}
+                        type="button"
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </nav>
 
         <div className="user-card">
           <div className="avatar">{currentUser?.avatar_url ? '' : initials}</div>
-          <div>
+          <div className="user-info">
             <strong>{currentUser?.name}</strong>
             <span>{currentUser ? roleLabels[currentUser.role] : ''}</span>
           </div>
@@ -430,7 +509,7 @@ export function AppShell() {
             </div>
           </label>
           <button className="logout-button" data-testid="button-logout" onClick={signOut} type="button">
-            <LogOut size={16} />
+            <Logout size={16} />
             Logout
           </button>
         </header>
