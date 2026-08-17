@@ -761,6 +761,7 @@ function TaskCard({
       data-task-id={task.id}
       data-testid="task-card"
       onClick={() => onOpenDetails(task)}
+      style={{ marginLeft: task.is_subtask ? '24px' : '0px', borderLeft: task.is_subtask ? '2px solid var(--border, #cbd5e1)' : undefined }}
     >
       {canManage ? (
         <button
@@ -794,7 +795,23 @@ function TaskCard({
         }}
       />
 
+      {task.is_subtask ? (
+        <span style={{ color: 'var(--primary, #3b82f6)', fontWeight: 600, marginRight: '4px' }}>↳</span>
+      ) : null}
+
       <span className="ck-name">{task.title}</span>
+
+      {task.labels && task.labels.length > 0 ? (
+        <span className="role-label-badge" style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', background: 'var(--surface-muted, #f1f5f9)', color: 'var(--text-muted, #475569)', fontWeight: 500 }}>
+          {task.labels[0]}
+        </span>
+      ) : null}
+
+      {task.checklist && task.checklist.length > 0 ? (
+        <span className="ck-meta" style={{ marginLeft: '8px', fontSize: '0.75rem', color: 'var(--secondary)' }}>
+          ☑ {task.checklist.filter(c => c.is_completed || (c as any).completed).length}/{task.checklist.length}
+        </span>
+      ) : null}
 
       {task.slot ? (
         <span className="ck-meta" style={{ marginRight: '8px', color: 'var(--secondary)' }}>

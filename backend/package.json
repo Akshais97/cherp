@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/main.js",
+    "start": "tsc -p tsconfig.build.json && node dist/main.js",
     "start:dev": "ts-node src/main.ts",
     "test:auth": "ts-node scripts/auth-header.test.ts",
     "test:slice3": "ts-node scripts/slice3-workflows-tasks.test.ts",
@@ -15,7 +15,8 @@
     "test:stage3-ai-chat": "ts-node scripts/stage3-ai-chat.test.ts",
     "test:user-stories": "ts-node scripts/phase1-user-stories-workflow.test.ts",
     "test:planner": "ts-node -T scripts/tasks-planner-lifecycle.test.ts",
-    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6 && npm run test:user-stories && npm run test:planner",
+    "test:client-directory": "ts-node -T scripts/client-directory-tdd.test.ts",
+    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6 && npm run test:user-stories && npm run test:planner && npm run test:client-directory",
     "perf:phase1": "ts-node scripts/measure-phase1-performance.ts"
   },
   "keywords": [],

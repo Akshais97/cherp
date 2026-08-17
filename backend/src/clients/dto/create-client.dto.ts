@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Transform } from 'class-transformer'
 import {
+  Allow,
   IsDateString,
   IsEmail,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsPositive,
   IsString,
@@ -90,4 +92,12 @@ export class CreateClientDto {
   @ApiProperty()
   @IsUUID()
   scope_template_id!: string
+
+  @ApiPropertyOptional({
+    description: 'Map of team category/role name to array of assigned user IDs',
+    example: { 'Graphic Designer': ['uuid-1', 'uuid-2'] },
+  })
+  @IsOptional()
+  @IsObject()
+  team_assignments?: Record<string, string[]>
 }

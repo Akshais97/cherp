@@ -71,6 +71,8 @@ export type WorkflowTask = {
   completer?: { id: string; full_name: string; email: string; avatar_url?: string }
   open_blocker_count: number
   checklist?: ChecklistItem[]
+  parent_task_id?: string | null
+  is_subtask?: boolean
   client?: { id: string; name: string } | null
   workflow?: { id: string; title: string; project_manager_id?: string | null; client?: { id: string; name: string } | null } | null
   assigned_by?: string | null

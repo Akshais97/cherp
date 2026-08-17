@@ -16,7 +16,8 @@ import { templatePresets } from './template-presets'
 export class ScopeTemplatesService {
   constructor(private readonly repository: ScopeTemplatesRepository) {}
 
-  list(user: RequestUser) {
+  async list(user: RequestUser) {
+    await this.repository.seedPresets(user.tenantId, user.id, templatePresets)
     return this.repository.findActiveByTenant(user.tenantId)
   }
 

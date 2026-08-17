@@ -747,18 +747,33 @@ export class TasksRepository {
     beforeValues: Prisma.InputJsonValue
   }) {
     return this.prisma.$transaction(async (tx) => {
+      // Find all daily occurrences of this task to cascade delete them
+      const occurrences = await tx.task.findMany({
+        where: { tenant_id: input.tenantId, parent_task_id: input.taskId },
+        select: { id: true }
+      })
+      const occurrenceIds = occurrences.map(occ => occ.id)
+      const allTaskIds = [input.taskId, ...occurrenceIds]
+
       await tx.taskComment.deleteMany({
-        where: { tenant_id: input.tenantId, task_id: input.taskId },
+        where: { tenant_id: input.tenantId, task_id: { in: allTaskIds } },
       })
       await tx.taskAttachment.deleteMany({
-        where: { tenant_id: input.tenantId, task_id: input.taskId },
+        where: { tenant_id: input.tenantId, task_id: { in: allTaskIds } },
       })
       await tx.timeEntry.deleteMany({
-        where: { tenant_id: input.tenantId, task_id: input.taskId },
+        where: { tenant_id: input.tenantId, task_id: { in: allTaskIds } },
       })
       await tx.blocker.deleteMany({
-        where: { tenant_id: input.tenantId, task_id: input.taskId },
+        where: { tenant_id: input.tenantId, task_id: { in: allTaskIds } },
       })
+
+      if (occurrenceIds.length > 0) {
+        await tx.task.deleteMany({
+          where: { id: { in: occurrenceIds }, tenant_id: input.tenantId }
+        })
+      }
+
       const task = await tx.task.delete({
         where: { id: input.taskId, tenant_id: input.tenantId },
         select: { id: true, title: true },
@@ -1093,6 +1108,59 @@ export class TasksRepository {
     const startOfDay = new Date(`${dateStr}T00:00:00.000Z`)
     const endOfDay = new Date(`${dateStr}T23:59:59.999Z`)
 
+    // Find all parent daily tasks (is_daily = true, parent_task_id = null) assigned to the user
+    const parentDailyTasks = await this.prisma.task.findMany({
+      where: {
+        tenant_id: tenantId,
+        assigned_to: userId,
+        is_daily: true,
+        parent_task_id: null,
+      }
+    })
+
+    if (parentDailyTasks.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        // Find existing occurrences for these parents on the specific date
+        const existingOccurrences = await tx.task.findMany({
+          where: {
+            tenant_id: tenantId,
+            parent_task_id: { in: parentDailyTasks.map(t => t.id) },
+            due_date: {
+              gte: startOfDay,
+              lte: endOfDay,
+            }
+          },
+          select: { parent_task_id: true }
+        })
+
+        const existingParentIds = new Set(existingOccurrences.map(occ => occ.parent_task_id))
+
+        for (const parent of parentDailyTasks) {
+          if (!existingParentIds.has(parent.id)) {
+            // Set the due date for the occurrence to the middle of the requested day in UTC
+            const occurrenceDueDate = new Date(`${dateStr}T12:00:00.000Z`)
+            await tx.task.create({
+              data: {
+                tenant_id: tenantId,
+                title: parent.title,
+                description: parent.description,
+                status: 'yet_to_start',
+                priority: parent.priority,
+                sort_order: parent.sort_order,
+                due_date: occurrenceDueDate,
+                client_id: parent.client_id,
+                workflow_id: parent.workflow_id,
+                assigned_to: parent.assigned_to,
+                assigned_by: parent.assigned_by,
+                is_daily: true,
+                parent_task_id: parent.id,
+              }
+            })
+          }
+        }
+      })
+    }
+
     const assigned = await this.prisma.task.findMany({
       where: {
         tenant_id: tenantId,
@@ -1104,9 +1172,15 @@ export class TasksRepository {
               gte: startOfDay,
               lte: endOfDay,
             },
+            is_daily: false,
           },
           {
             is_daily: true,
+            parent_task_id: { not: null },
+            due_date: {
+              gte: startOfDay,
+              lte: endOfDay,
+            }
           },
         ],
       },
@@ -1132,6 +1206,10 @@ export class TasksRepository {
           gte: startOfDay,
           lte: endOfDay,
         },
+        OR: [
+          { is_daily: false },
+          { is_daily: true, parent_task_id: { not: null } }
+        ]
       },
       select: {
         id: true,

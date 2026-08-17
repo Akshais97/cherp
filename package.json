@@ -8,7 +8,7 @@
     "@prisma/client": "^6.19.3"
   },
   "scripts": {
-    "bothdev": "concurrently \"npm run dev --prefix frontend\" \"npm run start --prefix backend\"",
+    "bothdev": "concurrently \"npm run dev --prefix frontend\" \"npm run start:dev --prefix backend\"",
     "doctor": "npx react-doctor@latest"
   }
 }

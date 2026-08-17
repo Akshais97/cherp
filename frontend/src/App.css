@@ -612,6 +612,69 @@ button {
   text-transform: uppercase;
 }
 
+.nav-section {
+  display: grid;
+  gap: 2px;
+}
+
+.nav-section + .nav-section {
+  margin-top: 14px;
+}
+
+.sidebar-collapsed .nav-section + .nav-section {
+  margin-top: 10px;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  margin: 0 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.sidebar-section-header:hover {
+  color: var(--text);
+  background-color: var(--hover);
+}
+
+.sidebar-section-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-section-header-left span {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  font-weight: 600;
+}
+
+.sidebar-section-header svg {
+  opacity: 0.85;
+}
+
+.nav-section-items {
+  display: grid;
+  gap: 2px;
+}
+
+.sidebar-collapsed .sidebar-section-header {
+  display: none;
+}
+
 .sidebar nav button {
   display: flex;
   align-items: center;
@@ -694,7 +757,7 @@ button {
 .sidebar-collapsed .shell-brand span,
 .sidebar-collapsed .sidebar nav p,
 .sidebar-collapsed .sidebar nav button span,
-.sidebar-collapsed .user-card > div {
+.sidebar-collapsed .user-card .user-info {
   display: none;
 }
 
@@ -3234,7 +3297,7 @@ tbody tr.selected-row {
   .sidebar-collapsed .shell-brand > div,
   .sidebar-collapsed .sidebar nav p,
   .sidebar-collapsed .sidebar nav button span,
-  .sidebar-collapsed .user-card > div {
+  .sidebar-collapsed .user-card .user-info {
     display: block;
   }
 

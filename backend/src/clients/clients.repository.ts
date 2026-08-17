@@ -315,18 +315,42 @@ export class ClientsRepository {
       priority: string
       sort_order: number
       due_date?: Date
+      target_role?: string
+      checklist?: Array<{ id: string; text: string; completed: boolean }>
+      subtasks?: Array<{
+        title: string
+        description?: string
+        priority: string
+        due_date?: Date
+        target_role?: string
+        checklist?: Array<{ id: string; text: string; completed: boolean }>
+      }>
     }>
+    teamAssignments?: Record<string, string[]>
   }) {
     return this.prisma.$transaction(async (tx) => {
       const client = await tx.client.create({ data: input.client })
 
-      await tx.clientUser.create({
-        data: {
-          tenant_id: input.tenantId,
-          client_id: client.id,
-          user_id: input.userId,
-        },
-      })
+      const assignedUserIds = new Set<string>([input.userId])
+      if (input.teamAssignments) {
+        for (const userIds of Object.values(input.teamAssignments)) {
+          if (Array.isArray(userIds)) {
+            for (const uid of userIds) {
+              if (uid) assignedUserIds.add(uid)
+            }
+          }
+        }
+      }
+
+      for (const uid of assignedUserIds) {
+        await tx.clientUser.create({
+          data: {
+            tenant_id: input.tenantId,
+            client_id: client.id,
+            user_id: uid,
+          },
+        })
+      }
 
       // Automatically link any client-role users who do not have a client assignment
       const unassignedClientUsers = await tx.user.findMany({
@@ -337,13 +361,44 @@ export class ClientsRepository {
         },
       })
       for (const cu of unassignedClientUsers) {
-        await tx.clientUser.create({
-          data: {
-            tenant_id: input.tenantId,
-            client_id: client.id,
-            user_id: cu.id,
-          },
+        if (!assignedUserIds.has(cu.id)) {
+          await tx.clientUser.create({
+            data: {
+              tenant_id: input.tenantId,
+              client_id: client.id,
+              user_id: cu.id,
+            },
+          })
+        }
+      }
+
+      const roleCounters: Record<string, number> = {}
+      const getAssignedUserForRole = (targetRole?: string): string | undefined => {
+        if (!targetRole || !input.teamAssignments) return undefined
+
+        const roleLower = targetRole.toLowerCase()
+        const teamKey = Object.keys(input.teamAssignments).find((k) => {
+          const kLower = k.toLowerCase()
+          return (
+            kLower === roleLower ||
+            (roleLower.includes('graphic') && (kLower.includes('creative') || kLower.includes('designer'))) ||
+            (roleLower.includes('writer') && (kLower.includes('copywriter') || kLower.includes('writer'))) ||
+            (roleLower.includes('performance') && kLower.includes('performance')) ||
+            (roleLower.includes('seo') && kLower.includes('seo')) ||
+            (roleLower.includes('crm') && (kLower.includes('automation') || kLower.includes('crm'))) ||
+            (roleLower.includes('social') && (kLower.includes('video') || kLower.includes('social'))) ||
+            (roleLower.includes('brand') && kLower.includes('brand'))
+          )
         })
+
+        if (!teamKey || !input.teamAssignments[teamKey] || input.teamAssignments[teamKey].length === 0) {
+          return undefined
+        }
+
+        const candidates = input.teamAssignments[teamKey]
+        const count = roleCounters[teamKey] || 0
+        roleCounters[teamKey] = count + 1
+        return candidates[count % candidates.length]
       }
 
       const workflow = await tx.workflow.create({
@@ -362,23 +417,63 @@ export class ClientsRepository {
         },
       })
 
-      const createdTasks = await tx.task.createManyAndReturn({
-        data: input.tasks.map((task) => ({
-          tenant_id: input.tenantId,
-          workflow_id: workflow.id,
-          client_id: client.id,
-          assigned_by: input.userId,
-          title: task.title,
-          description: task.description,
-          status: 'yet_to_start',
-          priority: task.priority,
-          sort_order: task.sort_order,
-          due_date: task.due_date,
-          depends_on: [],
-          is_subtask: false,
-        })),
-        select: { id: true, title: true },
-      })
+      const createdTasks: Array<{ id: string; title: string }> = []
+      let globalSortOrder = 1
+      for (const parentTaskInput of input.tasks) {
+        const parentAssignedTo = getAssignedUserForRole(parentTaskInput.target_role)
+
+        const parentTask = await tx.task.create({
+          data: {
+            tenant_id: input.tenantId,
+            workflow_id: workflow.id,
+            client_id: client.id,
+            assigned_to: parentAssignedTo,
+            assigned_by: input.userId,
+            title: parentTaskInput.title,
+            description: parentTaskInput.description,
+            status: 'yet_to_start',
+            priority: parentTaskInput.priority,
+            sort_order: globalSortOrder++,
+            due_date: parentTaskInput.due_date,
+            labels: parentTaskInput.target_role ? [parentTaskInput.target_role] : [],
+            checklist: parentTaskInput.checklist ? (parentTaskInput.checklist as Prisma.InputJsonValue) : [],
+            depends_on: [],
+            is_subtask: false,
+          },
+          select: { id: true, title: true },
+        })
+        createdTasks.push(parentTask)
+
+        if (parentTaskInput.subtasks && parentTaskInput.subtasks.length > 0) {
+          for (const subtaskInput of parentTaskInput.subtasks) {
+            const subtaskAssignedTo =
+              getAssignedUserForRole(subtaskInput.target_role) || parentAssignedTo
+
+            const subtask = await tx.task.create({
+              data: {
+                tenant_id: input.tenantId,
+                workflow_id: workflow.id,
+                client_id: client.id,
+                assigned_to: subtaskAssignedTo,
+                assigned_by: input.userId,
+                parent_task_id: parentTask.id,
+                title: subtaskInput.title,
+                description: subtaskInput.description,
+                status: 'yet_to_start',
+                priority: subtaskInput.priority,
+                sort_order: globalSortOrder++,
+                due_date: subtaskInput.due_date || parentTaskInput.due_date,
+                labels: subtaskInput.target_role ? [subtaskInput.target_role] : [],
+                checklist: subtaskInput.checklist ? (subtaskInput.checklist as Prisma.InputJsonValue) : [],
+                depends_on: [],
+                is_subtask: true,
+              },
+              select: { id: true, title: true },
+            })
+            createdTasks.push(subtask)
+          }
+        }
+      }
 
       await tx.activityLog.createMany({
         data: [

@@ -10,6 +10,9 @@ export type UserRow = {
   auth_user_id: string
   created_at: string
   updated_at: string
+  designation?: string | null
+  team?: string | null
+  skills?: string[] | null
   role: { name: UserRole; description: string }
 }
 
