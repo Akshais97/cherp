@@ -165,7 +165,7 @@ export class TasksController {
     @Body() dto: AddCommentDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.service.addComment(id, dto.content, user)
+    return this.service.addComment(id, dto.content, user, dto.parent_comment_id, dto.mentioned_user_ids)
   }
 
   @Get(':id/comments')

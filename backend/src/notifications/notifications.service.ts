@@ -45,28 +45,21 @@ export class NotificationsService {
     }
 
     if (
-      input.previousStatus === 'ongoing' &&
-      input.actorRole === 'team_member' &&
-      input.projectManagerId &&
-      input.projectManagerId !== input.actorId
-    ) {
-      recipients.add(input.projectManagerId)
-    }
-
-    if (
-      input.nextStatus === 'completed' &&
-      input.projectManagerId &&
-      input.projectManagerId !== input.actorId
-    ) {
-      recipients.add(input.projectManagerId)
-    }
-
-    if (
       input.nextStatus === 'rework' &&
       input.assigneeId &&
       input.assigneeId !== input.actorId
     ) {
       recipients.add(input.assigneeId)
+    }
+
+    const pmNotifiableStatuses = ['blocked', 'rework', 'task_approved_by_manager']
+    if (
+      input.actorRole === 'team_member' &&
+      pmNotifiableStatuses.includes(input.nextStatus) &&
+      input.projectManagerId &&
+      input.projectManagerId !== input.actorId
+    ) {
+      recipients.add(input.projectManagerId)
     }
 
     await this.repository.createMany(
@@ -161,15 +154,69 @@ export class NotificationsService {
     })
   }
 
+  async notifyTaskCommentMention(input: {
+    tenantId: string
+    actorId: string
+    taskId: string
+    taskTitle: string
+    commentContent: string
+    mentionedUserIds: string[]
+  }) {
+    if (!input.mentionedUserIds || input.mentionedUserIds.length === 0) return
+
+    const recipients = new Set<string>()
+    for (const userId of input.mentionedUserIds) {
+      if (userId && userId !== input.actorId) {
+        recipients.add(userId)
+      }
+    }
+
+    if (recipients.size === 0) return
+
+    const snippet = input.commentContent.length > 80
+      ? `${input.commentContent.substring(0, 80)}...`
+      : input.commentContent
+
+    const title = 'Mentioned in task comment'
+    const message = `You were mentioned in a comment on "${input.taskTitle}": "${snippet}"`
+
+    await this.repository.createMany(
+      [...recipients].map((userId) => ({
+        tenant_id: input.tenantId,
+        user_id: userId,
+        type: 'task_comment_mention',
+        title,
+        message,
+        related_entity_type: 'task',
+        related_entity_id: input.taskId,
+      })),
+    )
+
+    Promise.all(
+      [...recipients].map((userId) =>
+        this.teamsService.sendNotification({
+          tenantId: input.tenantId,
+          userId,
+          title,
+          message,
+        }),
+      ),
+    ).catch((err) => {
+      console.error('Error dispatching Teams mention notifications:', err)
+    })
+  }
+
   private notificationType(status: string) {
-    if (status === 'completed') return 'task_approval_requested'
+    if (status === 'task_approved_by_manager' || status === 'completed') return 'task_approval_requested'
     if (status === 'rework') return 'task_rework_requested'
+    if (status === 'blocked') return 'task_blocked'
     return 'task_status_changed'
   }
 
   private notificationTitle(status: string) {
-    if (status === 'completed') return 'Task ready for approval'
+    if (status === 'task_approved_by_manager' || status === 'completed') return 'Task ready for approval'
     if (status === 'rework') return 'Task sent for rework'
+    if (status === 'blocked') return 'Task marked as blocked'
     return 'Task status updated'
   }
 }

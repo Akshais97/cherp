@@ -168,12 +168,38 @@ export function getUsers() {
   return apiClient.get<UserOption[]>('/users').then((response) => response.data)
 }
 
-export function getTaskComments(id: string) {
-  return apiClient.get<any[]>(`/tasks/${id}/comments`).then((response) => response.data)
+export interface TaskComment {
+  id: string
+  tenant_id: string
+  task_id: string
+  author_id: string
+  parent_comment_id?: string | null
+  content: string
+  mentioned_user_ids?: string[]
+  created_at: string
+  updated_at: string
+  author: {
+    id: string
+    full_name: string
+    email?: string
+    avatar_url?: string | null
+  }
+  parent_comment?: {
+    id: string
+    content: string
+    author: { id: string; full_name: string }
+  } | null
 }
 
-export function addTaskComment(id: string, payload: { content: string }) {
-  return apiClient.post<any>(`/tasks/${id}/comments`, payload).then((response) => response.data)
+export function getTaskComments(id: string) {
+  return apiClient.get<TaskComment[]>(`/tasks/${id}/comments`).then((response) => response.data)
+}
+
+export function addTaskComment(
+  id: string,
+  payload: { content: string; parent_comment_id?: string; mentioned_user_ids?: string[] }
+) {
+  return apiClient.post<TaskComment>(`/tasks/${id}/comments`, payload).then((response) => response.data)
 }
 
 export function getTaskAttachments(id: string) {

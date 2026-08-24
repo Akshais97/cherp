@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { normalizeApiError } from '../../lib/api/errors'
 import {
   getNotifications,
@@ -10,11 +10,36 @@ import {
 
 export function NotificationsBell() {
   const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const { data: notifications = [], error: notificationsQueryError, isLoading: isNotificationsLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => getNotifications(),
   })
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
     onSuccess: () => {
@@ -27,7 +52,7 @@ export function NotificationsBell() {
     : null
 
   return (
-    <div className="notifications-shell">
+    <div className="notifications-shell" ref={containerRef}>
       <button
         aria-label="Notifications"
         className="icon-button notification-button"
@@ -82,7 +107,7 @@ function NotificationItem({
         <small>{formatDate(notification.created_at)}</small>
       </div>
       {!notification.is_read ? (
-        <button className="ghost-button" onClick={onMarkRead} type="button">
+        <button className="mark-read-btn" onClick={onMarkRead} type="button">
           Mark read
         </button>
       ) : null}

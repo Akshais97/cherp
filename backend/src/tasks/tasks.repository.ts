@@ -1001,14 +1001,35 @@ export class TasksRepository {
       where: { tenant_id: tenantId, task_id: taskId },
       include: {
         author: {
-          select: { id: true, full_name: true, email: true }
+          select: { id: true, full_name: true, email: true, avatar_url: true }
+        },
+        parent_comment: {
+          select: {
+            id: true,
+            content: true,
+            author: { select: { id: true, full_name: true } }
+          }
         }
       },
       orderBy: { created_at: 'asc' }
     })
   }
 
-  createComment(tenantId: string, taskId: string, userId: string, content: string) {
+  findCommentById(tenantId: string, taskId: string, commentId: string) {
+    return this.prisma.taskComment.findFirst({
+      where: { id: commentId, tenant_id: tenantId, task_id: taskId },
+      select: { id: true, task_id: true, tenant_id: true }
+    })
+  }
+
+  createComment(
+    tenantId: string,
+    taskId: string,
+    userId: string,
+    content: string,
+    parentCommentId?: string | null,
+    mentionedUserIds: string[] = []
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const comment = await tx.taskComment.create({
         data: {
@@ -1016,9 +1037,18 @@ export class TasksRepository {
           task_id: taskId,
           author_id: userId,
           content,
+          parent_comment_id: parentCommentId || null,
+          mentioned_user_ids: mentionedUserIds,
         },
         include: {
-          author: { select: { id: true, full_name: true } }
+          author: { select: { id: true, full_name: true, email: true, avatar_url: true } },
+          parent_comment: {
+            select: {
+              id: true,
+              content: true,
+              author: { select: { id: true, full_name: true } }
+            }
+          }
         }
       })
 

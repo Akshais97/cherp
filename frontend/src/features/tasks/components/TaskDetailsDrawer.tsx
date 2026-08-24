@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Plus, Trash2, CheckCircle, Paperclip } from 'lucide-react'
+import { X, Plus, Trash2, CheckCircle, Paperclip, Reply, AtSign, CornerDownRight } from 'lucide-react'
 import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../../app/providers/useAuth'
@@ -19,6 +19,7 @@ import {
   type TaskStatus,
   type WorkflowTask,
   type UserOption,
+  type TaskComment,
 } from '../../workflows/api'
 
 interface TaskDetailsDrawerProps {
@@ -319,16 +320,88 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
     }
   }
 
-  // Comments submit
+  // Comments submit & threading/mention state
   const [commentContent, setCommentContent] = useState('')
   const [isCommentAdding, setIsCommentAdding] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null)
+  const [selectedMentionIds, setSelectedMentionIds] = useState<string[]>([])
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+
+  const topLevelComments = useMemo(() => {
+    return (comments as TaskComment[]).filter((c) => !c.parent_comment_id)
+  }, [comments])
+
+  const repliesByParentId = useMemo(() => {
+    const map: Record<string, TaskComment[]> = {}
+    ;(comments as TaskComment[]).forEach((c) => {
+      if (c.parent_comment_id) {
+        if (!map[c.parent_comment_id]) {
+          map[c.parent_comment_id] = []
+        }
+        map[c.parent_comment_id].push(c)
+      }
+    })
+    return map
+  }, [comments])
+
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionQuery) return users
+    const q = mentionQuery.toLowerCase()
+    return users.filter(
+      (u) => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    )
+  }, [users, mentionQuery])
+
+  const handleCommentTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setCommentContent(val)
+
+    const cursorPos = e.target.selectionStart
+    const textBeforeCursor = val.slice(0, cursorPos)
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1)
+      if (!/\s/.test(textAfterAt)) {
+        setMentionQuery(textAfterAt)
+        setShowMentionDropdown(true)
+        return
+      }
+    }
+    setShowMentionDropdown(false)
+  }
+
+  const handleSelectMentionUser = (user: UserOption) => {
+    const lastAtIndex = commentContent.lastIndexOf('@')
+    let updatedText = commentContent
+    if (lastAtIndex !== -1) {
+      updatedText = commentContent.slice(0, lastAtIndex) + `@${user.full_name} `
+    } else {
+      updatedText = commentContent + `@${user.full_name} `
+    }
+    setCommentContent(updatedText)
+    if (!selectedMentionIds.includes(user.id)) {
+      setSelectedMentionIds((prev) => [...prev, user.id])
+    }
+    setShowMentionDropdown(false)
+  }
+
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!commentContent.trim()) return
     setIsCommentAdding(true)
+    setError(null)
     try {
-      await addTaskComment(task.id, { content: commentContent })
+      await addTaskComment(task.id, {
+        content: commentContent.trim(),
+        parent_comment_id: replyingTo?.id || undefined,
+        mentioned_user_ids: selectedMentionIds.length > 0 ? selectedMentionIds : undefined,
+      })
       setCommentContent('')
+      setReplyingTo(null)
+      setSelectedMentionIds([])
+      setShowMentionDropdown(false)
       queryClient.invalidateQueries({ queryKey: ['task-comments', task.id] })
       onSuccess()
     } catch (err: any) {
@@ -336,6 +409,117 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
     } finally {
       setIsCommentAdding(false)
     }
+  }
+
+  const renderFormattedComment = (text: string) => {
+    const mentionRegex = /(@\[?[A-Za-z0-9._ -]+\]?(?:\([0-9a-f-]+\))?)/g
+    const parts = text.split(mentionRegex)
+
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        const cleanName = part.replace(/^@\[?/, '').replace(/\]?\(.*$/, '').trim()
+        return (
+          <span
+            key={index}
+            style={{
+              background: 'rgba(59, 109, 214, 0.12)',
+              color: 'var(--accent, #3B6DD6)',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              fontWeight: '600',
+              fontSize: '11px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px',
+              marginRight: '2px',
+            }}
+          >
+            <AtSign size={10} />
+            {cleanName}
+          </span>
+        )
+      }
+      return part
+    })
+  }
+
+  const renderCommentCard = (c: TaskComment, isReply = false) => {
+    const replies = repliesByParentId[c.id] || []
+
+    return (
+      <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div
+          style={{
+            background: isReply ? 'var(--card, #FFFFFF)' : 'var(--hover-bg, #F5F5F2)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            padding: '10px 12px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: 'var(--accent, #3B6DD6)',
+                  color: '#FFF',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {c.author?.full_name ? c.author.full_name[0].toUpperCase() : 'U'}
+              </div>
+              <strong style={{ fontSize: '11px' }}>{c.author?.full_name || 'Author'}</strong>
+              {c.parent_comment?.author?.full_name && (
+                <span style={{ fontSize: '10px', color: 'var(--muted-text)' }}>
+                  replied to <strong style={{ color: 'var(--secondary-text)' }}>{c.parent_comment.author.full_name}</strong>
+                </span>
+              )}
+            </div>
+            <span style={{ fontSize: '9px', color: 'var(--muted-text)' }}>
+              {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+
+          <p style={{ margin: '4px 0 6px 0', fontSize: '12px', lineHeight: '1.4' }}>
+            {renderFormattedComment(c.content)}
+          </p>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setReplyingTo(c)}
+              type="button"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--accent, #3B6DD6)',
+                fontSize: '10px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+              }}
+            >
+              <Reply size={10} /> Reply
+            </button>
+          </div>
+        </div>
+
+        {replies.length > 0 && (
+          <div style={{ borderLeft: '2px solid var(--accent, #3B6DD6)', marginLeft: '12px', paddingLeft: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {replies.map((reply) => renderCommentCard(reply, true))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Attachments submit
@@ -886,17 +1070,7 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
           {activeTab === 'comments' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
-                {comments.map((c: any) => (
-                  <div key={c.id} style={{ background: 'var(--hover-bg, #F5F5F2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <strong style={{ fontSize: '11px' }}>{c.author?.full_name || 'Author'}</strong>
-                      <span style={{ fontSize: '9px', color: 'var(--muted-text)' }}>
-                        {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '12px' }}>{c.content}</p>
-                  </div>
-                ))}
+                {topLevelComments.map((c: TaskComment) => renderCommentCard(c, false))}
                 {comments.length === 0 && (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted-text)', fontSize: '12px', fontStyle: 'italic' }}>
                     No comments yet
@@ -905,10 +1079,79 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
               </div>
 
               <form onSubmit={handleAddComment} style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                {/* Replying indicator banner */}
+                {replyingTo && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 10px',
+                      background: 'rgba(59, 109, 214, 0.1)',
+                      border: '1px solid rgba(59, 109, 214, 0.2)',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      color: 'var(--accent, #3B6DD6)',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <CornerDownRight size={12} />
+                      Replying to <strong>{replyingTo.author?.full_name || 'comment'}</strong>
+                    </span>
+                    <button
+                      onClick={() => setReplyingTo(null)}
+                      type="button"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Mentions dropdown */}
+                {showMentionDropdown && filteredMentionUsers.length > 0 && (
+                  <div
+                    style={{
+                      background: 'var(--card, #FFF)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      maxHeight: '140px',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    {filteredMentionUsers.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => handleSelectMentionUser(u)}
+                        style={{
+                          padding: '6px 12px',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          border: 'none',
+                          borderBottom: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <AtSign size={12} style={{ color: 'var(--accent, #3B6DD6)' }} />
+                        <strong>{u.full_name}</strong>
+                        <span style={{ color: 'var(--muted-text)', fontSize: '10px' }}>({u.email})</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <textarea
-                  placeholder="Post comment / task chat update..."
+                  placeholder="Post comment / task update... Type @ to mention a team member"
                   value={commentContent}
-                  onChange={(e) => setCommentContent(e.target.value)}
+                  onChange={handleCommentTextChange}
                   rows={3}
                   style={{ padding: '8px 12px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }}
                 />

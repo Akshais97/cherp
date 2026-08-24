@@ -532,9 +532,56 @@ export class TasksService {
     return this.repository.findComments(user.tenantId, id)
   }
 
-  async addComment(id: string, content: string, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
-    return this.repository.createComment(user.tenantId, id, user.id, content)
+  async addComment(
+    id: string,
+    content: string,
+    user: RequestUser,
+    parentCommentId?: string,
+    mentionedUserIds?: string[]
+  ) {
+    const task = await this.getAccessibleTask(id, user)
+
+    if (parentCommentId) {
+      const parentComment = await this.repository.findCommentById(user.tenantId, id, parentCommentId)
+      if (!parentComment) {
+        throw new NotFoundException('Parent comment not found for this task.')
+      }
+    }
+
+    const uniqueMentionedIds = new Set<string>(mentionedUserIds || [])
+
+    // Also extract @mentions from text if present as @[User Name](uuid) or @uuid
+    const uuidMentionRegex = /@\[?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]?/gi
+    let match: RegExpExecArray | null
+    while ((match = uuidMentionRegex.exec(content)) !== null) {
+      if (match[1]) {
+        uniqueMentionedIds.add(match[1])
+      }
+    }
+
+    const finalMentionedIds = Array.from(uniqueMentionedIds)
+
+    const comment = await this.repository.createComment(
+      user.tenantId,
+      id,
+      user.id,
+      content,
+      parentCommentId,
+      finalMentionedIds
+    )
+
+    if (finalMentionedIds.length > 0) {
+      await this.notifications?.notifyTaskCommentMention({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        taskId: id,
+        taskTitle: task.title,
+        commentContent: content,
+        mentionedUserIds: finalMentionedIds,
+      })
+    }
+
+    return comment
   }
 
   async getAttachments(id: string, user: RequestUser) {
