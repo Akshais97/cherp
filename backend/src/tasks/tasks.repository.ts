@@ -161,6 +161,7 @@ export class TasksRepository {
       select: {
         id: true,
         title: true,
+        description: true,
         status: true,
         priority: true,
         due_date: true,
@@ -174,6 +175,10 @@ export class TasksRepository {
         workflow_id: true,
         client_id: true,
         slot: true,
+        checklist: true,
+        depends_on: true,
+        parent_task_id: true,
+        is_subtask: true,
         assigned_to: true,
         assignee: {
           select: {
@@ -463,6 +468,7 @@ export class TasksRepository {
         client_id: true,
         slot: true,
         assigned_to: true,
+        assigned_by: true,
         completed_by: true,
         title: true,
         description: true,
@@ -479,6 +485,8 @@ export class TasksRepository {
         is_daily: true,
         completed_at: true,
         checklist: true,
+        depends_on: true,
+        parent_task_id: true,
         _count: { select: { blockers: { where: { status: 'open' } } } },
       },
     })
@@ -956,6 +964,9 @@ export class TasksRepository {
       recurrence_type: true,
       completed_at: true,
       checklist: true,
+      depends_on: true,
+      parent_task_id: true,
+      is_subtask: true,
       slot: true,
       client_id: true,
       assigned_by: true,
@@ -1257,5 +1268,46 @@ export class TasksRepository {
     })
 
     return { assigned, completed }
+  }
+
+  async findTasksByIds(tenantId: string, taskIds: string[]) {
+    if (!taskIds || taskIds.length === 0) return []
+    return this.prisma.task.findMany({
+      where: {
+        tenant_id: tenantId,
+        id: { in: taskIds },
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+      },
+    })
+  }
+
+  async findSubtasksByParentId(tenantId: string, parentTaskId: string) {
+    return this.prisma.task.findMany({
+      where: {
+        tenant_id: tenantId,
+        parent_task_id: parentTaskId,
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+      },
+    })
+  }
+
+  async updateTaskSortOrders(tenantId: string, taskIds: string[]) {
+    await this.prisma.$transaction(
+      taskIds.map((id, index) =>
+        this.prisma.task.updateMany({
+          where: { tenant_id: tenantId, id },
+          data: { sort_order: index + 1 },
+        })
+      )
+    )
+    return { success: true, count: taskIds.length }
   }
 }

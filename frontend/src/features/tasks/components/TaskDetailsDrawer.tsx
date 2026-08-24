@@ -218,6 +218,9 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
     setIsSaving(true)
     setError(null)
     try {
+      if (localStartDate && localDueDate && new Date(localDueDate).getTime() < new Date(localStartDate).getTime()) {
+        throw new Error('Due date cannot be earlier than start date')
+      }
       const payload: any = {}
       if (title !== task.title) {
         if (!title.trim()) {
@@ -295,6 +298,10 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
       setBlockerSeverity('medium')
       setBlockerAssignee('')
       queryClient.invalidateQueries({ queryKey: ['task-blockers', task.id] })
+      queryClient.invalidateQueries({ queryKey: ['blockers-list'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
       onSuccess()
     } catch (err: any) {
       setError(normalizeApiError(err).message)
@@ -312,6 +319,11 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
       setResolvingBlockerId(null)
       setResolutionNotes('')
       queryClient.invalidateQueries({ queryKey: ['task-blockers', task.id] })
+      queryClient.invalidateQueries({ queryKey: ['blocker-detail'] })
+      queryClient.invalidateQueries({ queryKey: ['blockers-list'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
       onSuccess()
     } catch (err: any) {
       setError(normalizeApiError(err).message)
@@ -531,7 +543,11 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
     if (!attachmentName.trim() || !attachmentUrl.trim()) return
     setIsAttachmentAdding(true)
     try {
-      await addTaskAttachment(task.id, { file_name: attachmentName, file_url: attachmentUrl })
+      let finalUrl = attachmentUrl.trim()
+      if (!/^https?:\/\//i.test(finalUrl)) {
+        finalUrl = 'https://' + finalUrl
+      }
+      await addTaskAttachment(task.id, { file_name: attachmentName.trim(), file_url: finalUrl })
       setAttachmentName('')
       setAttachmentUrl('')
       queryClient.invalidateQueries({ queryKey: ['task-attachments', task.id] })
@@ -765,6 +781,7 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
                   <span>Start Date</span>
                   <input
                     type="date"
+                    max={localDueDate || undefined}
                     value={localStartDate}
                     onChange={(e) => setLocalStartDate(e.target.value)}
                     disabled={!canEditDetails || isLocked}
@@ -775,6 +792,7 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
                   <span>Due Date</span>
                   <input
                     type="date"
+                    min={localStartDate || undefined}
                     value={localDueDate}
                     onChange={(e) => setLocalDueDate(e.target.value)}
                     disabled={!canEditDetails || isLocked}

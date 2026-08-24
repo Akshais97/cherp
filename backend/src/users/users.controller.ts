@@ -44,7 +44,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Tenant users with safe profile and role fields.' })
   list(@CurrentUser() user: RequestUser) {
     return this.usersService.list(user)

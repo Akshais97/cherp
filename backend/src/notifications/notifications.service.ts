@@ -99,6 +99,7 @@ export class NotificationsService {
     taskId: string
     taskTitle: string
     assigneeId?: string | null
+    blockerAssigneeId?: string | null
     projectManagerId?: string | null
     clientName?: string | null
     notify?: string[]
@@ -107,6 +108,10 @@ export class NotificationsService {
 
     if (input.assigneeId && input.assigneeId !== input.actorId) {
       recipients.add(input.assigneeId)
+    }
+
+    if (input.blockerAssigneeId && input.blockerAssigneeId !== input.actorId) {
+      recipients.add(input.blockerAssigneeId)
     }
 
     if (input.projectManagerId && input.projectManagerId !== input.actorId) {
@@ -151,6 +156,87 @@ export class NotificationsService {
       ),
     ).catch((err) => {
       console.error('Error dispatching Teams blocker notifications:', err)
+    })
+  }
+
+  async notifyBlockerResolved(input: {
+    tenantId: string
+    actorId: string
+    blockerId: string
+    blockerTitle: string
+    taskId: string
+    taskTitle: string
+    flaggerId?: string | null
+    assigneeId?: string | null
+    taskAssigneeId?: string | null
+    projectManagerId?: string | null
+    resolutionNotes?: string | null
+    notify?: string[]
+  }) {
+    const recipients = new Set<string>()
+
+    // Notify the person who raised/flagged the blocker (Assigned by / Owner)
+    if (input.flaggerId && input.flaggerId !== input.actorId) {
+      recipients.add(input.flaggerId)
+    }
+
+    // Notify the assigned resolver (Assigned to)
+    if (input.assigneeId && input.assigneeId !== input.actorId) {
+      recipients.add(input.assigneeId)
+    }
+
+    // Notify the task assignee
+    if (input.taskAssigneeId && input.taskAssigneeId !== input.actorId) {
+      recipients.add(input.taskAssigneeId)
+    }
+
+    // Notify the Project Manager
+    if (input.projectManagerId && input.projectManagerId !== input.actorId) {
+      recipients.add(input.projectManagerId)
+    }
+
+    // Notify designated stakeholder roles (e.g. Account Manager, Client Partner)
+    if (input.notify && input.notify.length > 0) {
+      const stakeholders = await this.repository.findUsersByDesignation(
+        input.tenantId,
+        input.notify,
+      )
+      for (const sh of stakeholders) {
+        if (sh.id !== input.actorId) {
+          recipients.add(sh.id)
+        }
+      }
+    }
+
+    if (recipients.size === 0) return
+
+    const notesSnippet = input.resolutionNotes ? `: "${input.resolutionNotes}"` : '.'
+    const title = 'Blocker resolved'
+    const message = `Blocker "${input.blockerTitle}" on task "${input.taskTitle}" has been resolved${notesSnippet}`
+
+    await this.repository.createMany(
+      [...recipients].map((userId) => ({
+        tenant_id: input.tenantId,
+        user_id: userId,
+        type: 'blocker_resolved',
+        title,
+        message,
+        related_entity_type: 'blocker',
+        related_entity_id: input.blockerId,
+      })),
+    )
+
+    Promise.all(
+      [...recipients].map((userId) =>
+        this.teamsService.sendNotification({
+          tenantId: input.tenantId,
+          userId,
+          title,
+          message,
+        }),
+      ),
+    ).catch((err) => {
+      console.error('Error dispatching Teams blocker resolution notifications:', err)
     })
   }
 
@@ -204,6 +290,42 @@ export class NotificationsService {
     ).catch((err) => {
       console.error('Error dispatching Teams mention notifications:', err)
     })
+  }
+
+  async notifyTaskAssigned(input: {
+    tenantId: string
+    actorId: string
+    taskId: string
+    taskTitle: string
+    assigneeId: string
+  }) {
+    if (!input.assigneeId || input.assigneeId === input.actorId) return
+
+    const title = 'New task assigned'
+    const message = `You were assigned to task "${input.taskTitle}".`
+
+    await this.repository.createMany([
+      {
+        tenant_id: input.tenantId,
+        user_id: input.assigneeId,
+        type: 'task_assigned',
+        title,
+        message,
+        related_entity_type: 'task',
+        related_entity_id: input.taskId,
+      },
+    ])
+
+    this.teamsService
+      .sendNotification({
+        tenantId: input.tenantId,
+        userId: input.assigneeId,
+        title,
+        message,
+      })
+      .catch((err) => {
+        console.error('Error dispatching Teams task assigned notification:', err)
+      })
   }
 
   private notificationType(status: string) {
