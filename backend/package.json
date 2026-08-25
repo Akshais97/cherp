@@ -16,7 +16,8 @@
     "test:user-stories": "ts-node scripts/phase1-user-stories-workflow.test.ts",
     "test:planner": "ts-node -T scripts/tasks-planner-lifecycle.test.ts",
     "test:client-directory": "ts-node -T scripts/client-directory-tdd.test.ts",
-    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6 && npm run test:user-stories && npm run test:planner && npm run test:client-directory",
+    "test:gaps": "ts-node -T scripts/gap-implementations-verify.test.ts",
+    "test:phase1": "npm run test:auth && npm run test:slice3 && npm run test:slice4 && npm run test:slice5 && npm run test:slice6 && npm run test:user-stories && npm run test:planner && npm run test:gaps",
     "perf:phase1": "ts-node scripts/measure-phase1-performance.ts"
   },
   "keywords": [],

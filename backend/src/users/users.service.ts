@@ -62,10 +62,25 @@ export class UsersService {
       throw new NotFoundException('Team member not found.')
     }
 
+    const tasks = await this.usersRepository.findAssignedTasks(user.tenantId, id)
+    const blockers = await this.usersRepository.findAssignedTaskBlockers(user.tenantId, id)
+
+    const weeklyCapacityHours = 40
+    const activeTaskCount = tasks.filter((t: any) => !['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(t.status)).length
+    const estimatedAssignedHours = activeTaskCount * 5
+    const utilizationPercentage = Math.round((estimatedAssignedHours / weeklyCapacityHours) * 100)
+
     return {
       member,
-      tasks: await this.usersRepository.findAssignedTasks(user.tenantId, id),
-      blockers: await this.usersRepository.findAssignedTaskBlockers(user.tenantId, id),
+      tasks,
+      blockers,
+      capacity: {
+        weekly_capacity_hours: weeklyCapacityHours,
+        active_task_count: activeTaskCount,
+        estimated_assigned_hours: estimatedAssignedHours,
+        utilization_percentage: utilizationPercentage,
+        is_overloaded: utilizationPercentage > 80,
+      },
     }
   }
 

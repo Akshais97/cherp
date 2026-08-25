@@ -132,6 +132,16 @@ export class TasksController {
     }, user!)
   }
 
+  @Patch('reorder')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Batch updates task sort orders.' })
+  reorder(
+    @Body() body: { task_ids: string[] },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.reorder(body.task_ids || [], user)
+  }
+
   @Patch(':id')
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Updates a tenant task.' })
@@ -165,7 +175,7 @@ export class TasksController {
     @Body() dto: AddCommentDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.service.addComment(id, dto.content, user)
+    return this.service.addComment(id, dto.content, user, dto.parent_comment_id, dto.mentioned_user_ids)
   }
 
   @Get(':id/comments')

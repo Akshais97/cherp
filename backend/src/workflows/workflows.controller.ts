@@ -23,6 +23,13 @@ export class WorkflowsController {
     return this.service.list(user, query)
   }
 
+  @Get('month-planning-readiness')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Lists active workflows requiring month planning within 14 days.' })
+  getMonthPlanningReadiness(@CurrentUser() user: RequestUser) {
+    return this.service.getMonthPlanningReadiness(user)
+  }
+
   @Get(':id')
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Workflow detail with tasks and blockers.' })

@@ -32,4 +32,26 @@ export class ActivityLogsRepository {
       },
     })
   }
+
+  findMany(input: { tenantId: string; entityType?: string; actionType?: string; userId?: string }) {
+    return this.prisma.activityLog.findMany({
+      where: {
+        tenant_id: input.tenantId,
+        ...(input.entityType ? { entity_type: input.entityType } : {}),
+        ...(input.actionType ? { action_type: input.actionType } : {}),
+        ...(input.userId ? { user_id: input.userId } : {}),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            full_name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 100,
+    })
+  }
 }

@@ -736,8 +736,10 @@ function TaskCard({
   const isDone = ['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(task.status)
   const isBlocked = task.status === 'blocked'
 
-  const initials = task.assignee
-    ? task.assignee.full_name
+  const assignedUser = task.assignee || (task.assigned_to ? users.find((u) => u.id === task.assigned_to) : null)
+
+  const initials = assignedUser
+    ? assignedUser.full_name
         .split(' ')
         .map((n) => n[0])
         .join('')
@@ -752,7 +754,7 @@ function TaskCard({
     { bg: 'var(--red-light)', color: 'var(--red)' },
     { bg: 'var(--teal-light)', color: 'var(--teal)' },
   ]
-  const colorIndex = task.assignee ? task.assignee.full_name.charCodeAt(0) % avatarColors.length : 0
+  const colorIndex = assignedUser ? assignedUser.full_name.charCodeAt(0) % avatarColors.length : 0
   const avatarStyle = avatarColors[colorIndex]
 
   return (
@@ -819,7 +821,7 @@ function TaskCard({
         </span>
       ) : null}
 
-      {task.assignee ? (
+      {assignedUser ? (
         <div className="ck-assignee">
           <div
             className="mini-av"
@@ -830,7 +832,7 @@ function TaskCard({
           >
             {initials}
           </div>
-          {task.assignee.full_name}
+          {assignedUser.full_name}
         </div>
       ) : (
         <div className="ck-assignee">

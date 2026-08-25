@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { normalizeApiError } from '../../lib/api/errors'
 import {
   getNotifications,
@@ -8,26 +8,67 @@ import {
   type NotificationRow,
 } from './api'
 
-export function NotificationsBell() {
+interface NotificationsBellProps {
+  onNotificationClick?: (notification: NotificationRow) => void
+}
+
+export function NotificationsBell({ onNotificationClick }: NotificationsBellProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const { data: notifications = [], error: notificationsQueryError, isLoading: isNotificationsLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => getNotifications(),
+    refetchInterval: 5000,
   })
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
+
+  const handleItemClick = (notification: NotificationRow) => {
+    if (!notification.is_read) {
+      markReadMutation.mutate(notification.id)
+    }
+    setIsOpen(false)
+    if (onNotificationClick) {
+      onNotificationClick(notification)
+    }
+  }
+
   const unreadCount = notifications.filter((notification) => !notification.is_read).length
   const error = notificationsQueryError
     ? normalizeApiError(notificationsQueryError).message
     : null
 
   return (
-    <div className="notifications-shell">
+    <div className="notifications-shell" ref={containerRef}>
       <button
         aria-label="Notifications"
         className="icon-button notification-button"
@@ -52,6 +93,7 @@ export function NotificationsBell() {
                 key={notification.id}
                 notification={notification}
                 onMarkRead={() => markReadMutation.mutate(notification.id)}
+                onClick={() => handleItemClick(notification)}
               />
             ))}
             {!isNotificationsLoading && notifications.length === 0 ? (
@@ -70,19 +112,32 @@ export function NotificationsBell() {
 function NotificationItem({
   notification,
   onMarkRead,
+  onClick,
 }: {
   notification: NotificationRow
   onMarkRead: () => void
+  onClick: () => void
 }) {
   return (
-    <article className={notification.is_read ? 'notification-row' : 'notification-row unread'}>
+    <article
+      className={notification.is_read ? 'notification-row' : 'notification-row unread'}
+      onClick={onClick}
+      style={{ cursor: 'pointer' }}
+    >
       <div>
         <strong>{notification.title}</strong>
         <p>{notification.message}</p>
         <small>{formatDate(notification.created_at)}</small>
       </div>
       {!notification.is_read ? (
-        <button className="ghost-button" onClick={onMarkRead} type="button">
+        <button
+          className="mark-read-btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            onMarkRead()
+          }}
+          type="button"
+        >
           Mark read
         </button>
       ) : null}

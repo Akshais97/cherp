@@ -39,12 +39,6 @@ export class BlockersService {
       throw new NotFoundException('Task not found.')
     }
 
-    if (user.role === UserRole.TeamMember && task.assigned_to !== user.id) {
-      throw new ForbiddenException(
-        'Team members can create blockers only on assigned tasks.',
-      )
-    }
-
     if (task.status === 'task_approved_by_client') {
       throw new BadRequestException('Client-approved tasks cannot be blocked.')
     }
@@ -74,6 +68,7 @@ export class BlockersService {
       taskId: task.id,
       taskTitle: task.title,
       assigneeId: task.assigned_to,
+      blockerAssigneeId: blocker.assigned_to,
       projectManagerId: blocker.task?.workflow?.project_manager_id,
       clientName: task.workflow?.client?.name || task.client?.name || '',
       notify: blocker.notify ? (blocker.notify as string[]) : undefined,
@@ -86,11 +81,11 @@ export class BlockersService {
     const blockers = await this.repository.findByTenant({
       tenantId: user.tenantId,
       filters,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
-      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
     })
 
-    return blockers.sort((a, b) => {
+    const mapped = blockers.map(b => this.attachTimeToResolve(b))
+    return mapped.sort((a, b) => {
       const severityDelta =
         severityRank[a.severity as BlockerSeverity] -
         severityRank[b.severity as BlockerSeverity]
@@ -103,22 +98,21 @@ export class BlockersService {
     const blocker = await this.repository.findDetail({
       tenantId: user.tenantId,
       blockerId: id,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
-      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
     })
 
     if (!blocker) {
       throw new NotFoundException('Blocker not found.')
     }
 
-    return blocker
+    return this.attachTimeToResolve(blocker)
   }
 
   async resolve(id: string, dto: ResolveBlockerDto, user: RequestUser) {
     const blocker = await this.repository.findDetail({
       tenantId: user.tenantId,
       blockerId: id,
-      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
     })
 
     if (!blocker) {
@@ -136,14 +130,80 @@ export class BlockersService {
     }
 
     if (blocker.status === 'resolved') {
-      return blocker
+      return this.attachTimeToResolve(blocker)
     }
 
-    return this.repository.resolveAndMaybeUnblockTask({
+    const resolved = await this.repository.resolveAndMaybeUnblockTask({
       tenantId: user.tenantId,
       userId: user.id,
       blocker,
       resolutionNotes: dto.resolution_notes,
     })
+
+    await this.notifications?.notifyBlockerResolved({
+      tenantId: user.tenantId,
+      actorId: user.id,
+      blockerId: blocker.id,
+      blockerTitle: blocker.title,
+      taskId: blocker.task_id,
+      taskTitle: blocker.task?.title || 'Task',
+      flaggerId: blocker.flagged_by,
+      assigneeId: blocker.assigned_to,
+      taskAssigneeId: blocker.task?.assigned_to,
+      projectManagerId: blocker.task?.workflow?.project_manager_id,
+      resolutionNotes: dto.resolution_notes,
+      notify: blocker.notify ? (blocker.notify as string[]) : undefined,
+    })
+
+    return this.attachTimeToResolve(resolved)
+  }
+
+  async checkEscalations(user: RequestUser) {
+    const openBlockers = await this.repository.findByTenant({
+      tenantId: user.tenantId,
+      filters: { status: 'open' },
+    })
+
+    const now = new Date()
+    const slaDays: Record<string, number> = { high: 3, medium: 5, low: 7 }
+
+    const escalated = openBlockers.filter(b => {
+      const daysOpen = (now.getTime() - new Date(b.flagged_at || b.created_at).getTime()) / (1000 * 60 * 60 * 24)
+      const threshold = slaDays[b.severity?.toLowerCase()] || 5
+      return daysOpen > threshold
+    })
+
+    return escalated.map(b => ({
+      ...this.attachTimeToResolve(b),
+      is_escalated: true,
+      days_open: Math.floor((now.getTime() - new Date(b.flagged_at || b.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+    }))
+  }
+
+  private attachTimeToResolve(blocker: any) {
+    if (!blocker) return blocker
+    if (blocker.status === 'resolved' && blocker.resolved_at) {
+      const start = new Date(blocker.flagged_at || blocker.created_at).getTime()
+      const end = new Date(blocker.resolved_at).getTime()
+      const minutes = Math.max(0, Math.round((end - start) / (1000 * 60)))
+      
+      let formatted = `${minutes} mins`
+      if (minutes >= 1440) {
+        formatted = `${(minutes / 1440).toFixed(1)} days`
+      } else if (minutes >= 60) {
+        formatted = `${(minutes / 60).toFixed(1)} hours`
+      }
+
+      return {
+        ...blocker,
+        time_to_resolve_minutes: minutes,
+        time_to_resolve_formatted: formatted,
+      }
+    }
+    return {
+      ...blocker,
+      time_to_resolve_minutes: null,
+      time_to_resolve_formatted: null,
+    }
   }
 }

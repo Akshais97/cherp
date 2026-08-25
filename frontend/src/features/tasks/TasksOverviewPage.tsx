@@ -127,15 +127,18 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
     updateURL(filterState, searchText, activeTab, groupBy)
   }, [filterState, searchText, activeTab, groupBy])
 
+  const [taskNotFoundError, setTaskNotFoundError] = useState<string | null>(null)
+
   // Auto-open task if initialTaskId is provided
   useEffect(() => {
     if (initialTaskId) {
+      setTaskNotFoundError(null)
       getTask(initialTaskId)
         .then((task) => {
           setSelectedTask(task)
         })
         .catch((err) => {
-          console.error('Failed to auto-open task', err)
+          setTaskNotFoundError(normalizeApiError(err).message || 'The requested task could not be found or has been removed.')
         })
     }
   }, [initialTaskId])
@@ -342,6 +345,13 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
             </button>
           )}
         </div>
+
+        {taskNotFoundError ? (
+          <div className="notice error" style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{taskNotFoundError}</span>
+            <button onClick={() => setTaskNotFoundError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+          </div>
+        ) : null}
 
         {/* Row 2: Tabs & View Controls */}
         {activeMainTab === 'overall' && (
@@ -554,32 +564,32 @@ export function TasksOverviewPage({ initialTaskId }: { initialTaskId?: string | 
               </>
             )}
           </div>
-
-          {/* Slide Drawer/Modal details edit */}
-          {selectedTask && (
-            <TaskDetailsDrawer
-              task={selectedTask}
-              users={allUsers}
-              onClose={() => setSelectedTask(null)}
-              onSuccess={handleRefresh}
-              onUpdateTask={handleUpdateTask}
-            />
-          )}
-
-          {/* Create Modal */}
-          {showCreateModal && (
-            <CreateTaskModal
-              users={allUsers}
-              clients={clients}
-              onClose={() => setShowCreateModal(false)}
-              onSuccess={handleRefresh}
-            />
-          )}
         </>
       ) : (
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <MyTasksView />
         </div>
+      )}
+
+      {/* Slide Drawer/Modal details edit */}
+      {selectedTask && (
+        <TaskDetailsDrawer
+          task={selectedTask}
+          users={allUsers}
+          onClose={() => setSelectedTask(null)}
+          onSuccess={handleRefresh}
+          onUpdateTask={handleUpdateTask}
+        />
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <CreateTaskModal
+          users={allUsers}
+          clients={clients}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleRefresh}
+        />
       )}
 
     </section>
@@ -603,6 +613,7 @@ function CreateTaskModal({
   const [clientId, setClientId] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium')
+  const [startDate, setStartDate] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [isDaily, setIsDaily] = useState(false)
   const [slot, setSlot] = useState('')
@@ -626,6 +637,10 @@ function CreateTaskModal({
       setError('Brand selection is required')
       return
     }
+    if (startDate && dueDate && !isDaily && new Date(dueDate).getTime() < new Date(startDate).getTime()) {
+      setError('Due date cannot be earlier than start date')
+      return
+    }
     setIsSubmitting(true)
     setError(null)
     try {
@@ -635,6 +650,7 @@ function CreateTaskModal({
         client_id: clientId,
         assigned_to: assignedTo || undefined,
         priority,
+        start_date: startDate || undefined,
         due_date: isDaily ? undefined : (dueDate || undefined),
         is_daily: isDaily,
         slot: slot || undefined,
@@ -729,15 +745,28 @@ function CreateTaskModal({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <label className="field" style={{ marginTop: 0 }}>
+              <span>Start Date</span>
+              <input
+                type="date"
+                value={startDate}
+                max={dueDate || undefined}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={{ background: 'var(--input)' }}
+              />
+            </label>
+
+            <label className="field" style={{ marginTop: 0 }}>
               <span>Due Date</span>
               <input
                 type="date"
                 value={isDaily ? '' : dueDate}
+                min={startDate || undefined}
                 disabled={isDaily}
                 onChange={(e) => setDueDate(e.target.value)}
                 style={{ background: 'var(--input)', opacity: isDaily ? 0.5 : 1 }}
               />
             </label>
+          </div>
 
             <label className="field" style={{ marginTop: 0 }}>
               <span>Slot Assignment</span>
@@ -760,7 +789,6 @@ function CreateTaskModal({
                 <option value="Slot 11">Slot 11</option>
               </select>
             </label>
-          </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: 'var(--secondary)', cursor: 'pointer', marginTop: '4px' }}>
             <input

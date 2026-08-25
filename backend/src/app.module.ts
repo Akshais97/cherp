@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
-import { AuthModule } from './auth/auth.module'
+import { ActivityLogsModule } from './activity-logs/activity-logs.module'
 import { AiChatModule } from './ai-chat/ai-chat.module'
+import { AuthModule } from './auth/auth.module'
 import { BlockersModule } from './blockers/blockers.module'
 import { ClientsModule } from './clients/clients.module'
 import { DashboardModule } from './dashboard/dashboard.module'
@@ -16,6 +17,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    ActivityLogsModule,
     AiChatModule,
     AuthModule,
     DashboardModule,

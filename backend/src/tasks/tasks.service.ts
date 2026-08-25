@@ -158,7 +158,13 @@ export class TasksService {
       await this.assertAssignableUser(user.tenantId, dto.assigned_to)
     }
 
-    return this.repository.createWithCompletion({
+    const effectiveStartDate = dto.start_date ? this.toDate(dto.start_date) : undefined
+    const effectiveDueDate = dto.due_date ? this.toDate(dto.due_date) : undefined
+    if (effectiveStartDate && effectiveDueDate && effectiveDueDate.getTime() < effectiveStartDate.getTime()) {
+      throw new BadRequestException('Due date cannot be earlier than start date.')
+    }
+
+    const task = await this.repository.createWithCompletion({
       tenantId: user.tenantId,
       userId: user.id,
       workflowId,
@@ -173,8 +179,8 @@ export class TasksService {
         status: 'yet_to_start',
         priority: dto.priority ?? 'medium',
         sort_order: dto.sort_order ?? (workflow ? workflow._count.tasks + 1 : 1),
-        due_date: dto.due_date ? this.toDate(dto.due_date) : undefined,
-        start_date: dto.start_date ? this.toDate(dto.start_date) : undefined,
+        due_date: effectiveDueDate,
+        start_date: effectiveStartDate,
         labels: dto.labels ?? [],
         recurrence_series_id: dto.recurrence_series_id ?? null,
         recurrence_rule: dto.recurrence_rule ?? null,
@@ -186,13 +192,37 @@ export class TasksService {
         slot: dto.slot ?? null,
       },
     })
+
+    if (task.assigned_to) {
+      await this.notifications?.notifyTaskAssigned({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        taskId: task.id,
+        taskTitle: task.title,
+        assigneeId: task.assigned_to,
+      })
+    }
+
+    return task
   }
 
   async update(id: string, dto: UpdateTaskDto, user: RequestUser) {
-    const existing = await this.getAccessibleTask(id, user)
+    const existing = await this.getTaskForWrite(id, user)
     const nextStatus = dto.status ?? existing.status
 
     const { reason, checklist, ...updateFields } = dto
+
+    const effectiveStartDate = updateFields.start_date !== undefined
+      ? (updateFields.start_date ? this.toDate(updateFields.start_date) : null)
+      : (existing.start_date ? new Date(existing.start_date) : null)
+
+    const effectiveDueDate = updateFields.due_date !== undefined
+      ? (updateFields.due_date ? this.toDate(updateFields.due_date) : null)
+      : (existing.due_date ? new Date(existing.due_date) : null)
+
+    if (effectiveStartDate && effectiveDueDate && effectiveDueDate.getTime() < effectiveStartDate.getTime()) {
+      throw new BadRequestException('Due date cannot be earlier than start date.')
+    }
 
     // Strict RBAC: Team Members can only edit status, description, comments, attachments, and checklist.
     if (user.role === UserRole.TeamMember) {
@@ -221,6 +251,17 @@ export class TasksService {
         user.role !== UserRole.ProjectManager
       ) {
         throw new ForbiddenException('Only project managers and admins can approve tasks or request rework.')
+      }
+
+      // Dependency lock check: prevent starting or completing if depends_on tasks are incomplete
+      if (['ongoing', 'completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(updateFields.status)) {
+        if (existing.depends_on && existing.depends_on.length > 0) {
+          const prereqs = await this.repository.findTasksByIds(user.tenantId, existing.depends_on)
+          const incompletePrereq = prereqs.find(p => !completedStatuses.includes(p.status as TaskStatus))
+          if (incompletePrereq) {
+            throw new BadRequestException(`Cannot start or complete task until prerequisite dependency "${incompletePrereq.title}" is completed.`)
+          }
+        }
       }
     }
 
@@ -301,15 +342,45 @@ export class TasksService {
       })
     }
 
+    if (updateFields.assigned_to && updateFields.assigned_to !== existing.assigned_to) {
+      await this.notifications?.notifyTaskAssigned({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        taskId: id,
+        taskTitle: task.title,
+        assigneeId: updateFields.assigned_to,
+      })
+    }
+
     if (completing) {
       await this.handleRecurrence(task, user)
+
+      // Subtask Parent Auto-Completion: if all subtasks under parent are complete, complete the parent task
+      if (existing.parent_task_id) {
+        const siblingSubtasks = await this.repository.findSubtasksByParentId(user.tenantId, existing.parent_task_id)
+        const allSiblingsComplete = siblingSubtasks.every(s => s.id === id || completedStatuses.includes(s.status as TaskStatus))
+        if (allSiblingsComplete) {
+          try {
+            await this.complete(existing.parent_task_id, user)
+          } catch (e) {
+            // Parent task might already be completed or have open blockers
+          }
+        }
+      }
     }
 
     return task
   }
 
+  async reorder(taskIds: string[], user: RequestUser) {
+    if (user.role === UserRole.TeamMember) {
+      throw new ForbiddenException('Only project managers and admins can reorder tasks.')
+    }
+    return this.repository.updateTaskSortOrders(user.tenantId, taskIds)
+  }
+
   async complete(id: string, user: RequestUser) {
-    const existing = await this.getAccessibleTask(id, user)
+    const existing = await this.getTaskForWrite(id, user)
 
     if (existing.status === 'completed') {
       return existing
@@ -342,7 +413,7 @@ export class TasksService {
 
   async delete(id: string, user: RequestUser) {
     this.assertCanDelete(user)
-    const existing = await this.getAccessibleTask(id, user)
+    const existing = await this.getTaskForWrite(id, user)
 
     return this.repository.deleteWithCompletion({
       tenantId: user.tenantId,
@@ -354,10 +425,10 @@ export class TasksService {
   }
 
   async findOne(id: string, user: RequestUser) {
-    return this.getAccessibleTask(id, user)
+    return this.getTaskForRead(id, user)
   }
 
-  private async getAccessibleTask(id: string, user: RequestUser) {
+  private async getTaskForRead(id: string, user: RequestUser) {
     const task = await this.repository.findTaskForAccess({
       tenantId: user.tenantId,
       taskId: id,
@@ -367,10 +438,18 @@ export class TasksService {
       throw new NotFoundException('Task not found.')
     }
 
-    if (user.role === UserRole.TeamMember && task.assigned_to !== user.id) {
-      throw new ForbiddenException('Team members can only update assigned tasks.')
+    if (user.role === UserRole.Client) {
+      const userClientId = (user as any).clientId
+      if (userClientId && task.client_id !== userClientId) {
+        throw new ForbiddenException('Clients can only view tasks belonging to their brand.')
+      }
     }
 
+    return task
+  }
+
+  private async getTaskForWrite(id: string, user: RequestUser) {
+    const task = await this.getTaskForRead(id, user)
     return task
   }
 
@@ -528,27 +607,74 @@ export class TasksService {
   }
 
   async getComments(id: string, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
+    await this.getTaskForRead(id, user)
     return this.repository.findComments(user.tenantId, id)
   }
 
-  async addComment(id: string, content: string, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
-    return this.repository.createComment(user.tenantId, id, user.id, content)
+  async addComment(
+    id: string,
+    content: string,
+    user: RequestUser,
+    parentCommentId?: string,
+    mentionedUserIds?: string[]
+  ) {
+    const task = await this.getTaskForRead(id, user)
+
+    if (parentCommentId) {
+      const parentComment = await this.repository.findCommentById(user.tenantId, id, parentCommentId)
+      if (!parentComment) {
+        throw new NotFoundException('Parent comment not found for this task.')
+      }
+    }
+
+    const uniqueMentionedIds = new Set<string>(mentionedUserIds || [])
+
+    // Also extract @mentions from text if present as @[User Name](uuid) or @uuid
+    const uuidMentionRegex = /@\[?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]?/gi
+    let match: RegExpExecArray | null
+    while ((match = uuidMentionRegex.exec(content)) !== null) {
+      if (match[1]) {
+        uniqueMentionedIds.add(match[1])
+      }
+    }
+
+    const finalMentionedIds = Array.from(uniqueMentionedIds)
+
+    const comment = await this.repository.createComment(
+      user.tenantId,
+      id,
+      user.id,
+      content,
+      parentCommentId,
+      finalMentionedIds
+    )
+
+    if (finalMentionedIds.length > 0) {
+      await this.notifications?.notifyTaskCommentMention({
+        tenantId: user.tenantId,
+        actorId: user.id,
+        taskId: id,
+        taskTitle: task.title,
+        commentContent: content,
+        mentionedUserIds: finalMentionedIds,
+      })
+    }
+
+    return comment
   }
 
   async getAttachments(id: string, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
+    await this.getTaskForRead(id, user)
     return this.repository.findAttachments(user.tenantId, id)
   }
 
   async addAttachment(id: string, dto: { file_name: string; file_url: string }, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
+    await this.getTaskForRead(id, user)
     return this.repository.createAttachment(user.tenantId, id, user.id, dto.file_name, dto.file_url)
   }
 
   async deleteAttachment(id: string, attachmentId: string, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
+    await this.getTaskForWrite(id, user)
     const result = await this.repository.deleteAttachment(user.tenantId, id, attachmentId, user.id)
     if (!result) {
       throw new NotFoundException('Attachment not found.')
@@ -557,7 +683,7 @@ export class TasksService {
   }
 
   async getLogs(id: string, user: RequestUser) {
-    await this.getAccessibleTask(id, user)
+    await this.getTaskForRead(id, user)
     return this.repository.findLogs(user.tenantId, id)
   }
 

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Clock3, Plus, ShieldAlert, Users, Send } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { normalizeApiError } from '../../lib/api/errors'
 import { useAuth } from '../../app/providers/useAuth'
-import { getTeamMembers } from '../users/api'
+import { getUsers } from '../users/api'
 import {
   getBlocker,
   getBlockers,
@@ -16,11 +16,21 @@ import { getWorkflows, getWorkflow } from '../workflows/api'
 
 
 
-export function BlockersPage() {
+interface BlockersPageProps {
+  initialBlockerId?: string | null
+}
+
+export function BlockersPage({ initialBlockerId }: BlockersPageProps = {}) {
   const { currentUser } = useAuth()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<BlockerStatus>('open')
-  const [selectedBlockerId, setSelectedBlockerId] = useState<string | null>(null)
+  const [selectedBlockerId, setSelectedBlockerId] = useState<string | null>(initialBlockerId ?? null)
+
+  useEffect(() => {
+    if (initialBlockerId) {
+      setSelectedBlockerId(initialBlockerId)
+    }
+  }, [initialBlockerId])
 
   // Form states
   const [formWorkflowId, setFormWorkflowId] = useState('')
@@ -44,10 +54,10 @@ export function BlockersPage() {
     queryFn: () => getBlockers(),
   })
 
-  // Fetch team members for blocker assignment
+  // Fetch all tenant users (PMs, Admins, Team Members) for blocker assignment
   const { data: teamMembers = [] } = useQuery({
-    queryKey: ['team-members-list'],
-    queryFn: getTeamMembers,
+    queryKey: ['all-users-list'],
+    queryFn: getUsers,
   })
 
   // Fetch workflows for the form
@@ -72,6 +82,7 @@ export function BlockersPage() {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['workflow'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
       setFormTitle('')
       setFormDesc('')
       setFormImpact('')
@@ -92,27 +103,53 @@ export function BlockersPage() {
   const resolveMutation = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes: string }) =>
       resolveBlocker(id, { resolution_notes: notes }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       setResolutionNotes('')
       setResolutionError(null)
+      if (variables.id) {
+        queryClient.setQueryData(['blocker-detail', variables.id], (old: any) =>
+          old ? { ...old, status: 'resolved', resolution_notes: variables.notes, resolved_at: new Date().toISOString() } : old,
+        )
+      }
+      queryClient.invalidateQueries({ queryKey: ['blocker-detail'] })
       queryClient.invalidateQueries({ queryKey: ['blockers-list'] })
-      queryClient.invalidateQueries({ queryKey: ['blocker'] })
+      queryClient.invalidateQueries({ queryKey: ['task-blockers'] })
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['workflow'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      setActiveTab('resolved')
     },
     onError: (err) => {
       setResolutionError(normalizeApiError(err).message)
     },
   })
 
+  const [notFoundNotice, setNotFoundNotice] = useState<string | null>(null)
+
   // Selected blocker detail query
   const effectiveSelectedBlockerId = selectedBlockerId ?? blockers.find(b => b.status === activeTab)?.id ?? null
-  const { data: selectedBlocker } = useQuery({
+  const { data: selectedBlocker, error: selectedBlockerError } = useQuery({
     queryKey: ['blocker-detail', effectiveSelectedBlockerId],
     queryFn: () => getBlocker(effectiveSelectedBlockerId ?? ''),
     enabled: Boolean(effectiveSelectedBlockerId),
+    retry: false,
   })
+
+  useEffect(() => {
+    if (selectedBlocker?.status) {
+      setActiveTab(selectedBlocker.status as BlockerStatus)
+    }
+  }, [selectedBlocker])
+
+  useEffect(() => {
+    if (selectedBlockerError) {
+      setNotFoundNotice(normalizeApiError(selectedBlockerError).message || 'The requested blocker could not be found or has been removed.')
+      if (selectedBlockerId) {
+        setSelectedBlockerId(null)
+      }
+    }
+  }, [selectedBlockerError, selectedBlockerId])
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -190,6 +227,13 @@ export function BlockersPage() {
         </div>
       </div>
 
+      {notFoundNotice ? (
+        <div className="notice error" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{notFoundNotice}</span>
+          <button onClick={() => setNotFoundNotice(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+        </div>
+      ) : null}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 420px) 1fr', gap: '24px', marginTop: '24px' }}>
         
         {/* Left Column: Log Blocker Form */}
@@ -207,6 +251,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Brand / Client Workflow</span>
               <select
+                data-testid="select-blocker-workflow"
                 value={formWorkflowId}
                 onChange={(e) => {
                   setFormWorkflowId(e.target.value)
@@ -226,6 +271,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Linked Task</span>
               <select
+                data-testid="select-blocker-task"
                 value={formTaskId}
                 onChange={(e) => setFormTaskId(e.target.value)}
                 disabled={!formWorkflowId}
@@ -243,6 +289,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Assignee *</span>
               <select
+                data-testid="select-blocker-assignee"
                 value={formAssignedTo}
                 onChange={(e) => setFormAssignedTo(e.target.value)}
                 style={{ width: '100%' }}
@@ -260,6 +307,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Blocker Title</span>
               <input
+                data-testid="input-blocker-title"
                 placeholder="e.g. Logo asset missing"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
@@ -269,6 +317,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Severity</span>
               <select
+                data-testid="select-blocker-severity"
                 value={formSeverity}
                 onChange={(e) => setFormSeverity(e.target.value as BlockerSeverity)}
                 style={{ width: '100%' }}
@@ -282,6 +331,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Description</span>
               <textarea
+                data-testid="textarea-blocker-description"
                 placeholder="Details about the blocker..."
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
@@ -292,6 +342,7 @@ export function BlockersPage() {
             <label className="field">
               <span>Business Impact</span>
               <input
+                data-testid="input-blocker-impact"
                 placeholder="e.g. Delays social launch campaign"
                 value={formImpact}
                 onChange={(e) => setFormImpact(e.target.value)}
@@ -315,6 +366,7 @@ export function BlockersPage() {
             </div>
 
             <button
+              data-testid="button-submit-blocker"
               className="primary-action"
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}
               disabled={createMutation.isPending}

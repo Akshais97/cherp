@@ -54,6 +54,8 @@ import { ClientDashboardPage } from '../../features/dashboard/ClientDashboardPag
 import { ScopeTemplatesPage } from '../../features/clients/ScopeTemplatesPage'
 import { DailyTaskReportPage } from '../../features/tasks/DailyTaskReportPage'
 import { IntegrationsPage } from '../../features/integrations/IntegrationsPage'
+import { AuditLogPage } from '../../features/activity-logs/AuditLogPage'
+import { type NotificationRow } from '../../features/notifications/api'
 
 type AppRoute =
   | 'dashboard'
@@ -72,6 +74,7 @@ type AppRoute =
   | 'scope-templates'
   | 'daily-report'
   | 'integrations'
+  | 'audit-logs'
 
 const baseNavItems: {
   id: AppRoute
@@ -95,6 +98,7 @@ const baseNavItems: {
   { id: 'team-members', label: 'Team Members', icon: <UserCheck size={18} /> },
   { id: 'employee-profiles', label: 'Employee Profiles', icon: <Personalcard size={18} /> },
   { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={18} /> },
+  { id: 'audit-logs', label: 'Audit Logs', icon: <File size={18} /> },
 ]
 
 interface NavSection {
@@ -127,7 +131,7 @@ const navSections: NavSection[] = [
     id: 'platform',
     label: 'Platform',
     icon: <Settings size={15} />,
-    items: ['users', 'integrations']
+    items: ['users', 'integrations', 'audit-logs']
   }
 ]
 
@@ -137,7 +141,35 @@ export function AppShell() {
     currentUser?.role === 'client' ? 'client-dashboard' : 'dashboard'
   )
   const [targetWorkflowId, setTargetWorkflowId] = useState<string | null>(null)
+  const [targetTaskId, setTargetTaskId] = useState<string | null>(null)
+  const [targetBlockerId, setTargetBlockerId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+
+  const handleNotificationClick = (notification: NotificationRow) => {
+    const type = notification.related_entity_type
+    const id = notification.related_entity_id
+
+    if (type === 'task' && id) {
+      setTargetTaskId(id)
+      setRoute('tasks')
+    } else if (type === 'blocker' && id) {
+      setTargetBlockerId(id)
+      setRoute('blockers')
+    } else if (type === 'workflow' && id) {
+      setTargetWorkflowId(id)
+      setRoute('workflows')
+    } else if (type === 'client' && id) {
+      if (currentUser?.role === 'team_member') {
+        setRoute('brands')
+      } else {
+        setRoute('client-directory')
+      }
+    } else if (notification.type === 'daily_report' || notification.title?.toLowerCase().includes('daily')) {
+      setRoute('daily-report')
+    } else {
+      setRoute('dashboard')
+    }
+  }
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -444,7 +476,7 @@ export function AppShell() {
               </div>
             ) : null}
           </div>
-          <NotificationsBell />
+          <NotificationsBell onNotificationClick={handleNotificationClick} />
           <label className="switch" title="Toggle theme">
             <input
               id="theme-toggle-input"
@@ -532,7 +564,7 @@ export function AppShell() {
             />
           ) : null}
           {activeRoute === 'clients' ? <ClientsPage /> : null}
-          {activeRoute === 'tasks' ? <TasksOverviewPage /> : null}
+          {activeRoute === 'tasks' ? <TasksOverviewPage initialTaskId={targetTaskId} /> : null}
           {activeRoute === 'calendar' ? <CalendarPage /> : null}
           {activeRoute === 'brands' ? <BrandsPage /> : null}
           {activeRoute === 'analytics' ? <AnalyticsPage /> : null}
@@ -540,12 +572,13 @@ export function AppShell() {
           {activeRoute === 'client-directory' ? <ClientDirectoryPage /> : null}
           {activeRoute === 'team-members' ? <TeamMembersPage /> : null}
           {activeRoute === 'workflows' ? <WorkflowsPage initialWorkflowId={targetWorkflowId} /> : null}
-          {activeRoute === 'blockers' ? <BlockersPage /> : null}
+          {activeRoute === 'blockers' ? <BlockersPage initialBlockerId={targetBlockerId} /> : null}
           {activeRoute === 'users' ? <UserManagementPage /> : null}
           {activeRoute === 'client-dashboard' ? <ClientDashboardPage /> : null}
           {activeRoute === 'scope-templates' ? <ScopeTemplatesPage /> : null}
           {activeRoute === 'daily-report' ? <DailyTaskReportPage /> : null}
           {activeRoute === 'integrations' ? <IntegrationsPage /> : null}
+          {activeRoute === 'audit-logs' ? <AuditLogPage /> : null}
             </motion.div>
           </AnimatePresence>
         </div>

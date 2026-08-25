@@ -45,28 +45,21 @@ export class NotificationsService {
     }
 
     if (
-      input.previousStatus === 'ongoing' &&
-      input.actorRole === 'team_member' &&
-      input.projectManagerId &&
-      input.projectManagerId !== input.actorId
-    ) {
-      recipients.add(input.projectManagerId)
-    }
-
-    if (
-      input.nextStatus === 'completed' &&
-      input.projectManagerId &&
-      input.projectManagerId !== input.actorId
-    ) {
-      recipients.add(input.projectManagerId)
-    }
-
-    if (
       input.nextStatus === 'rework' &&
       input.assigneeId &&
       input.assigneeId !== input.actorId
     ) {
       recipients.add(input.assigneeId)
+    }
+
+    const pmNotifiableStatuses = ['blocked', 'rework', 'task_approved_by_manager']
+    if (
+      input.actorRole === 'team_member' &&
+      pmNotifiableStatuses.includes(input.nextStatus) &&
+      input.projectManagerId &&
+      input.projectManagerId !== input.actorId
+    ) {
+      recipients.add(input.projectManagerId)
     }
 
     await this.repository.createMany(
@@ -106,6 +99,7 @@ export class NotificationsService {
     taskId: string
     taskTitle: string
     assigneeId?: string | null
+    blockerAssigneeId?: string | null
     projectManagerId?: string | null
     clientName?: string | null
     notify?: string[]
@@ -114,6 +108,10 @@ export class NotificationsService {
 
     if (input.assigneeId && input.assigneeId !== input.actorId) {
       recipients.add(input.assigneeId)
+    }
+
+    if (input.blockerAssigneeId && input.blockerAssigneeId !== input.actorId) {
+      recipients.add(input.blockerAssigneeId)
     }
 
     if (input.projectManagerId && input.projectManagerId !== input.actorId) {
@@ -161,15 +159,186 @@ export class NotificationsService {
     })
   }
 
+  async notifyBlockerResolved(input: {
+    tenantId: string
+    actorId: string
+    blockerId: string
+    blockerTitle: string
+    taskId: string
+    taskTitle: string
+    flaggerId?: string | null
+    assigneeId?: string | null
+    taskAssigneeId?: string | null
+    projectManagerId?: string | null
+    resolutionNotes?: string | null
+    notify?: string[]
+  }) {
+    const recipients = new Set<string>()
+
+    // Notify the person who raised/flagged the blocker (Assigned by / Owner)
+    if (input.flaggerId && input.flaggerId !== input.actorId) {
+      recipients.add(input.flaggerId)
+    }
+
+    // Notify the assigned resolver (Assigned to)
+    if (input.assigneeId && input.assigneeId !== input.actorId) {
+      recipients.add(input.assigneeId)
+    }
+
+    // Notify the task assignee
+    if (input.taskAssigneeId && input.taskAssigneeId !== input.actorId) {
+      recipients.add(input.taskAssigneeId)
+    }
+
+    // Notify the Project Manager
+    if (input.projectManagerId && input.projectManagerId !== input.actorId) {
+      recipients.add(input.projectManagerId)
+    }
+
+    // Notify designated stakeholder roles (e.g. Account Manager, Client Partner)
+    if (input.notify && input.notify.length > 0) {
+      const stakeholders = await this.repository.findUsersByDesignation(
+        input.tenantId,
+        input.notify,
+      )
+      for (const sh of stakeholders) {
+        if (sh.id !== input.actorId) {
+          recipients.add(sh.id)
+        }
+      }
+    }
+
+    if (recipients.size === 0) return
+
+    const notesSnippet = input.resolutionNotes ? `: "${input.resolutionNotes}"` : '.'
+    const title = 'Blocker resolved'
+    const message = `Blocker "${input.blockerTitle}" on task "${input.taskTitle}" has been resolved${notesSnippet}`
+
+    await this.repository.createMany(
+      [...recipients].map((userId) => ({
+        tenant_id: input.tenantId,
+        user_id: userId,
+        type: 'blocker_resolved',
+        title,
+        message,
+        related_entity_type: 'blocker',
+        related_entity_id: input.blockerId,
+      })),
+    )
+
+    Promise.all(
+      [...recipients].map((userId) =>
+        this.teamsService.sendNotification({
+          tenantId: input.tenantId,
+          userId,
+          title,
+          message,
+        }),
+      ),
+    ).catch((err) => {
+      console.error('Error dispatching Teams blocker resolution notifications:', err)
+    })
+  }
+
+  async notifyTaskCommentMention(input: {
+    tenantId: string
+    actorId: string
+    taskId: string
+    taskTitle: string
+    commentContent: string
+    mentionedUserIds: string[]
+  }) {
+    if (!input.mentionedUserIds || input.mentionedUserIds.length === 0) return
+
+    const recipients = new Set<string>()
+    for (const userId of input.mentionedUserIds) {
+      if (userId && userId !== input.actorId) {
+        recipients.add(userId)
+      }
+    }
+
+    if (recipients.size === 0) return
+
+    const snippet = input.commentContent.length > 80
+      ? `${input.commentContent.substring(0, 80)}...`
+      : input.commentContent
+
+    const title = 'Mentioned in task comment'
+    const message = `You were mentioned in a comment on "${input.taskTitle}": "${snippet}"`
+
+    await this.repository.createMany(
+      [...recipients].map((userId) => ({
+        tenant_id: input.tenantId,
+        user_id: userId,
+        type: 'task_comment_mention',
+        title,
+        message,
+        related_entity_type: 'task',
+        related_entity_id: input.taskId,
+      })),
+    )
+
+    Promise.all(
+      [...recipients].map((userId) =>
+        this.teamsService.sendNotification({
+          tenantId: input.tenantId,
+          userId,
+          title,
+          message,
+        }),
+      ),
+    ).catch((err) => {
+      console.error('Error dispatching Teams mention notifications:', err)
+    })
+  }
+
+  async notifyTaskAssigned(input: {
+    tenantId: string
+    actorId: string
+    taskId: string
+    taskTitle: string
+    assigneeId: string
+  }) {
+    if (!input.assigneeId || input.assigneeId === input.actorId) return
+
+    const title = 'New task assigned'
+    const message = `You were assigned to task "${input.taskTitle}".`
+
+    await this.repository.createMany([
+      {
+        tenant_id: input.tenantId,
+        user_id: input.assigneeId,
+        type: 'task_assigned',
+        title,
+        message,
+        related_entity_type: 'task',
+        related_entity_id: input.taskId,
+      },
+    ])
+
+    this.teamsService
+      .sendNotification({
+        tenantId: input.tenantId,
+        userId: input.assigneeId,
+        title,
+        message,
+      })
+      .catch((err) => {
+        console.error('Error dispatching Teams task assigned notification:', err)
+      })
+  }
+
   private notificationType(status: string) {
-    if (status === 'completed') return 'task_approval_requested'
+    if (status === 'task_approved_by_manager' || status === 'completed') return 'task_approval_requested'
     if (status === 'rework') return 'task_rework_requested'
+    if (status === 'blocked') return 'task_blocked'
     return 'task_status_changed'
   }
 
   private notificationTitle(status: string) {
-    if (status === 'completed') return 'Task ready for approval'
+    if (status === 'task_approved_by_manager' || status === 'completed') return 'Task ready for approval'
     if (status === 'rework') return 'Task sent for rework'
+    if (status === 'blocked') return 'Task marked as blocked'
     return 'Task status updated'
   }
 }

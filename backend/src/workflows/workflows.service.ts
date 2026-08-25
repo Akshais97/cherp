@@ -12,8 +12,7 @@ export class WorkflowsService {
     return this.repository.findByTenant({
       tenantId: user.tenantId,
       filters,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
-      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
     })
   }
 
@@ -21,8 +20,7 @@ export class WorkflowsService {
     const workflow = await this.repository.findDetail({
       tenantId: user.tenantId,
       workflowId: id,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
-      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
     })
 
     if (!workflow) {
@@ -46,10 +44,37 @@ export class WorkflowsService {
     const workflows = await this.repository.findByClient({
       tenantId: user.tenantId,
       clientId,
-      assignedUserId: user.role === UserRole.TeamMember ? user.id : undefined,
-      assignedClientUserId: user.role !== UserRole.SuperAdmin ? user.id : undefined,
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
     })
 
     return workflows
+  }
+
+  async getMonthPlanningReadiness(user: RequestUser) {
+    const activeWorkflows = await this.repository.findByTenant({
+      tenantId: user.tenantId,
+      filters: { status: 'active' },
+      assignedClientUserId: user.role === UserRole.Client ? user.id : undefined,
+    })
+
+    const now = new Date()
+    return activeWorkflows.map((wf: any) => {
+      const endDate = wf.end_date ? new Date(wf.end_date) : new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const needsMonthPlanning = daysRemaining <= 14
+
+      return {
+        id: wf.id,
+        title: wf.title,
+        month_number: wf.month_number,
+        client: wf.client,
+        project_manager: wf.project_manager,
+        completion_percentage: wf.completion_percentage,
+        end_date: wf.end_date,
+        days_remaining: daysRemaining,
+        needs_month_planning: needsMonthPlanning,
+        next_month_number: wf.month_number + 1,
+      }
+    })
   }
 }

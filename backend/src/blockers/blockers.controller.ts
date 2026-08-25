@@ -37,6 +37,13 @@ export class BlockersController {
     return this.service.list(filters, user)
   }
 
+  @Get('escalated')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Lists escalated open blockers past SLA.' })
+  checkEscalations(@CurrentUser() user: RequestUser) {
+    return this.service.checkEscalations(user)
+  }
+
   @Get(':id')
   @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
   @ApiOkResponse({ description: 'Returns blocker detail.' })
