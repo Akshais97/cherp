@@ -188,6 +188,10 @@ async function main() {
     await waitForTestId('onboarding-step-scope-templates', 30000)
     await waitForTestId('template-preview-card')
     await clickByTestId('button-onboarding-next-scope-templates')
+    const teamMappingButtons = await driver.findElements(cssTestId('button-onboarding-next-team-mapping'))
+    if (teamMappingButtons.length > 0) {
+      await clickByTestId('button-onboarding-next-team-mapping')
+    }
     await waitForTestId('onboarding-step-review')
     await assertOnboardingStepUsesPageWidth('onboarding-step-review')
     await assertReviewUsesFullStepWidth()

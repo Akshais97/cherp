@@ -22,4 +22,18 @@ export class ActivityLogsService {
       userId: query.userId,
     })
   }
+
+  async generateCsvExport(
+    user: RequestUser,
+    query: { entityType?: string; actionType?: string; userId?: string }
+  ): Promise<string> {
+    const logs = await this.findMany(user, query)
+    const header = 'ID,Date,Actor,Action,Entity,Entity_ID\n'
+    const rows = logs.map((l: any) => {
+      const actorName = l.user?.full_name || l.user_id || 'System'
+      return `"${l.id}","${new Date(l.created_at).toISOString()}","${actorName}","${l.action_type}","${l.entity_type}","${l.entity_id}"`
+    }).join('\n')
+
+    return header + rows
+  }
 }

@@ -32,7 +32,7 @@ const baseTask = {
   completed_by: null,
   title: 'Launch checklist',
   description: 'Prepare launch',
-  status: 'pending',
+  status: 'yet_to_start',
   priority: 'medium',
   sort_order: 1,
   due_date: new Date('2026-05-20T00:00:00.000Z'),
@@ -86,8 +86,8 @@ async function testTeamMemberCannotUpdateUnassignedTask() {
   const service = new TasksService(repository as never)
 
   await assert.rejects(
-    () => service.update(baseTask.id, { status: 'ongoing' }, teamMember),
-    /Team members can only update assigned tasks/,
+    () => service.update(baseTask.id, { title: 'New Title' }, teamMember),
+    /Team members cannot change task title/,
   )
   assert.equal(calls.length, 0)
 }

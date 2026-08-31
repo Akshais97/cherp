@@ -10,6 +10,28 @@ export class NotificationsService {
     private readonly teamsService: TeamsIntegrationService,
   ) {}
 
+  createNotification(
+    tenantId: string,
+    userId: string,
+    type: string,
+    title: string,
+    message: string,
+    relatedEntityType?: string,
+    relatedEntityId?: string,
+  ) {
+    return this.repository.createMany([
+      {
+        tenant_id: tenantId,
+        user_id: userId,
+        type,
+        title,
+        message,
+        related_entity_type: relatedEntityType || undefined,
+        related_entity_id: relatedEntityId || undefined,
+      },
+    ])
+  }
+
   list(user: RequestUser, unreadOnly = false) {
     return this.repository.findForUser({
       tenantId: user.tenantId,
@@ -24,6 +46,39 @@ export class NotificationsService {
       userId: user.id,
       notificationId: id,
     })
+  }
+
+  markAllRead(user: RequestUser) {
+    return this.repository.markAllRead({
+      tenantId: user.tenantId,
+      userId: user.id,
+    })
+  }
+
+  getPreferences(user: RequestUser) {
+    return this.repository.findPreferences(user.tenantId, user.id)
+  }
+
+  updatePreference(type: string, inApp: boolean, email: boolean, user: RequestUser) {
+    return this.repository.upsertPreference(user.tenantId, user.id, type, inApp, email)
+  }
+
+  async checkAndLogDelivery(input: {
+    tenantId: string
+    userId: string
+    channel: string
+    type: string
+    idempotencyKey: string
+  }): Promise<boolean> {
+    const existing = await this.repository.findDeliveryLog(input.tenantId, input.idempotencyKey)
+    if (existing) {
+      return false // Duplicate notification blocked!
+    }
+    await this.repository.createDeliveryLog({
+      ...input,
+      status: 'delivered',
+    })
+    return true
   }
 
   async notifyTaskStatusChanged(input: {

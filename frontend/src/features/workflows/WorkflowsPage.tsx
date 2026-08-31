@@ -736,12 +736,12 @@ function TaskCard({
   const isDone = ['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(task.status)
   const isBlocked = task.status === 'blocked'
 
-  const assignedUser = task.assignee || (task.assigned_to ? users.find((u) => u.id === task.assigned_to) : null)
+  const assignedUser = task.assignee || null
 
   const initials = assignedUser
     ? assignedUser.full_name
         .split(' ')
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join('')
         .slice(0, 2)
         .toUpperCase()

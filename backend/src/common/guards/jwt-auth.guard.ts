@@ -70,6 +70,7 @@ export class JwtAuthGuard implements CanActivate {
         full_name: true,
         avatar_url: true,
         is_active: true,
+        sessions_revoked_at: true,
         role: { select: { name: true } },
       },
     })
@@ -80,6 +81,20 @@ export class JwtAuthGuard implements CanActivate {
 
     if (!erpUser.is_active) {
       throw new UnauthorizedException('User is inactive.')
+    }
+
+    if (erpUser.sessions_revoked_at) {
+      try {
+        const parts = token.split('.')
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'))
+          if (payload.iat && payload.iat * 1000 < erpUser.sessions_revoked_at.getTime()) {
+            throw new UnauthorizedException('Session has been revoked. Please sign in again.')
+          }
+        }
+      } catch (err) {
+        if (err instanceof UnauthorizedException) throw err
+      }
     }
 
     request.user = {

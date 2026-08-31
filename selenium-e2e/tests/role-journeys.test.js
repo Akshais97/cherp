@@ -353,6 +353,14 @@ async function logout(ctx) {
 }
 
 async function createUser(driver, user) {
+  const existingRows = await driver.findElements(cssTestId('user-row'))
+  for (const row of existingRows) {
+    try {
+      if ((await row.getText()).includes(user.email)) {
+        return
+      }
+    } catch {}
+  }
   await typeByTestId(driver, 'input-user-email', user.email)
   await typeByTestId(driver, 'input-user-full-name', user.fullName)
   await selectByValue(driver, 'select-user-role', user.role)
@@ -379,6 +387,10 @@ async function createClient(driver, clientName) {
   await options[1].click()
   await waitForTestId(driver, 'template-preview-card', 30000)
   await clickByTestId(driver, 'button-onboarding-next-scope-templates')
+  const teamMappingButtons = await driver.findElements(cssTestId('button-onboarding-next-team-mapping'))
+  if (teamMappingButtons.length > 0) {
+    await clickByTestId(driver, 'button-onboarding-next-team-mapping')
+  }
   await waitForTestId(driver, 'onboarding-step-review', 30000)
   await waitForText(driver, clientName, 30000)
   await clickByTestId(driver, 'button-create-client')

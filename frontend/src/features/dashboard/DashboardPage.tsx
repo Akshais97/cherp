@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { CountUp } from '../../components/ui/CountUp'
 import {
   Filter,
@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   Users,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../app/providers/useAuth'
 import { normalizeApiError } from '../../lib/api/errors'
 import { getUsers, getTeamWorkloadSummary } from '../workflows/api'
@@ -49,7 +49,6 @@ export function DashboardPage({
   const [clientStatus, setClientStatus] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const activitySentinelRef = useRef<HTMLDivElement | null>(null)
   const filters = useMemo<DashboardFilters>(
     () => ({
       project_manager_id: projectManagerId,
@@ -76,16 +75,10 @@ export function DashboardPage({
   const {
     data: activityData,
     error: activityQueryError,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
     isLoading: isActivityLoading,
-  } = useInfiniteQuery({
+  } = useQuery({
     queryKey: ['dashboard-activity', filters],
-    initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) =>
-      getRecentActivity({ ...filters, activity_cursor: pageParam ?? undefined }),
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    queryFn: () => getRecentActivity(filters),
   })
   const apiError = error ? normalizeApiError(error) : null
   const activityError = activityQueryError
@@ -95,26 +88,42 @@ export function DashboardPage({
   const clientHealth = data?.clientHealth ?? []
   const upcomingDeadlines = data?.upcomingDeadlines ?? []
   const openBlockers = data?.openBlockers ?? []
-  const recentActivity =
-    activityData?.pages.flatMap((page) => page.items).filter(Boolean) ?? []
+  const recentActivity = activityData?.items.filter(Boolean) ?? []
   const projectManagers =
     usersData?.filter((user) =>
       ['super_admin', 'project_manager'].includes(user.role.name),
     ) ?? []
 
-  useEffect(() => {
-    const sentinel = activitySentinelRef.current
-    if (!sentinel || !hasNextPage) return
+  const [healthPage, setHealthPage] = useState(1)
+  const [deadlinesPage, setDeadlinesPage] = useState(1)
+  const [blockersPage, setBlockersPage] = useState(1)
+  const [activityPage, setActivityPage] = useState(1)
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && !isFetchingNextPage) {
-        fetchNextPage()
-      }
-    })
-    observer.observe(sentinel)
+  const pageSize = 5
 
-    return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  const totalHealthPages = Math.max(1, Math.ceil(clientHealth.length / pageSize))
+  const paginatedHealth = useMemo(
+    () => clientHealth.slice((healthPage - 1) * pageSize, healthPage * pageSize),
+    [clientHealth, healthPage]
+  )
+
+  const totalDeadlinesPages = Math.max(1, Math.ceil(upcomingDeadlines.length / pageSize))
+  const paginatedDeadlines = useMemo(
+    () => upcomingDeadlines.slice((deadlinesPage - 1) * pageSize, deadlinesPage * pageSize),
+    [upcomingDeadlines, deadlinesPage]
+  )
+
+  const totalBlockersPages = Math.max(1, Math.ceil(openBlockers.length / pageSize))
+  const paginatedBlockers = useMemo(
+    () => openBlockers.slice((blockersPage - 1) * pageSize, blockersPage * pageSize),
+    [openBlockers, blockersPage]
+  )
+
+  const totalActivityPages = Math.max(1, Math.ceil(recentActivity.length / pageSize))
+  const paginatedActivity = useMemo(
+    () => recentActivity.slice((activityPage - 1) * pageSize, activityPage * pageSize),
+    [recentActivity, activityPage]
+  )
 
   if (currentUser?.role === 'project_manager') {
     return (
@@ -242,7 +251,7 @@ export function DashboardPage({
                 </tr>
               </thead>
               <tbody>
-                {clientHealth.map((row) => (
+                {paginatedHealth.map((row) => (
                   <ClientHealthTableRow key={row.clientId} row={row} onNavigate={onNavigate} />
                 ))}
                 {!isLoading && clientHealth.length === 0 ? (
@@ -253,6 +262,12 @@ export function DashboardPage({
               </tbody>
             </table>
           </div>
+          <PaginationControls
+            currentPage={healthPage}
+            totalPages={totalHealthPages}
+            totalItems={clientHealth.length}
+            onPageChange={setHealthPage}
+          />
         </section>
 
         <section className="panel dashboard-list-panel" data-testid="dashboard-deadlines-panel">
@@ -261,11 +276,17 @@ export function DashboardPage({
             <CalendarClock size={17} />
           </div>
           <div className="dashboard-list">
-            {upcomingDeadlines.map((deadline) => (
+            {paginatedDeadlines.map((deadline) => (
               <DeadlineItem key={deadline.id} item={deadline} onNavigate={onNavigate} />
             ))}
             {!isLoading && upcomingDeadlines.length === 0 ? <div className="muted-card">No upcoming or overdue tasks.</div> : null}
           </div>
+          <PaginationControls
+            currentPage={deadlinesPage}
+            totalPages={totalDeadlinesPages}
+            totalItems={upcomingDeadlines.length}
+            onPageChange={setDeadlinesPage}
+          />
         </section>
 
         <section className="panel dashboard-list-panel" data-testid="dashboard-open-blockers-panel">
@@ -276,11 +297,17 @@ export function DashboardPage({
             </button>
           </div>
           <div className="dashboard-list">
-            {openBlockers.map((blocker) => (
+            {paginatedBlockers.map((blocker) => (
               <OpenBlockerItem key={blocker.id} blocker={blocker} onNavigate={onNavigate} />
             ))}
             {!isLoading && openBlockers.length === 0 ? <div className="muted-card">No open blockers.</div> : null}
           </div>
+          <PaginationControls
+            currentPage={blockersPage}
+            totalPages={totalBlockersPages}
+            totalItems={openBlockers.length}
+            onPageChange={setBlockersPage}
+          />
         </section>
 
         <section className="panel dashboard-list-panel" data-testid="dashboard-activity-panel">
@@ -289,15 +316,17 @@ export function DashboardPage({
             <Activity size={17} />
           </div>
           <div className="dashboard-list">
-            {recentActivity.map((entry) => (
+            {paginatedActivity.map((entry) => (
               <ActivityItem entry={entry} key={entry.id} />
             ))}
-            <div ref={activitySentinelRef} className="activity-sentinel" />
-            {isFetchingNextPage ? (
-              <div className="muted-card">Loading more activity...</div>
-            ) : null}
             {!isActivityLoading && recentActivity.length === 0 ? <div className="muted-card">No recent activity yet.</div> : null}
           </div>
+          <PaginationControls
+            currentPage={activityPage}
+            totalPages={totalActivityPages}
+            totalItems={recentActivity.length}
+            onPageChange={setActivityPage}
+          />
         </section>
       </div>
     </section>
@@ -864,5 +893,76 @@ function formatDate(value?: string | null) {
   if (!value) return '-'
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(
     new Date(value),
+  )
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize = 5,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  pageSize?: number
+  onPageChange: (page: number) => void
+}) {
+  if (totalItems <= pageSize) return null
+  const start = (currentPage - 1) * pageSize + 1
+  const end = Math.min(currentPage * pageSize, totalItems)
+
+  return (
+    <div
+      className="dashboard-pagination-bar"
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 4px 4px 4px',
+        borderTop: '1px solid var(--border)',
+        marginTop: '12px',
+        fontSize: '12px',
+        color: 'var(--secondary-text)',
+      }}
+    >
+      <span>
+        Showing {start}-{end} of {totalItems}
+      </span>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <button
+          type="button"
+          className="ghost-button compact"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          style={{
+            padding: '4px 10px',
+            fontSize: '11.5px',
+            opacity: currentPage === 1 ? 0.4 : 1,
+            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Previous
+        </button>
+        <span style={{ fontWeight: '600' }}>
+          {currentPage} / {totalPages}
+        </span>
+        <button
+          type="button"
+          className="ghost-button compact"
+          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          style={{
+            padding: '4px 10px',
+            fontSize: '11.5px',
+            opacity: currentPage === totalPages ? 0.4 : 1,
+            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Next
+        </button>
+      </div>
+    </div>
   )
 }

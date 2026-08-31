@@ -55,6 +55,10 @@ import { ScopeTemplatesPage } from '../../features/clients/ScopeTemplatesPage'
 import { DailyTaskReportPage } from '../../features/tasks/DailyTaskReportPage'
 import { IntegrationsPage } from '../../features/integrations/IntegrationsPage'
 import { AuditLogPage } from '../../features/activity-logs/AuditLogPage'
+import { TimeTrackingPage } from '../../features/time-entries/TimeTrackingPage'
+import { NotificationPreferencesPage } from '../../features/notifications/NotificationPreferencesPage'
+import { ReportingHubPage } from '../../features/reporting/ReportingHubPage'
+import { AdIntegrationsPage } from '../../features/integrations/AdIntegrationsPage'
 import { type NotificationRow } from '../../features/notifications/api'
 
 type AppRoute =
@@ -65,6 +69,7 @@ type AppRoute =
   | 'tasks'
   | 'brands'
   | 'analytics'
+  | 'reporting-hub'
   | 'employee-profiles'
   | 'users'
   | 'client-directory'
@@ -74,7 +79,61 @@ type AppRoute =
   | 'scope-templates'
   | 'daily-report'
   | 'integrations'
+  | 'ad-integrations'
   | 'audit-logs'
+  | 'time-tracking'
+  | 'notification-preferences'
+
+const routeToPathMap: Record<AppRoute, string> = {
+  dashboard: '/dashboard',
+  'client-dashboard': '/client-dashboard',
+  'daily-report': '/daily-report',
+  tasks: '/tasks',
+  'time-tracking': '/time-tracking',
+  calendar: '/calendar',
+  'client-directory': '/clients/directory',
+  clients: '/clients/onboarding',
+  workflows: '/workflows',
+  'scope-templates': '/scope-templates',
+  brands: '/brands',
+  'team-members': '/team-members',
+  'employee-profiles': '/employee-profiles',
+  analytics: '/analytics',
+  'reporting-hub': '/reporting-hub',
+  blockers: '/blockers',
+  users: '/users',
+  integrations: '/integrations',
+  'ad-integrations': '/ad-platform-integrations',
+  'audit-logs': '/audit-logs',
+  'notification-preferences': '/notification-settings',
+}
+
+const pathToRouteMap: Record<string, AppRoute> = {
+  '/': 'dashboard',
+  '/dashboard': 'dashboard',
+  '/client-dashboard': 'client-dashboard',
+  '/daily-report': 'daily-report',
+  '/tasks': 'tasks',
+  '/time-tracking': 'time-tracking',
+  '/calendar': 'calendar',
+  '/clients/directory': 'client-directory',
+  '/clients/onboarding': 'clients',
+  '/clients': 'clients',
+  '/workflows': 'workflows',
+  '/scope-templates': 'scope-templates',
+  '/brands': 'brands',
+  '/team-members': 'team-members',
+  '/employee-profiles': 'employee-profiles',
+  '/analytics': 'analytics',
+  '/reporting-hub': 'reporting-hub',
+  '/blockers': 'blockers',
+  '/users': 'users',
+  '/integrations': 'integrations',
+  '/ad-platform-integrations': 'ad-integrations',
+  '/ad-integrations': 'ad-integrations',
+  '/audit-logs': 'audit-logs',
+  '/notification-settings': 'notification-preferences',
+}
 
 const baseNavItems: {
   id: AppRoute
@@ -85,20 +144,22 @@ const baseNavItems: {
   { id: 'client-dashboard', label: 'Client Dashboard', icon: <Home size={18} /> },
   { id: 'daily-report', label: 'Daily Report', icon: <File size={18} /> },
   { id: 'tasks', label: 'Tasks', icon: <ClipboardList size={18} /> },
+  { id: 'time-tracking', label: 'Time Tracking', icon: <Briefcase size={18} /> },
   { id: 'calendar', label: 'Calendar', icon: <Calendar size={18} /> },
   { id: 'client-directory', label: 'Client Directory', icon: <FolderOpen size={18} /> },
   { id: 'brands', label: 'Brands', icon: <Palette size={18} /> },
+  { id: 'reporting-hub', label: 'Reporting Hub', icon: <ChartBar size={18} /> },
   { id: 'analytics', label: 'Analytics', icon: <ChartBar size={18} /> },
-  {
-    id: 'workflows',
-    label: 'Workflows',
-    icon: <Briefcase size={18} />,
-  },
+  { id: 'workflows', label: 'Workflows', icon: <Briefcase size={18} /> },
   { id: 'scope-templates', label: 'Scope Templates', icon: <Layers size={18} /> },
   { id: 'team-members', label: 'Team Members', icon: <UserCheck size={18} /> },
   { id: 'employee-profiles', label: 'Employee Profiles', icon: <Personalcard size={18} /> },
   { id: 'blockers', label: 'Blockers', icon: <AlertTriangle size={18} /> },
+  { id: 'users', label: 'Users', icon: <Users size={18} /> },
+  { id: 'integrations', label: 'Integrations', icon: <Plug size={18} /> },
+  { id: 'ad-integrations', label: 'PPC Ad Connectors', icon: <Layers size={18} /> },
   { id: 'audit-logs', label: 'Audit Logs', icon: <File size={18} /> },
+  { id: 'notification-preferences', label: 'Notification Settings', icon: <Settings size={18} /> },
 ]
 
 interface NavSection {
@@ -113,7 +174,7 @@ const navSections: NavSection[] = [
     id: 'workspace',
     label: 'Workspace',
     icon: <Category2 size={15} />,
-    items: ['dashboard', 'client-dashboard', 'daily-report', 'tasks', 'calendar', 'blockers']
+    items: ['dashboard', 'client-dashboard', 'daily-report', 'tasks', 'time-tracking', 'calendar', 'blockers']
   },
   {
     id: 'clients-delivery',
@@ -125,25 +186,61 @@ const navSections: NavSection[] = [
     id: 'team-performance',
     label: 'Team & Performance',
     icon: <People size={15} />,
-    items: ['team-members', 'employee-profiles', 'analytics']
+    items: ['team-members', 'employee-profiles', 'reporting-hub', 'analytics']
   },
   {
-    id: 'platform',
-    label: 'Platform',
+    id: 'system-settings',
+    label: 'System & Security',
     icon: <Settings size={15} />,
-    items: ['users', 'integrations', 'audit-logs']
+    items: ['users', 'integrations', 'ad-integrations', 'audit-logs', 'notification-preferences']
   }
 ]
 
 export function AppShell() {
   const { currentUser, signOut } = useAuth()
-  const [route, setRoute] = useState<AppRoute>(
-    currentUser?.role === 'client' ? 'client-dashboard' : 'dashboard'
+  
+  // Initialize route from current browser URL path if matched
+  const initialPathRoute = pathToRouteMap[window.location.pathname]
+  const [route, setRouteState] = useState<AppRoute>(
+    initialPathRoute || (currentUser?.role === 'client' ? 'client-dashboard' : 'dashboard')
   )
+
   const [targetWorkflowId, setTargetWorkflowId] = useState<string | null>(null)
   const [targetTaskId, setTargetTaskId] = useState<string | null>(null)
   const [targetBlockerId, setTargetBlockerId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+
+  // Function to change route and push URL to browser history
+  const setRoute = (nextRoute: AppRoute) => {
+    setRouteState(nextRoute)
+    const targetPath = routeToPathMap[nextRoute] || '/dashboard'
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath)
+    }
+  }
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const matched = pathToRouteMap[window.location.pathname]
+      if (matched) {
+        setRouteState(matched)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+
+    // Sync browser URL on initial load if needed
+    const currentPath = window.location.pathname
+    const matchedRoute = pathToRouteMap[currentPath]
+    if (matchedRoute) {
+      setRouteState(matchedRoute)
+    } else {
+      const defaultPath = routeToPathMap[route] || '/dashboard'
+      window.history.replaceState({}, '', defaultPath)
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const handleNotificationClick = (notification: NotificationRow) => {
     const type = notification.related_entity_type
@@ -170,6 +267,7 @@ export function AppShell() {
       setRoute('dashboard')
     }
   }
+
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -224,8 +322,10 @@ export function AppShell() {
       setRoute('team-members')
     }
   }
+
   const canManageClientRoutes = currentUser?.role ? canManageClients(currentUser.role) : false
   const canViewTeamMemberRoutes = currentUser?.role ? canViewTeamMembers(currentUser.role) : false
+
   const visibleBaseNavItems = baseNavItems.filter((item) => {
     if (currentUser?.role === 'client') {
       return item.id === 'client-dashboard' || item.id === 'calendar'
@@ -237,10 +337,23 @@ export function AppShell() {
         item.id === 'employee-profiles' ||
         item.id === 'team-members' ||
         item.id === 'client-dashboard' ||
-        item.id === 'scope-templates'
+        item.id === 'scope-templates' ||
+        item.id === 'users' ||
+        item.id === 'integrations'
       ) {
         return false
       }
+    }
+    if (currentUser?.role === 'project_manager') {
+      if (item.id === 'users' || item.id === 'integrations') {
+        return false
+      }
+    }
+    if (item.id === 'integrations' && currentUser?.role !== 'super_admin') {
+      return false
+    }
+    if (item.id === 'users' && (!currentUser?.role || !canManageUsers(currentUser.role))) {
+      return false
     }
     if (item.id === 'team-members' && !canViewTeamMemberRoutes) {
       return false
@@ -253,6 +366,7 @@ export function AppShell() {
     }
     return true
   })
+
   const operationalNavItems = currentUser?.role && canManageClients(currentUser.role)
     ? [
         visibleBaseNavItems[0],
@@ -260,21 +374,8 @@ export function AppShell() {
         ...visibleBaseNavItems.slice(1),
       ]
     : visibleBaseNavItems
-  const navItems = currentUser?.role && canManageUsers(currentUser.role)
-    ? [
-        ...operationalNavItems,
-        { id: 'users' as const, label: 'Users', icon: <Users size={18} /> },
-      ]
-    : operationalNavItems
-  
-  const finalNavItems = [...navItems]
-  if (currentUser?.email === 'akshaiofficial97@gmail.com') {
-    finalNavItems.push({
-      id: 'integrations' as any,
-      label: 'Integrations',
-      icon: <Plug size={18} />
-    })
-  }
+
+  const finalNavItems = [...operationalNavItems]
 
   const matchingNavItems = searchQuery.trim().length >= 1
     ? finalNavItems.filter((item) =>
@@ -288,9 +389,12 @@ export function AppShell() {
     .join('')
     .slice(0, 2)
     .toUpperCase()
+
   const activeRoute =
     (route === 'clients' && !canManageClientRoutes) ||
-    (route === 'team-members' && !canViewTeamMemberRoutes)
+    (route === 'team-members' && !canViewTeamMemberRoutes) ||
+    (route === 'integrations' && currentUser?.role !== 'super_admin') ||
+    (route === 'users' && (!currentUser?.role || !canManageUsers(currentUser.role)))
       ? 'dashboard'
       : route
 
@@ -568,6 +672,7 @@ export function AppShell() {
           {activeRoute === 'calendar' ? <CalendarPage /> : null}
           {activeRoute === 'brands' ? <BrandsPage /> : null}
           {activeRoute === 'analytics' ? <AnalyticsPage /> : null}
+          {activeRoute === 'reporting-hub' ? <ReportingHubPage /> : null}
           {activeRoute === 'employee-profiles' ? <EmployeeProfilesPage /> : null}
           {activeRoute === 'client-directory' ? <ClientDirectoryPage /> : null}
           {activeRoute === 'team-members' ? <TeamMembersPage /> : null}
@@ -578,7 +683,10 @@ export function AppShell() {
           {activeRoute === 'scope-templates' ? <ScopeTemplatesPage /> : null}
           {activeRoute === 'daily-report' ? <DailyTaskReportPage /> : null}
           {activeRoute === 'integrations' ? <IntegrationsPage /> : null}
+          {activeRoute === 'ad-integrations' ? <AdIntegrationsPage /> : null}
           {activeRoute === 'audit-logs' ? <AuditLogPage /> : null}
+          {activeRoute === 'time-tracking' ? <TimeTrackingPage /> : null}
+          {activeRoute === 'notification-preferences' ? <NotificationPreferencesPage /> : null}
             </motion.div>
           </AnimatePresence>
         </div>

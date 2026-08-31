@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, CheckCircle2, Clock, Landmark } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Download, Landmark, LayoutDashboard } from 'lucide-react'
 import { getClientDashboard } from './api'
 import { normalizeApiError } from '../../lib/api/errors'
+import { ClientPortalToday } from '../client-portal/ClientPortalToday'
+import { ClientPortalDownloads } from '../client-portal/ClientPortalDownloads'
 
 export function ClientDashboardPage() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'today' | 'downloads'>('overview')
   const { data, isLoading, error } = useQuery({
     queryKey: ['client-dashboard'],
     queryFn: getClientDashboard,
@@ -81,7 +85,72 @@ export function ClientDashboardPage() {
         </span>
       </div>
 
-      <div className="client-dashboard-grid">
+      {/* Portal View Tabs */}
+      <nav style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '6px',
+            background: activeTab === 'overview' ? 'var(--blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'overview' ? '#FFF' : 'var(--text)',
+            border: 'none',
+            fontWeight: '600',
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          <LayoutDashboard size={15} /> Overview
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('today')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '6px',
+            background: activeTab === 'today' ? 'var(--blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'today' ? '#FFF' : 'var(--text)',
+            border: 'none',
+            fontWeight: '600',
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          <Clock size={15} /> Today's Work
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('downloads')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            borderRadius: '6px',
+            background: activeTab === 'downloads' ? 'var(--blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'downloads' ? '#FFF' : 'var(--text)',
+            border: 'none',
+            fontWeight: '600',
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          <Download size={15} /> Reports & Assets
+        </button>
+      </nav>
+
+      {activeTab === 'today' ? <ClientPortalToday /> : null}
+      {activeTab === 'downloads' ? <ClientPortalDownloads /> : null}
+
+      {activeTab === 'overview' ? (
+        <div className="client-dashboard-grid">
         {/* Left Column: Progress & Financials */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
@@ -254,6 +323,7 @@ export function ClientDashboardPage() {
           </section>
         </div>
       </div>
+      ) : null}
     </section>
   )
 }

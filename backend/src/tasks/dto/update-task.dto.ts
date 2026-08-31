@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -119,4 +120,10 @@ export class UpdateTaskDto {
   @ValidateIf((o, v) => v !== null)
   @IsString()
   recurrence_type?: string | null
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  depends_on?: string[]
 }

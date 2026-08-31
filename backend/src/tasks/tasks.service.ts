@@ -9,9 +9,11 @@ import { Prisma } from '@prisma/client'
 import { UserRole } from '../common/enums/user-role.enum'
 import { RequestUser } from '../common/types/request-user.type'
 import { NotificationsService } from '../notifications/notifications.service'
+import { CreateSubtaskDto } from './dto/create-subtask.dto'
 import { CreateTaskDto } from './dto/create-task.dto'
 import { UpdateTaskDto } from './dto/update-task.dto'
 import { TasksRepository } from './tasks.repository'
+import { detectCycleInDependencies } from './utils/dependency-graph.util'
 
 type TaskStatus =
   | 'yet_to_start'
@@ -283,6 +285,7 @@ export class TasksService {
       ...(updateFields.recurrence_end_date !== undefined ? { recurrence_end_date: updateFields.recurrence_end_date ? this.toDate(updateFields.recurrence_end_date) : null } : {}),
       ...(updateFields.recurrence_type !== undefined ? { recurrence_type: updateFields.recurrence_type } : {}),
       ...(updateFields.is_daily !== undefined ? { is_daily: updateFields.is_daily } : {}),
+      ...(updateFields.depends_on !== undefined ? { depends_on: updateFields.depends_on } : {}),
       ...(checklist !== undefined ? { checklist } : {}),
       ...(updateFields.slot !== undefined ? { slot: updateFields.slot } : {}),
       ...(updateFields.client_id !== undefined
@@ -454,7 +457,8 @@ export class TasksService {
   }
 
   private assertTransition(from: TaskStatus, to: TaskStatus) {
-    if (!allowedTransitions[from].includes(to)) {
+    const allowed = allowedTransitions[from] || []
+    if (!allowed.includes(to)) {
       throw new BadRequestException(`Task cannot transition from ${from} to ${to}.`)
     }
   }
@@ -713,5 +717,111 @@ export class TasksService {
       throw new ForbiddenException('Only team members, project managers, and super admins can view daily task reports.')
     }
     return this.repository.findDailyReportTasks(user.tenantId, user.id, dateStr)
+  }
+
+  async getDependencies(id: string, user: RequestUser) {
+    const task = await this.getTaskForRead(id, user)
+    const predecessors = await this.repository.findTasksByIds(user.tenantId, task.depends_on || [])
+    const allTasks = await this.repository.findMany({ tenantId: user.tenantId, userId: user.id, role: user.role })
+    const successors = allTasks.filter((t) => t.depends_on && t.depends_on.includes(id))
+
+    const isComplete = completedStatuses.includes(task.status as TaskStatus)
+    const incompletePrereqs = predecessors.filter((p) => !completedStatuses.includes(p.status as TaskStatus))
+
+    let dependencyState: 'ready' | 'blocked_by_dependency' | 'complete' = 'ready'
+    if (isComplete) {
+      dependencyState = 'complete'
+    } else if (incompletePrereqs.length > 0) {
+      dependencyState = 'blocked_by_dependency'
+    }
+
+    return {
+      id: task.id,
+      dependency_state: dependencyState,
+      predecessor_tasks: predecessors,
+      successor_tasks: successors,
+      blocked_by_dependencies: incompletePrereqs,
+    }
+  }
+
+  async updateDependencies(id: string, dependsOn: string[], user: RequestUser) {
+    if (user.role === UserRole.TeamMember) {
+      throw new ForbiddenException('Only project managers and super admins can update task dependencies.')
+    }
+    const task = await this.getTaskForWrite(id, user)
+
+    if (dependsOn.includes(id)) {
+      throw new BadRequestException('A task cannot depend on itself.')
+    }
+
+    const isCycle = await detectCycleInDependencies(
+      id,
+      dependsOn,
+      async (targetId: string) => {
+        const found = await this.repository.findTaskForAccess({ tenantId: user.tenantId, taskId: targetId })
+        return found?.depends_on || []
+      }
+    )
+
+    if (isCycle) {
+      throw new BadRequestException('Circular dependency detected. Task cannot depend on itself or form a dependency loop.')
+    }
+
+    return this.update(id, { depends_on: dependsOn } as any, user)
+  }
+
+  async addDependency(id: string, dependencyId: string, user: RequestUser) {
+    const task = await this.getTaskForRead(id, user)
+    const current = task.depends_on || []
+    if (!current.includes(dependencyId)) {
+      return this.updateDependencies(id, [...current, dependencyId], user)
+    }
+    return this.getDependencies(id, user)
+  }
+
+  async removeDependency(id: string, dependencyId: string, user: RequestUser) {
+    const task = await this.getTaskForRead(id, user)
+    const current = task.depends_on || []
+    const updated = current.filter((dep) => dep !== dependencyId)
+    return this.updateDependencies(id, updated, user)
+  }
+
+  async getSubtasks(id: string, user: RequestUser) {
+    await this.getTaskForRead(id, user)
+    const subtasks = await this.repository.findSubtasksByParentId(user.tenantId, id)
+    const completedCount = subtasks.filter((s) => completedStatuses.includes(s.status as TaskStatus)).length
+    return {
+      parent_task_id: id,
+      total_subtasks: subtasks.length,
+      completed_subtasks: completedCount,
+      subtasks,
+    }
+  }
+
+  async createSubtask(parentId: string, dto: CreateSubtaskDto, user: RequestUser) {
+    const parent = await this.getTaskForWrite(parentId, user)
+
+    const subtask = await this.repository.createWithCompletion({
+      tenantId: user.tenantId,
+      userId: user.id,
+      workflowId: parent.workflow_id,
+      data: {
+        tenant: { connect: { id: user.tenantId } },
+        ...(parent.workflow_id ? { workflow: { connect: { id: parent.workflow_id } } } : {}),
+        ...(parent.client_id ? { client: { connect: { id: parent.client_id } } } : {}),
+        parent_task: { connect: { id: parentId } },
+        assignee: dto.assigned_to ? { connect: { id: dto.assigned_to } } : undefined,
+        assignor: { connect: { id: user.id } },
+        title: dto.title,
+        status: 'yet_to_start',
+        priority: 'medium',
+        due_date: dto.due_date ? this.toDate(dto.due_date) : undefined,
+        estimated_hours: dto.estimated_hours ? dto.estimated_hours : undefined,
+        is_subtask: true,
+        depends_on: [],
+      },
+    })
+
+    return subtask
   }
 }

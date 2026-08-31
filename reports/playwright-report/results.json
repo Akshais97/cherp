@@ -68,7 +68,12 @@
     "updateSourceMethod": "patch",
     "version": "1.61.0",
     "workers": 1,
-    "webServer": null
+    "webServer": {
+      "command": "npm run dev --prefix ../frontend",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
   },
   "suites": [
     {
@@ -85,7 +90,7 @@
           "column": 6,
           "specs": [
             {
-              "title": "should navigate to Brands tab and verify page contents, edit brand profile, and verify change logs",
+              "title": "should navigate to Brands tab and verify page contents",
               "ok": true,
               "tags": [],
               "tests": [
@@ -100,18 +105,18 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 8132,
+                      "duration": 4954,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-06-24T10:13:42.297Z",
+                      "startTime": "2026-08-25T12:06:31.036Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "D:\\Chlear Projects\\Marketerp\\cherp\\playwright-e2e\\test-results\\brands-profile-Brand-Profi-87616-file-and-verify-change-logs-chromium\\test-finished-1.png"
+                          "path": "D:\\Chlear Projects\\Marketerp\\cherp\\playwright-e2e\\test-results\\brands-profile-Brand-Profi-0890e-ab-and-verify-page-contents-chromium\\test-finished-1.png"
                         }
                       ]
                     }
@@ -119,8 +124,105 @@
                   "status": "expected"
                 }
               ],
-              "id": "039c65c4d325548f2866-2f37a1fdb42f03491a97",
+              "id": "039c65c4d325548f2866-ea1af2adcdfd31a5aff9",
               "file": "brands-profile.spec.ts",
+              "line": 18,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "gaps-and-features.spec.ts",
+      "file": "gaps-and-features.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Phase 1 & 2 Gap Fixes & E2E Features Suite",
+          "file": "gaps-and-features.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Client Portal Layout & Tabs Navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2255,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-25T12:06:36.143Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "D:\\Chlear Projects\\Marketerp\\cherp\\playwright-e2e\\test-results\\gaps-and-features-Phase-1--782b2-rtal-Layout-Tabs-Navigation-chromium\\test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6e277182ce346f42abba-f85d62327bf02b5481a8",
+              "file": "gaps-and-features.spec.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "Notification Preferences Matrix UI Page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2296,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-25T12:06:38.412Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "D:\\Chlear Projects\\Marketerp\\cherp\\playwright-e2e\\test-results\\gaps-and-features-Phase-1--a7e0a--Preferences-Matrix-UI-Page-chromium\\test-finished-1.png"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6e277182ce346f42abba-a8aa5926f6c8bca5283a",
+              "file": "gaps-and-features.spec.ts",
               "line": 23,
               "column": 7
             }
@@ -157,12 +259,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 4796,
+                      "duration": 2628,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-06-24T10:13:50.660Z",
+                      "startTime": "2026-08-25T12:06:40.733Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -178,7 +280,7 @@
               ],
               "id": "997a274dbfd9897c5780-e7bc68feb896e06711de",
               "file": "planner-tasks.spec.ts",
-              "line": 23,
+              "line": 19,
               "column": 7
             },
             {
@@ -197,12 +299,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2037,
+                      "duration": 2570,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-06-24T10:13:55.471Z",
+                      "startTime": "2026-08-25T12:06:43.376Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -218,7 +320,7 @@
               ],
               "id": "997a274dbfd9897c5780-32a6e92d9efda52b810b",
               "file": "planner-tasks.spec.ts",
-              "line": 45,
+              "line": 40,
               "column": 7
             },
             {
@@ -237,12 +339,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2181,
+                      "duration": 2764,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-06-24T10:13:57.527Z",
+                      "startTime": "2026-08-25T12:06:45.960Z",
                       "annotations": [],
                       "attachments": [
                         {
@@ -258,7 +360,7 @@
               ],
               "id": "997a274dbfd9897c5780-67cba7131c0e6030bf9e",
               "file": "planner-tasks.spec.ts",
-              "line": 67,
+              "line": 62,
               "column": 7
             }
           ]
@@ -268,9 +370,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-06-24T10:13:41.688Z",
-    "duration": 18326.565,
-    "expected": 4,
+    "startTime": "2026-08-25T12:06:30.480Z",
+    "duration": 18392.417,
+    "expected": 6,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

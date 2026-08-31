@@ -22,6 +22,8 @@ import {
   type TaskComment,
 } from '../../workflows/api'
 
+import { TaskTimeTrackingTab } from './TaskTimeTrackingTab'
+
 interface TaskDetailsDrawerProps {
   task: WorkflowTask
   users: UserOption[]
@@ -30,7 +32,7 @@ interface TaskDetailsDrawerProps {
   onUpdateTask: (taskId: string, fields: any) => Promise<any>
 }
 
-type TabType = 'details' | 'comments' | 'attachments' | 'logs'
+type TabType = 'details' | 'comments' | 'attachments' | 'logs' | 'time-tracking'
 
 const taskStatusLabels: Record<TaskStatus, string> = {
   yet_to_start: 'Yet to start',
@@ -689,7 +691,7 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
 
         {/* Tab switcher */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 20px', gap: '8px' }}>
-          {(['details', 'comments', 'attachments', 'logs'] as TabType[]).map((tab) => (
+          {(['details', 'comments', 'attachments', 'logs', 'time-tracking'] as TabType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -700,7 +702,7 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
                 color: activeTab === tab ? 'var(--accent, #3B6DD6)' : 'var(--secondary-text)'
               }}
             >
-              {tab.toUpperCase()}
+              {tab === 'time-tracking' ? 'TIME LOGS' : tab.toUpperCase()}
             </button>
           ))}
         </div>
@@ -1248,6 +1250,11 @@ export function TaskDetailsDrawer({ task, users, onClose, onSuccess, onUpdateTas
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAB 5: TIME TRACKING */}
+          {activeTab === 'time-tracking' && (
+            <TaskTimeTrackingTab taskId={task.id} estimatedHours={(task as any).estimated_hours} />
           )}
         </div>
 

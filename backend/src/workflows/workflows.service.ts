@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { UserRole } from '../common/enums/user-role.enum'
 import { RequestUser } from '../common/types/request-user.type'
 import { WorkflowQueryDto } from './dto/workflow-query.dto'
@@ -76,5 +76,16 @@ export class WorkflowsService {
         next_month_number: wf.month_number + 1,
       }
     })
+  }
+
+  async updateStatus(id: string, status: string, user: RequestUser) {
+    if (user.role !== UserRole.SuperAdmin && user.role !== UserRole.ProjectManager) {
+      throw new ForbiddenException('Only project managers and admins can change workflow planning status.')
+    }
+    const workflow = await this.repository.findWorkflowAccess({ tenantId: user.tenantId, workflowId: id })
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found.')
+    }
+    return this.repository.updateStatus(user.tenantId, id, status)
   }
 }

@@ -65,4 +65,78 @@ export class NotificationsRepository {
       },
     })
   }
+
+  markAllRead(input: { tenantId: string; userId: string }) {
+    return this.prisma.notification.updateMany({
+      where: {
+        tenant_id: input.tenantId,
+        user_id: input.userId,
+        is_read: false,
+      },
+      data: {
+        is_read: true,
+        read_at: new Date(),
+      },
+    })
+  }
+
+  findPreferences(tenantId: string, userId: string) {
+    return this.prisma.notificationPreference.findMany({
+      where: { tenant_id: tenantId, user_id: userId },
+    })
+  }
+
+  upsertPreference(tenantId: string, userId: string, type: string, inApp: boolean, email: boolean) {
+    return this.prisma.notificationPreference.upsert({
+      where: {
+        tenant_id_user_id_notification_type: {
+          tenant_id: tenantId,
+          user_id: userId,
+          notification_type: type,
+        },
+      },
+      update: {
+        in_app_enabled: inApp,
+        email_enabled: email,
+      },
+      create: {
+        tenant_id: tenantId,
+        user_id: userId,
+        notification_type: type,
+        in_app_enabled: inApp,
+        email_enabled: email,
+      },
+    })
+  }
+
+  findDeliveryLog(tenantId: string, idempotencyKey: string) {
+    return (this.prisma as any).notificationDeliveryLog?.findUnique({
+      where: {
+        tenant_id_idempotency_key: {
+          tenant_id: tenantId,
+          idempotency_key: idempotencyKey,
+        },
+      },
+    })
+  }
+
+  createDeliveryLog(input: {
+    tenantId: string
+    userId: string
+    channel: string
+    type: string
+    idempotencyKey: string
+    status: string
+  }) {
+    return (this.prisma as any).notificationDeliveryLog?.create({
+      data: {
+        tenant_id: input.tenantId,
+        user_id: input.userId,
+        channel: input.channel,
+        type: input.type,
+        idempotency_key: input.idempotencyKey,
+        status: input.status,
+      },
+    })
+  }
 }
