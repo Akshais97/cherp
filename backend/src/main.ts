@@ -10,7 +10,7 @@ async function bootstrap() {
   const configuredOrigins = process.env.FRONTEND_ORIGIN
     ? process.env.FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
     : []
-  const allowedOrigins = [
+  const staticAllowed = [
     ...configuredOrigins,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
@@ -18,9 +18,18 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api')
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true)
+      const isAllowed =
+        staticAllowed.includes(origin) ||
+        origin.endsWith('.up.railway.app')
+      if (isAllowed) {
+        return callback(null, true)
+      }
+      callback(null, false)
+    },
     credentials: true,
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   })
   app.useGlobalPipes(
