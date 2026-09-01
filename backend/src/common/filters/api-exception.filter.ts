@@ -62,6 +62,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
   private fromPrismaKnownError(
     exception: Prisma.PrismaClientKnownRequestError,
   ): ErrorPayload {
+    console.error(`[ApiExceptionFilter] Prisma Known Error (${exception.code}):`, exception.message)
+
     if (exception.code === 'P2002') {
       return {
         message: 'A record with this value already exists.',
@@ -87,7 +89,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
 
     return {
-      message: 'Database operation failed.',
+      message: exception.message || 'Database operation failed.',
       error: 'Bad Request',
       statusCode: HttpStatus.BAD_REQUEST,
     }

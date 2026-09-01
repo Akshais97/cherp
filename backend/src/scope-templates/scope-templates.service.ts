@@ -17,8 +17,12 @@ export class ScopeTemplatesService {
   constructor(private readonly repository: ScopeTemplatesRepository) {}
 
   async list(user: RequestUser) {
-    await this.repository.seedPresets(user.tenantId, user.id, templatePresets)
-    return this.repository.findActiveByTenant(user.tenantId)
+    const existing = await this.repository.findActiveByTenant(user.tenantId)
+    if (existing.length === 0) {
+      await this.repository.seedPresets(user.tenantId, user.id, templatePresets)
+      return this.repository.findActiveByTenant(user.tenantId)
+    }
+    return existing
   }
 
   async detail(id: string, user: RequestUser) {

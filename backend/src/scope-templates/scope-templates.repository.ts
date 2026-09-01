@@ -214,6 +214,13 @@ export class ScopeTemplatesRepository {
     return this.prisma.$transaction(async (tx) => {
       const results = []
 
+      // Check if user exists to satisfy foreign key constraint
+      const validUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      })
+      const creatorId = validUser?.id ?? userId
+
       for (const preset of presets) {
         results.push(
           await tx.scopeTemplate.upsert({
@@ -234,7 +241,7 @@ export class ScopeTemplatesRepository {
             },
             create: {
               tenant_id: tenantId,
-              created_by: userId,
+              created_by: creatorId,
               ...preset,
             },
             select: this.templateSelect(),
@@ -242,16 +249,18 @@ export class ScopeTemplatesRepository {
         )
       }
 
-      await tx.activityLog.create({
-        data: {
-          tenant_id: tenantId,
-          user_id: userId,
-          action_type: 'created',
-          entity_type: 'scope_template',
-          entity_id: results[0].id,
-          after_values: { seeded_count: results.length },
-        },
-      })
+      if (results.length > 0 && results[0]?.id && validUser) {
+        await tx.activityLog.create({
+          data: {
+            tenant_id: tenantId,
+            user_id: userId,
+            action_type: 'created',
+            entity_type: 'scope_template',
+            entity_id: results[0].id,
+            after_values: { seeded_count: results.length },
+          },
+        })
+      }
 
       return results
     })
