@@ -14,7 +14,7 @@ import { ScopeTemplatesService } from './scope-templates.service'
 @ApiTags('Scope Templates')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+@Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
 @Controller('scope-templates')
 export class ScopeTemplatesController {
   constructor(private readonly service: ScopeTemplatesService) {}

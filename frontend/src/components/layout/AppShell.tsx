@@ -6,6 +6,7 @@ import {
   Calendar,
   Category2,
   ChartBar,
+  ChartBarTrendUp,
   ClipboardList,
   File,
   FolderBookmark,
@@ -148,7 +149,7 @@ const baseNavItems: {
   { id: 'calendar', label: 'Calendar', icon: <Calendar size={18} /> },
   { id: 'client-directory', label: 'Client Directory', icon: <FolderOpen size={18} /> },
   { id: 'brands', label: 'Brands', icon: <Palette size={18} /> },
-  { id: 'reporting-hub', label: 'Reporting Hub', icon: <ChartBar size={18} /> },
+  { id: 'reporting-hub', label: 'Reporting Hub', icon: <ChartBarTrendUp size={18} /> },
   { id: 'analytics', label: 'Analytics', icon: <ChartBar size={18} /> },
   { id: 'workflows', label: 'Workflows', icon: <Briefcase size={18} /> },
   { id: 'scope-templates', label: 'Scope Templates', icon: <Layers size={18} /> },
@@ -276,7 +277,7 @@ export function AppShell() {
     workspace: false,
     'clients-delivery': false,
     'team-performance': false,
-    platform: false,
+    'system-settings': false,
   })
 
   const toggleSection = (sectionId: string) => {
@@ -417,7 +418,7 @@ export function AppShell() {
             const sectionItems = finalNavItems.filter((item) => section.items.includes(item.id))
             if (sectionItems.length === 0) return null
 
-            const isExpanded = sidebarCollapsed || (expandedSections[section.id] !== false)
+            const isExpanded = sidebarCollapsed || Boolean(expandedSections[section.id]) || section.items.includes(activeRoute)
 
             return (
               <div className="nav-section" key={section.id}>
