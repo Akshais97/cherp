@@ -40,6 +40,8 @@ export class ScopeTemplatesService {
   }
 
   async create(dto: CreateScopeTemplateDto, user: RequestUser) {
+    this.validateTemplateJson(dto.default_tasks, dto.kpi_framework)
+
     const existing = await this.repository.findByIndustryService({
       tenantId: user.tenantId,
       industry: dto.industry,
@@ -71,6 +73,8 @@ export class ScopeTemplatesService {
   }
 
   async update(id: string, dto: UpdateScopeTemplateDto, user: RequestUser) {
+    this.validateTemplateJson(dto.default_tasks, dto.kpi_framework)
+
     const existing = await this.repository.findById(user.tenantId, id)
 
     if (!existing) {
@@ -149,6 +153,31 @@ export class ScopeTemplatesService {
 
   seed(user: RequestUser) {
     return this.repository.seedPresets(user.tenantId, user.id, templatePresets)
+  }
+
+  private validateTemplateJson(defaultTasks: any, kpiFramework: any) {
+    if (defaultTasks && typeof defaultTasks !== 'object') {
+      throw new BadRequestException('default_tasks must be a valid JSON object.')
+    }
+    if (kpiFramework && typeof kpiFramework !== 'object') {
+      throw new BadRequestException('kpi_framework must be a valid JSON object.')
+    }
+    if (defaultTasks) {
+      for (const [key, value] of Object.entries(defaultTasks)) {
+        if (Array.isArray(value)) {
+          for (const task of value as any[]) {
+            if (typeof task === 'object' && task) {
+              if (!task.title || typeof task.title !== 'string') {
+                throw new BadRequestException(`Template task in ${key} missing required string property 'title'.`)
+              }
+              if (task.estimated_hours !== undefined && (typeof task.estimated_hours !== 'number' || task.estimated_hours < 0)) {
+                throw new BadRequestException(`Template task '${task.title}' has invalid estimated_hours.`)
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   private snapshot(template: {

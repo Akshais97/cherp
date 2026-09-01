@@ -12,11 +12,17 @@ export default defineConfig({
     ['list']
   ],
   use: {
-    baseURL: process.env.FRONTEND_URL || 'http://localhost:5177',
+    baseURL: process.env.FRONTEND_URL || 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'on',
     video: 'off',
     headless: process.env.HEADLESS !== 'false',
+  },
+  webServer: {
+    command: 'npm run dev --prefix ../frontend',
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
+    timeout: 120000,
   },
   projects: [
     {

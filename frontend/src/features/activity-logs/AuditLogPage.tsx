@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Filter, History, Search, User } from 'lucide-react'
+import { Filter, History } from 'lucide-react'
 import { useState } from 'react'
 import { apiClient } from '../../lib/api/client'
 import { normalizeApiError } from '../../lib/api/errors'

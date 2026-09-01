@@ -28,15 +28,13 @@ export class CreateClientDto {
   @IsString()
   service_type!: string
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Primary contact person name' })
   @IsString()
-  contact_name?: string
+  contact_name!: string
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Primary contact person email' })
   @IsEmail()
-  contact_email?: string
+  contact_email!: string
 
   @ApiPropertyOptional()
   @IsOptional()

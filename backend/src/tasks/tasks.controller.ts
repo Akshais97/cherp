@@ -8,8 +8,10 @@ import { RolesGuard } from '../common/guards/roles.guard'
 import { RequestUser } from '../common/types/request-user.type'
 import { AddAttachmentDto } from './dto/add-attachment.dto'
 import { AddCommentDto } from './dto/add-comment.dto'
+import { CreateSubtaskDto } from './dto/create-subtask.dto'
 import { CreateTaskDto } from './dto/create-task.dto'
 import { ReviewTaskDto } from './dto/review-task.dto'
+import { UpdateTaskDependenciesDto } from './dto/update-task-dependencies.dto'
 import { UpdateTaskDto } from './dto/update-task.dto'
 import { TasksService } from './tasks.service'
 
@@ -252,5 +254,63 @@ export class TasksController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.service.requestChanges(id, dto.reason, user)
+  }
+
+  @Get(':id/dependencies')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Retrieves predecessor and successor tasks for a task.' })
+  getDependencies(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.service.getDependencies(id, user)
+  }
+
+  @Patch(':id/dependencies')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Updates task dependency list.' })
+  updateDependencies(
+    @Param('id') id: string,
+    @Body() dto: UpdateTaskDependenciesDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.updateDependencies(id, dto.depends_on, user)
+  }
+
+  @Post(':id/dependencies/:dependencyId')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Adds a single prerequisite dependency to a task.' })
+  addDependency(
+    @Param('id') id: string,
+    @Param('dependencyId') dependencyId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.addDependency(id, dependencyId, user)
+  }
+
+  @Delete(':id/dependencies/:dependencyId')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Removes a prerequisite dependency from a task.' })
+  removeDependency(
+    @Param('id') id: string,
+    @Param('dependencyId') dependencyId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.removeDependency(id, dependencyId, user)
+  }
+
+  @Get(':id/subtasks')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Lists subtasks under a parent task.' })
+  getSubtasks(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.service.getSubtasks(id, user)
+  }
+
+  @Post(':id/subtasks')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager, UserRole.TeamMember)
+  @ApiOkResponse({ description: 'Creates a subtask under a parent task.' })
+  createSubtask(
+    @Param('id') id: string,
+    @Body() dto: CreateSubtaskDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.createSubtask(id, dto, user)
   }
 }

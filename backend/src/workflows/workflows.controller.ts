@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -35,5 +35,16 @@ export class WorkflowsController {
   @ApiOkResponse({ description: 'Workflow detail with tasks and blockers.' })
   detail(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.service.detail(id, user)
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SuperAdmin, UserRole.ProjectManager)
+  @ApiOkResponse({ description: 'Updates workflow planning lifecycle status (draft | approved | published).' })
+  updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.updateStatus(id, status, user)
   }
 }

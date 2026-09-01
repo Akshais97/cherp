@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { areServiceTypesCompatible } from './service-types.constants'
 import { TemplatePreset } from './template-presets'
 
 @Injectable()
@@ -65,37 +66,82 @@ export class ScopeTemplatesRepository {
       select: this.templateSelect(),
     })
 
-    if (exact) return { template: exact, resolution: 'exact' as const }
+    if (exact) {
+      return {
+        template: exact,
+        resolution: 'exact' as const,
+        exact_match: exact,
+        suggestions: [],
+      }
+    }
 
-    const sameIndustry = await this.prisma.scopeTemplate.findFirst({
-      where: {
-        tenant_id: input.tenantId,
-        is_active: true,
-        industry: input.industry,
-      },
-      orderBy: { created_at: 'desc' },
+    const allActive = await this.prisma.scopeTemplate.findMany({
+      where: { tenant_id: input.tenantId, is_active: true },
       select: this.templateSelect(),
     })
 
-    if (sameIndustry) {
-      return { template: sameIndustry, resolution: 'same_industry' as const }
+    // Check for compatible service_type alias for the same industry
+    const aliasMatch = allActive.find(
+      (t) =>
+        t.industry.toLowerCase() === input.industry.toLowerCase() &&
+        areServiceTypesCompatible(t.service_type, input.serviceType),
+    )
+
+    if (aliasMatch) {
+      return {
+        template: aliasMatch,
+        resolution: 'exact' as const,
+        exact_match: aliasMatch,
+        suggestions: [],
+      }
     }
 
-    const sameService = await this.prisma.scopeTemplate.findFirst({
-      where: {
-        tenant_id: input.tenantId,
-        is_active: true,
-        service_type: input.serviceType,
-      },
-      orderBy: { created_at: 'desc' },
-      select: this.templateSelect(),
-    })
+    const suggestions = allActive
+      .map((template) => {
+        const sameIndustry =
+          template.industry.toLowerCase() === input.industry.toLowerCase()
+        const sameService =
+          template.service_type.toLowerCase() === input.serviceType.toLowerCase() ||
+          areServiceTypesCompatible(template.service_type, input.serviceType)
 
-    if (sameService) {
-      return { template: sameService, resolution: 'same_service' as const }
+        let match_score = 0.5
+        const reasons: string[] = []
+
+        if (sameService && sameIndustry) {
+          match_score = 1.0
+          reasons.push('exact match')
+        } else if (sameService) {
+          match_score = 0.85
+          reasons.push('same service type')
+        } else if (sameIndustry) {
+          match_score = 0.7
+          reasons.push('same industry')
+        } else {
+          reasons.push('popular scope template')
+        }
+
+        return {
+          template,
+          match_score,
+          reasons,
+        }
+      })
+      .sort((a, b) => b.match_score - a.match_score)
+      .slice(0, 5)
+
+    const topSuggestion = suggestions[0]?.template ?? null
+    const topResolution = suggestions[0]?.match_score === 0.85
+      ? ('same_service' as const)
+      : suggestions[0]?.match_score === 0.7
+        ? ('same_industry' as const)
+        : ('manual_selection_required' as const)
+
+    return {
+      template: topSuggestion,
+      resolution: topResolution,
+      exact_match: null,
+      suggestions,
     }
-
-    return { template: null, resolution: 'manual_selection_required' as const }
   }
 
   createWithLog(input: {

@@ -65,9 +65,15 @@ export class UsersService {
     const tasks = await this.usersRepository.findAssignedTasks(user.tenantId, id)
     const blockers = await this.usersRepository.findAssignedTaskBlockers(user.tenantId, id)
 
-    const weeklyCapacityHours = 40
-    const activeTaskCount = tasks.filter((t: any) => !['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(t.status)).length
-    const estimatedAssignedHours = activeTaskCount * 5
+    const weeklyCapacityHours = (member as any).weekly_available_hours ? Number((member as any).weekly_available_hours) : 40
+    const activeTasks = tasks.filter((t: any) => !['completed', 'task_approved_by_manager', 'task_approved_by_client'].includes(t.status))
+    const activeTaskCount = activeTasks.length
+
+    const estimatedAssignedHours = activeTasks.reduce((acc: number, t: any) => {
+      const hours = t.estimated_hours ? Number(t.estimated_hours) : 5
+      return acc + hours
+    }, 0)
+
     const utilizationPercentage = Math.round((estimatedAssignedHours / weeklyCapacityHours) * 100)
 
     return {

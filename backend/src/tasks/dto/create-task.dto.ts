@@ -29,7 +29,7 @@ export class CreateTaskDto {
   priority?: (typeof priorities)[number]
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((dto: CreateTaskDto) => dto.is_daily !== true)
   @IsDateString()
   due_date?: string
 
@@ -51,9 +51,14 @@ export class CreateTaskDto {
   sort_order?: number
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((dto: CreateTaskDto) => dto.is_daily === true)
   @IsString()
   slot?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Min(0.25)
+  estimated_hours?: number
 
   @ApiPropertyOptional()
   @IsOptional()

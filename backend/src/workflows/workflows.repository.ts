@@ -209,6 +209,14 @@ export class WorkflowsRepository {
     })
   }
 
+  updateStatus(tenantId: string, workflowId: string, status: string) {
+    return this.prisma.workflow.update({
+      where: { id: workflowId, tenant_id: tenantId },
+      data: { status },
+      select: this.rowSelect(),
+    })
+  }
+
   private rowSelect() {
     return {
       id: true,

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client'
 import { UserRole } from '../common/enums/user-role.enum'
 import { RequestUser } from '../common/types/request-user.type'
 import { ScopeTemplatesRepository } from '../scope-templates/scope-templates.repository'
+import { areServiceTypesCompatible } from '../scope-templates/service-types.constants'
 import { ClientsRepository } from './clients.repository'
 import { ClientQueryDto } from './dto/client-query.dto'
 import { CreateClientDto } from './dto/create-client.dto'
@@ -93,7 +94,9 @@ export class ClientsService {
 
     if (
       (dto.industry && dto.industry !== template.industry) ||
-      (dto.service_type && dto.service_type !== template.service_type)
+      (dto.service_type &&
+        dto.service_type !== template.service_type &&
+        !areServiceTypesCompatible(dto.service_type, template.service_type))
     ) {
       throw new BadRequestException('Selected template does not match client industry/service type.')
     }
