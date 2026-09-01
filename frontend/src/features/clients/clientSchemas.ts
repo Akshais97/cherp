@@ -1,14 +1,15 @@
 import { z } from 'zod'
 
-const optionalNumber = z.preprocess(
-  (value) => (value === '' || value === undefined ? undefined : Number(value)),
-  z.number().min(0).optional(),
-)
+const optionalNumber = z.coerce.number().min(0).optional()
+const positiveInteger = z.coerce.number().int().positive('Contract duration must be a positive integer.')
 
-const positiveInteger = z.preprocess(
-  (value) => Number(value),
-  z.number().int().positive(),
-)
+const optionalDate = z
+  .string()
+  .optional()
+  .refine(
+    (value) => !value || !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime()),
+    { message: 'Enter a valid date.' },
+  )
 
 export const clientOnboardingSchema = z.object({
   name: z.string().trim().min(2, 'Client name is required.'),
@@ -32,15 +33,7 @@ export const clientOnboardingSchema = z.object({
       message: 'Enter a valid contract start date.',
     }),
   payment_terms: z.string().trim().optional(),
-  renewal_date: z.preprocess(
-    (value) => (value === '' || value === undefined ? undefined : value),
-    z
-      .string()
-      .optional()
-      .refine((value) => !value || !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime()), {
-        message: 'Enter a valid renewal date.',
-      }),
-  ),
+  renewal_date: optionalDate,
   notes: z.string().trim().optional(),
   retainer_hours: optionalNumber,
   scope_template_id: z.string().uuid('Select a scope template.'),

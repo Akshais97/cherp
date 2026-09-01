@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -11,13 +11,10 @@ import {
   Download,
   Plus,
   Search,
-  Filter,
   Layers,
-  Calendar as CalendarIcon,
   Trash2,
   Pencil,
   X,
-  FileText,
 } from 'lucide-react'
 import { getClients } from '../clients/api'
 import {
@@ -31,7 +28,7 @@ import {
   deleteContentPerformanceItem,
   exportPdfReport,
 } from './api'
-import { type CampaignResult, type CreateCampaignResultPayload } from './api'
+import { type CampaignResult, type CreateCampaignResultPayload } from './types'
 
 export function ReportingHubPage() {
   const queryClient = useQueryClient()
@@ -52,7 +49,7 @@ export function ReportingHubPage() {
   // Fetch Clients
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
-    queryFn: getClients,
+    queryFn: () => getClients(),
   })
 
   // Fetch Campaign Results

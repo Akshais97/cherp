@@ -135,7 +135,7 @@ function ClientOnboardingForm({ templates }: { templates: ScopeTemplate[] }) {
     trigger,
     reset,
     formState: { errors },
-  } = useForm<ClientOnboardingInput, unknown, ClientOnboardingValues>({
+  } = useForm<ClientOnboardingValues>({
     resolver: zodResolver(clientOnboardingSchema),
     defaultValues: defaultOnboardingValues,
   })

@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   AlertCircle,
-  ArrowRight,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock,
   ExternalLink,
-  FileCode,
   Key,
   Layers,
-  Link as LinkIcon,
-  Lock,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -409,6 +405,14 @@ export function AdIntegrationsPage() {
   const currentPlatformConfig = PLATFORM_CONFIGS[selectedPlatform]
   const currentCred = integrations.find((i) => i.platform === selectedPlatform)
   const currentLinkedAccounts = linkedAccounts.filter((l) => l.platform === selectedPlatform)
+
+  if (loading) {
+    return (
+      <div style={{ padding: '48px', textAlign: 'center', color: 'var(--secondary)' }}>
+        <p className="animate-pulse">Loading Ad Platform Integrations Hub...</p>
+      </div>
+    )
+  }
 
   return (
     <motion.section
