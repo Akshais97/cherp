@@ -10,23 +10,22 @@ async function bootstrap() {
   const configuredOrigins = process.env.FRONTEND_ORIGIN
     ? process.env.FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
     : []
-  const staticAllowed = [
-    ...configuredOrigins,
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ]
+  const allowedOrigins = Array.from(
+    new Set([
+      ...configuredOrigins,
+      'https://cherp-production.up.railway.app',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ]),
+  )
 
   app.setGlobalPrefix('api')
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin) return callback(null, true)
-      const isAllowed =
-        staticAllowed.includes(origin) ||
-        origin.endsWith('.up.railway.app')
-      if (isAllowed) {
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true)
       }
-      callback(null, false)
+      callback(new Error(`CORS blocked for unauthorized origin: ${origin}`), false)
     },
     credentials: true,
     allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
