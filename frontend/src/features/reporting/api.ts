@@ -8,6 +8,8 @@ import type {
   UpdateCampaignResultPayload,
 } from './types'
 
+export type { CampaignResult, CreateCampaignResultPayload, CreateContentPerformancePayload, UpdateCampaignResultPayload, ChannelBreakdownResponse, ContentPerformance }
+
 export async function getCampaignResults(params?: {
   clientId?: string
   channel?: string
@@ -105,7 +107,7 @@ export async function downloadPdfReport(params: { clientId: string; startDate?: 
     if (params.startDate) query.append('startDate', params.startDate)
     if (params.endDate) query.append('endDate', params.endDate)
   }
-  return apiClient.getBlob(`/reports/executive-summary/pdf?${query.toString()}`)
+  return apiClient.get<Blob>(`/reports/executive-summary/pdf?${query.toString()}`, { responseType: 'blob' }).then((res) => res.data)
 }
 
 // Alias for downloadPdfReport

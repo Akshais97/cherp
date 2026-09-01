@@ -1,25 +1,27 @@
 import { z } from 'zod'
 
-const optionalDate = z.preprocess(
-  (value) => (value === '' || value === undefined ? undefined : value),
-  z
-    .string()
-    .optional()
-    .refine(
-      (value) => !value || !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime()),
-      { message: 'Enter a valid due date.' },
-    ),
-)
+const optionalDate = z
+  .union([z.string(), z.undefined(), z.null()])
+  .transform((val) => (val === '' || val === null ? undefined : val))
+  .pipe(
+    z
+      .string()
+      .optional()
+      .refine(
+        (value) => !value || !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime()),
+        { message: 'Enter a valid due date.' },
+      ),
+  )
 
-const optionalAssignee = z.preprocess(
-  (value) => (value === '' || value === undefined ? undefined : value),
-  z.string().uuid().optional(),
-)
+const optionalAssignee = z
+  .union([z.string(), z.undefined(), z.null()])
+  .transform((val) => (val === '' || val === null ? undefined : val))
+  .pipe(z.string().uuid().optional())
 
 export const createTaskSchema = z.object({
   title: z.string().trim().min(2, 'Task title is required.'),
   description: z.string().trim().optional(),
-  priority: z.enum(['high', 'medium', 'low']).default('medium'),
+  priority: z.enum(['high', 'medium', 'low']),
   due_date: optionalDate,
   assigned_to: optionalAssignee,
 })

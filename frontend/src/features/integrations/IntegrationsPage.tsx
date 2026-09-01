@@ -1,25 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { apiClient } from '../../lib/api/client'
 import { normalizeApiError } from '../../lib/api/errors'
-import { ShinyText } from '../../components/ui/ShinyText'
 import { getClients } from '../clients/api'
 import {
   Network,
-  Key,
-  Power,
   AlertCircle,
   CheckCircle2,
-  ShieldAlert,
-  Users,
   RefreshCw,
-  ChevronDown,
-  ChevronUp,
   Layers,
-  ExternalLink,
   Plus,
-  Link,
   Clock,
-  FileText,
   X,
 } from 'lucide-react'
 
@@ -35,11 +25,6 @@ export function IntegrationsPage() {
   const [clientSecret, setClientSecret] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [syncSummary, setSyncSummary] = useState<any>(null)
-  const [showUnmatchedErp, setShowUnmatchedErp] = useState(false)
-  const [showUnmatchedMs, setShowUnmatchedMs] = useState(false)
 
   // Ad Platform Integrations State
   const [adCredentials, setAdCredentials] = useState<any[]>([])

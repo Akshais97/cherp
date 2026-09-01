@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^3.10.0",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-query": "^5.100.9",
     "axios": "^1.16.0",
@@ -19,7 +19,8 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.75.0",
-    "reicon-react": "^1.1.2"
+    "reicon-react": "^1.1.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

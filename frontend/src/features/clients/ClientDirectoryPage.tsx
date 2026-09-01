@@ -227,7 +227,7 @@ function ClientDetailPanel({ clientId }: { clientId: string | null }) {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<ClientEditInput, unknown, ClientEditValues>({
+  } = useForm<ClientEditValues>({
     resolver: zodResolver(clientEditSchema),
   })
   const updateMutation = useMutation({
@@ -325,19 +325,19 @@ function ClientDetailPanel({ clientId }: { clientId: string | null }) {
           <label className="field">
             <span>Name</span>
             <input data-testid="input-edit-client-name" {...register('name')} />
-            {errors.name ? <small>{errors.name.message}</small> : null}
+            {errors.name?.message ? <small>{String(errors.name.message)}</small> : null}
           </label>
           <label className="field">
             <span>Industry</span>
             <input data-testid="input-edit-client-industry" {...register('industry')} />
-            {errors.industry ? <small>{errors.industry.message}</small> : null}
+            {errors.industry?.message ? <small>{String(errors.industry.message)}</small> : null}
           </label>
         </div>
         <div className="form-pair">
           <label className="field">
             <span>Service</span>
             <input data-testid="input-edit-client-service" {...register('service_type')} />
-            {errors.service_type ? <small>{errors.service_type.message}</small> : null}
+            {errors.service_type?.message ? <small>{String(errors.service_type.message)}</small> : null}
           </label>
           <label className="field">
             <span>Contact Email</span>
@@ -362,7 +362,7 @@ function ClientDetailPanel({ clientId }: { clientId: string | null }) {
           <label className="field">
             <span>Renewal Date</span>
             <input data-testid="input-edit-client-renewal-date" type="date" {...register('renewal_date')} />
-            {errors.renewal_date ? <small>{errors.renewal_date.message}</small> : null}
+            {errors.renewal_date?.message ? <small>{String(errors.renewal_date.message)}</small> : null}
           </label>
         </div>
           <button className="primary-action compact" data-testid="button-save-client" disabled={updateMutation.isPending} type="submit">

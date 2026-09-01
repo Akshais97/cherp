@@ -623,14 +623,14 @@ function CreateTaskForm({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<CreateTaskInput, unknown, CreateTaskValues>({
+  } = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
-    defaultValues: { priority: 'medium' },
+    defaultValues: { title: '', priority: 'medium' },
   })
   const mutation = useMutation({
     mutationFn: (values: CreateTaskValues) => createWorkflowTask(workflowId, values),
     onSuccess: () => {
-      reset({ priority: 'medium' })
+      reset({ title: '', priority: 'medium' })
       onSuccess()
     },
     onError: (error) => onError(normalizeApiError(error).message),
