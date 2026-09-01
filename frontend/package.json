@@ -19,7 +19,8 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.75.0",
-    "reicon-react": "^1.1.2"
+    "reicon-react": "^1.1.2",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
