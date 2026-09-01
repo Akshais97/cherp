@@ -36,6 +36,11 @@ export class AdPlatformController {
     return this.adPlatformService.handleOAuthCallback(platform, code, user)
   }
 
+  @Post('test-connection')
+  async testConnection(@Body('platform') platform: string, @CurrentUser() user: RequestUser) {
+    return this.adPlatformService.testConnection(platform, user)
+  }
+
   @Get('accounts/:platform')
   async listAvailableAdAccounts(@Param('platform') platform: string, @CurrentUser() user: RequestUser) {
     return this.adPlatformService.listAvailableAdAccounts(platform, user)

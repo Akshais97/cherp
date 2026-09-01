@@ -222,11 +222,11 @@ export function IntegrationsPage() {
   }
 
   return (
-    <section className="integrations-page" data-testid="integrations-page" style={{ padding: '8px' }}>
+    <section className="integrations-page" data-testid="integrations-page" style={{ padding: '8px', color: 'var(--text)' }}>
       <div className="page-heading">
         <div>
-          <p>Third-Party Connections & Data Pipelines</p>
-          <h1>Integrations</h1>
+          <p style={{ color: 'var(--muted)' }}>Third-Party Connections & Data Pipelines</p>
+          <h1 style={{ color: 'var(--text)' }}>Integrations</h1>
         </div>
         <span className="pill">Slice 1, 2 and 3</span>
       </div>
@@ -256,7 +256,7 @@ export function IntegrationsPage() {
         style={{
           display: 'flex',
           gap: '12px',
-          borderBottom: '1px solid var(--border, #334155)',
+          borderBottom: '1px solid var(--border)',
           paddingBottom: '12px',
           marginBottom: '24px',
           overflowX: 'auto',
@@ -269,8 +269,8 @@ export function IntegrationsPage() {
             padding: '8px 16px',
             borderRadius: '6px',
             border: 'none',
-            background: activeTab === 'teams' ? 'var(--accent, #6366f1)' : 'var(--panel-bg, #1e293b)',
-            color: '#FFF',
+            background: activeTab === 'teams' ? 'var(--accent, #3b6dd6)' : 'var(--bg-secondary)',
+            color: activeTab === 'teams' ? '#FFF' : 'var(--text)',
             fontWeight: 600,
             fontSize: '13px',
             cursor: 'pointer',
@@ -289,8 +289,8 @@ export function IntegrationsPage() {
             padding: '8px 16px',
             borderRadius: '6px',
             border: 'none',
-            background: activeTab === 'google_ads' ? 'var(--accent, #6366f1)' : 'var(--panel-bg, #1e293b)',
-            color: '#FFF',
+            background: activeTab === 'google_ads' ? 'var(--accent, #3b6dd6)' : 'var(--bg-secondary)',
+            color: activeTab === 'google_ads' ? '#FFF' : 'var(--text)',
             fontWeight: 600,
             fontSize: '13px',
             cursor: 'pointer',
@@ -309,8 +309,8 @@ export function IntegrationsPage() {
             padding: '8px 16px',
             borderRadius: '6px',
             border: 'none',
-            background: activeTab === 'meta_ads' ? 'var(--accent, #6366f1)' : 'var(--panel-bg, #1e293b)',
-            color: '#FFF',
+            background: activeTab === 'meta_ads' ? 'var(--accent, #3b6dd6)' : 'var(--bg-secondary)',
+            color: activeTab === 'meta_ads' ? '#FFF' : 'var(--text)',
             fontWeight: 600,
             fontSize: '13px',
             cursor: 'pointer',
@@ -329,8 +329,8 @@ export function IntegrationsPage() {
             padding: '8px 16px',
             borderRadius: '6px',
             border: 'none',
-            background: activeTab === 'linkedin_ads' ? 'var(--accent, #6366f1)' : 'var(--panel-bg, #1e293b)',
-            color: '#FFF',
+            background: activeTab === 'linkedin_ads' ? 'var(--accent, #3b6dd6)' : 'var(--bg-secondary)',
+            color: activeTab === 'linkedin_ads' ? '#FFF' : 'var(--text)',
             fontWeight: 600,
             fontSize: '13px',
             cursor: 'pointer',
@@ -349,8 +349,8 @@ export function IntegrationsPage() {
             padding: '8px 16px',
             borderRadius: '6px',
             border: 'none',
-            background: activeTab === 'google_ad_manager' ? 'var(--accent, #6366f1)' : 'var(--panel-bg, #1e293b)',
-            color: '#FFF',
+            background: activeTab === 'google_ad_manager' ? 'var(--accent, #3b6dd6)' : 'var(--bg-secondary)',
+            color: activeTab === 'google_ad_manager' ? '#FFF' : 'var(--text)',
             fontWeight: 600,
             fontSize: '13px',
             cursor: 'pointer',
@@ -366,11 +366,11 @@ export function IntegrationsPage() {
       {/* Tab 1: Microsoft Teams */}
       {activeTab === 'teams' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <section className="panel" style={{ padding: '24px' }}>
+          <section className="panel" style={{ padding: '24px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <Network size={24} style={{ color: 'var(--accent, #6366f1)' }} />
+              <Network size={24} style={{ color: 'var(--accent, #3b6dd6)' }} />
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Microsoft Teams Bot & Directory Sync</h2>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>Microsoft Teams Bot & Directory Sync</h2>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
                   Configure Azure AD App credentials for automated user directory sync and chat bot notifications.
                 </p>
@@ -385,7 +385,7 @@ export function IntegrationsPage() {
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
                 />
-                <label htmlFor="teams_enabled" style={{ fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                <label htmlFor="teams_enabled" style={{ fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: 'var(--text)' }}>
                   Enable Teams Integration
                 </label>
               </div>
@@ -404,9 +404,9 @@ export function IntegrationsPage() {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      background: 'var(--bg-secondary, #0f172a)',
-                      color: 'var(--text-primary, #f8fafc)',
-                      border: '1px solid var(--border, #334155)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
                       fontSize: '13px',
                     }}
                   />
@@ -425,9 +425,9 @@ export function IntegrationsPage() {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      background: 'var(--bg-secondary, #0f172a)',
-                      color: 'var(--text-primary, #f8fafc)',
-                      border: '1px solid var(--border, #334155)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
                       fontSize: '13px',
                     }}
                   />
@@ -446,9 +446,9 @@ export function IntegrationsPage() {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      background: 'var(--bg-secondary, #0f172a)',
-                      color: 'var(--text-primary, #f8fafc)',
-                      border: '1px solid var(--border, #334155)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
                       fontSize: '13px',
                     }}
                   />
@@ -460,7 +460,7 @@ export function IntegrationsPage() {
                   type="submit"
                   disabled={saving}
                   style={{
-                    background: 'var(--accent, #6366f1)',
+                    background: 'var(--accent, #3b6dd6)',
                     color: '#fff',
                     border: 'none',
                     padding: '8px 16px',
@@ -482,10 +482,10 @@ export function IntegrationsPage() {
       {activeTab !== 'teams' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Developer Credentials Card */}
-          <section className="panel" style={{ padding: '24px', borderRadius: '8px' }}>
+          <section className="panel" style={{ padding: '24px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>
                   {activeTab.replace('_', ' ').toUpperCase()} Developer Credentials
                 </h2>
                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--muted)' }}>
@@ -513,7 +513,7 @@ export function IntegrationsPage() {
                     alignItems: 'center',
                     gap: '6px',
                     fontSize: '13px',
-                    background: 'var(--accent, #6366f1)',
+                    background: 'var(--accent, #3b6dd6)',
                     color: '#fff',
                     border: 'none',
                     padding: '8px 16px',
@@ -530,15 +530,15 @@ export function IntegrationsPage() {
             {/* Developer Documentation Reference Banner */}
             <div
               style={{
-                background: 'var(--bg-secondary, #0f172a)',
+                background: 'var(--bg-secondary)',
                 padding: '14px 18px',
                 borderRadius: '6px',
                 marginBottom: '20px',
-                border: '1px solid var(--border, #334155)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             >
-              <span style={{ fontWeight: 600, color: 'var(--accent, #6366f1)', display: 'block', marginBottom: '4px' }}>
+              <span style={{ fontWeight: 600, color: 'var(--accent, #3b6dd6)', display: 'block', marginBottom: '4px' }}>
                 📌 Developer Setup Guide ({activeTab.replace('_', ' ').toUpperCase()})
               </span>
               {activeTab === 'google_ads' && (
@@ -564,7 +564,7 @@ export function IntegrationsPage() {
             </div>
 
             {/* Credential Status Summary */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-secondary, #0f172a)', borderRadius: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--border)' }}>
               <div>
                 <span style={{ fontSize: '12px', color: 'var(--muted)', display: 'block' }}>Platform Connection Status</span>
                 <strong style={{ fontSize: '15px', color: currentCred?.is_enabled ? '#10b981' : 'var(--muted)' }}>
@@ -590,7 +590,7 @@ export function IntegrationsPage() {
                   setIsCredsModalOpen(true)
                 }}
                 style={{
-                  background: 'var(--accent, #6366f1)',
+                  background: 'var(--accent, #3b6dd6)',
                   color: '#fff',
                   border: 'none',
                   padding: '8px 16px',
@@ -606,10 +606,10 @@ export function IntegrationsPage() {
           </section>
 
           {/* Linked Client Ad Accounts Panel */}
-          <section className="panel" style={{ padding: '24px', borderRadius: '8px' }}>
+          <section className="panel" style={{ padding: '24px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>
                   Linked Client Ad Accounts ({activeTab.replace('_', ' ').toUpperCase()})
                 </h2>
                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--muted)' }}>
@@ -643,7 +643,7 @@ export function IntegrationsPage() {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border, #334155)', textAlign: 'left' }}>
+                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                       <th style={{ padding: '10px' }}>CHERP Client</th>
                       <th style={{ padding: '10px' }}>Ad Account Name</th>
                       <th style={{ padding: '10px' }}>External Account ID</th>
@@ -653,7 +653,7 @@ export function IntegrationsPage() {
                   </thead>
                   <tbody>
                     {platformLinkedAccounts.map((link) => (
-                      <tr key={link.id} style={{ borderBottom: '1px solid var(--border, #334155)' }}>
+                      <tr key={link.id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '10px', fontWeight: 600 }}>{link.client?.name || 'Client'}</td>
                         <td style={{ padding: '10px' }}>{link.account_name}</td>
                         <td style={{ padding: '10px' }}>
@@ -694,17 +694,17 @@ export function IntegrationsPage() {
         >
           <div
             style={{
-              background: 'var(--panel-bg, #1e293b)',
+              background: 'var(--card)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '520px',
               padding: '24px',
-              border: '1px solid var(--border, #334155)',
-              color: 'var(--text-primary, #f8fafc)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>
                 Configure {activeTab.replace('_', ' ').toUpperCase()} API Credentials
               </h2>
               <button type="button" className="ghost-button" onClick={() => setIsCredsModalOpen(false)}>
@@ -726,9 +726,9 @@ export function IntegrationsPage() {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    color: 'var(--text-primary, #f8fafc)',
-                    border: '1px solid var(--border, #334155)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     fontSize: '13px',
                   }}
                 />
@@ -747,9 +747,9 @@ export function IntegrationsPage() {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    color: 'var(--text-primary, #f8fafc)',
-                    border: '1px solid var(--border, #334155)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     fontSize: '13px',
                   }}
                 />
@@ -769,9 +769,9 @@ export function IntegrationsPage() {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      background: 'var(--bg-secondary, #0f172a)',
-                      color: 'var(--text-primary, #f8fafc)',
-                      border: '1px solid var(--border, #334155)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
                       fontSize: '13px',
                     }}
                   />
@@ -791,9 +791,9 @@ export function IntegrationsPage() {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    color: 'var(--text-primary, #f8fafc)',
-                    border: '1px solid var(--border, #334155)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     fontSize: '13px',
                   }}
                 />
@@ -807,7 +807,7 @@ export function IntegrationsPage() {
                   type="submit"
                   disabled={saving}
                   style={{
-                    background: 'var(--accent, #6366f1)',
+                    background: 'var(--accent, #3b6dd6)',
                     color: '#fff',
                     border: 'none',
                     padding: '8px 16px',
@@ -844,17 +844,17 @@ export function IntegrationsPage() {
         >
           <div
             style={{
-              background: 'var(--panel-bg, #1e293b)',
+              background: 'var(--card)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '480px',
               padding: '24px',
-              border: '1px solid var(--border, #334155)',
-              color: 'var(--text-primary, #f8fafc)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>
                 Link {activeTab.replace('_', ' ').toUpperCase()} Account to Client
               </h2>
               <button type="button" className="ghost-button" onClick={() => setIsLinkModalOpen(false)}>
@@ -875,9 +875,9 @@ export function IntegrationsPage() {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    color: 'var(--text-primary, #f8fafc)',
-                    border: '1px solid var(--border, #334155)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     fontSize: '13px',
                   }}
                 >
@@ -904,9 +904,9 @@ export function IntegrationsPage() {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    color: 'var(--text-primary, #f8fafc)',
-                    border: '1px solid var(--border, #334155)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     fontSize: '13px',
                   }}
                 />
@@ -921,14 +921,14 @@ export function IntegrationsPage() {
                   value={linkForm.account_name}
                   onChange={(e) => setLinkForm({ ...linkForm, account_name: e.target.value })}
                   required
-                  placeholder="e.g. Acme Search Campaign Account"
+                  placeholder="e.g. Acme Search & Lead Gen Account"
                   style={{
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    background: 'var(--bg-secondary, #0f172a)',
-                    color: 'var(--text-primary, #f8fafc)',
-                    border: '1px solid var(--border, #334155)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
                     fontSize: '13px',
                   }}
                 />
@@ -942,7 +942,7 @@ export function IntegrationsPage() {
                   type="submit"
                   disabled={saving}
                   style={{
-                    background: 'var(--accent, #6366f1)',
+                    background: 'var(--accent, #3b6dd6)',
                     color: '#fff',
                     border: 'none',
                     padding: '8px 16px',
@@ -979,17 +979,17 @@ export function IntegrationsPage() {
         >
           <div
             style={{
-              background: 'var(--panel-bg, #1e293b)',
+              background: 'var(--card)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '640px',
               padding: '24px',
-              border: '1px solid var(--border, #334155)',
-              color: 'var(--text-primary, #f8fafc)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>Automated Ad Ingestion Sync Logs</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>Automated Ad Ingestion Sync Logs</h2>
               <button type="button" className="ghost-button" onClick={() => setIsLogsModalOpen(false)}>
                 <X size={18} />
               </button>
@@ -997,13 +997,13 @@ export function IntegrationsPage() {
 
             {syncLogs.length === 0 ? (
               <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>
-                No sync logs recorded yet. Run a manual sync or wait for the daily 02:00 AM daemon job.
+                No ingestion logs recorded yet. Run a manual sync or wait for the daily 02:00 AM daemon job.
               </p>
             ) : (
               <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border, #334155)', textAlign: 'left' }}>
+                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                       <th style={{ padding: '8px' }}>Timestamp</th>
                       <th style={{ padding: '8px' }}>Platform</th>
                       <th style={{ padding: '8px' }}>Type</th>
@@ -1013,7 +1013,7 @@ export function IntegrationsPage() {
                   </thead>
                   <tbody>
                     {syncLogs.map((log) => (
-                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border, #334155)' }}>
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '8px', color: 'var(--muted)' }}>
                           {new Date(log.started_at).toLocaleString()}
                         </td>

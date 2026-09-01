@@ -1,102 +1,99 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   BarChart3,
-  Calendar,
+  TrendingUp,
   DollarSign,
-  Download,
-  FileText,
-  Filter,
-  Layers,
+  Users,
   MousePointer,
-  Pencil,
+  Target,
+  Download,
   Plus,
   Search,
-  Target,
+  Filter,
+  Layers,
+  Calendar as CalendarIcon,
   Trash2,
-  TrendingUp,
-  Users,
+  Pencil,
   X,
+  FileText,
 } from 'lucide-react'
-import { useState } from 'react'
-import { normalizeApiError } from '../../lib/api/errors'
 import { getClients } from '../clients/api'
 import {
-  createCampaignResult,
-  createContentPerformance,
-  deleteCampaignResult,
-  deleteContentPerformance,
-  downloadPdfReport,
   getCampaignResults,
   getChannelBreakdown,
-  getContentPerformances,
+  getContentPerformance,
+  createCampaignResult,
   updateCampaignResult,
+  deleteCampaignResult,
+  createContentPerformanceItem,
+  deleteContentPerformanceItem,
+  exportPdfReport,
 } from './api'
-import type { CampaignResult, CreateCampaignResultPayload } from './types'
+import { type CampaignResult, type CreateCampaignResultPayload } from './api'
 
 export function ReportingHubPage() {
   const queryClient = useQueryClient()
 
-  // Filter state
+  // Filter States
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [selectedChannel, setSelectedChannel] = useState<string>('')
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState<string>('')
 
-  // Modal states
+  // Modal States
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false)
-  const [editingCampaign, setEditingCampaign] = useState<CampaignResult | null>(null)
   const [isContentModalOpen, setIsContentModalOpen] = useState(false)
+  const [editingCampaign, setEditingCampaign] = useState<CampaignResult | null>(null)
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
 
-  // Fetch clients for filter
+  // Fetch Clients
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients-list-reporting'],
-    queryFn: () => getClients(),
+    queryKey: ['clients'],
+    queryFn: getClients,
   })
 
-  // Query Campaign Results
-  const {
-    data: campaignResults = [],
-    isLoading: isResultsLoading,
-    error: resultsError,
-  } = useQuery({
-    queryKey: ['campaign-results', selectedClientId, selectedChannel, startDate, endDate],
+  // Fetch Campaign Results
+  const { data: campaignResults = [], isLoading: isResultsLoading } = useQuery({
+    queryKey: ['campaignResults', selectedClientId, selectedChannel, startDate, endDate],
     queryFn: () =>
       getCampaignResults({
-        client_id: selectedClientId || undefined,
+        clientId: selectedClientId || undefined,
         channel: selectedChannel || undefined,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
       }),
   })
 
-  // Query Channel Breakdown
+  // Fetch Channel Breakdown
   const { data: channelBreakdown } = useQuery({
-    queryKey: ['channel-breakdown', selectedClientId, startDate, endDate],
+    queryKey: ['channelBreakdown', selectedClientId, startDate, endDate],
     queryFn: () =>
       getChannelBreakdown({
-        client_id: selectedClientId || undefined,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
+        clientId: selectedClientId || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
       }),
   })
 
-  // Query Content Performance
+  // Fetch Content Performance Items
   const { data: contentItems = [] } = useQuery({
-    queryKey: ['content-performance', selectedClientId],
-    queryFn: () => getContentPerformances(selectedClientId || undefined),
+    queryKey: ['contentPerformance', selectedClientId],
+    queryFn: () =>
+      getContentPerformance({
+        clientId: selectedClientId || undefined,
+      }),
   })
 
   // Mutations
   const campaignMutation = useMutation({
-    mutationFn: (payload: { id?: string; data: CreateCampaignResultPayload }) =>
-      payload.id
-        ? updateCampaignResult(payload.id, payload.data)
-        : createCampaignResult(payload.data),
+    mutationFn: ({ id, data }: { id?: string; data: CreateCampaignResultPayload }) =>
+      id ? updateCampaignResult(id, data) : createCampaignResult(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-results'] })
-      queryClient.invalidateQueries({ queryKey: ['channel-breakdown'] })
+      queryClient.invalidateQueries({ queryKey: ['campaignResults'] })
+      queryClient.invalidateQueries({ queryKey: ['channelBreakdown'] })
       setIsCampaignModalOpen(false)
       setEditingCampaign(null)
     },
@@ -105,37 +102,40 @@ export function ReportingHubPage() {
   const deleteCampaignMutation = useMutation({
     mutationFn: deleteCampaignResult,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-results'] })
-      queryClient.invalidateQueries({ queryKey: ['channel-breakdown'] })
+      queryClient.invalidateQueries({ queryKey: ['campaignResults'] })
+      queryClient.invalidateQueries({ queryKey: ['channelBreakdown'] })
     },
   })
 
   const contentMutation = useMutation({
-    mutationFn: createContentPerformance,
+    mutationFn: createContentPerformanceItem,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['content-performance'] })
+      queryClient.invalidateQueries({ queryKey: ['contentPerformance'] })
       setIsContentModalOpen(false)
     },
   })
 
   const deleteContentMutation = useMutation({
-    mutationFn: deleteContentPerformance,
+    mutationFn: deleteContentPerformanceItem,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['content-performance'] })
+      queryClient.invalidateQueries({ queryKey: ['contentPerformance'] })
     },
   })
 
-  // Download PDF Report
-  const [isExportingPdf, setIsExportingPdf] = useState(false)
+  // Export PDF Report
   const handlePdfExport = async () => {
     if (!selectedClientId) return
+    setIsExportingPdf(true)
     try {
-      setIsExportingPdf(true)
-      const blob = await downloadPdfReport(selectedClientId)
+      const blob = await exportPdfReport({
+        clientId: selectedClientId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `CHERP_PPC_Report_${selectedClientId}.pdf`
+      a.download = `ppc_report_${selectedClientId}_${new Date().toISOString().slice(0, 10)}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -179,7 +179,7 @@ export function ReportingHubPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      style={{ padding: '8px' }}
+      style={{ padding: '8px', color: 'var(--text)' }}
     >
       {/* Header */}
       <div
@@ -197,7 +197,7 @@ export function ReportingHubPage() {
           <p style={{ color: 'var(--muted)', fontSize: '13px', margin: 0 }}>
             PPC Intelligence & Campaign Delivery
           </p>
-          <h1 style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.02em', margin: '4px 0 0' }}>
+          <h1 style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.02em', margin: '4px 0 0', color: 'var(--text)' }}>
             Reporting Hub
           </h1>
         </div>
@@ -221,7 +221,7 @@ export function ReportingHubPage() {
               alignItems: 'center',
               gap: '8px',
               fontSize: '13px',
-              background: 'var(--accent, #6366f1)',
+              background: 'var(--accent, #3b6dd6)',
               color: '#fff',
               border: 'none',
               padding: '8px 16px',
@@ -251,9 +251,10 @@ export function ReportingHubPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: '16px',
           alignItems: 'center',
-          background: 'var(--panel-bg, #1e293b)',
+          background: 'var(--card)',
           borderRadius: '8px',
-          border: '1px solid var(--border, #334155)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
         }}
       >
         <div>
@@ -267,9 +268,9 @@ export function ReportingHubPage() {
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              background: 'var(--bg-secondary, #0f172a)',
-              color: 'var(--text-primary, #f8fafc)',
-              border: '1px solid var(--border, #334155)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '13px',
             }}
           >
@@ -293,9 +294,9 @@ export function ReportingHubPage() {
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              background: 'var(--bg-secondary, #0f172a)',
-              color: 'var(--text-primary, #f8fafc)',
-              border: '1px solid var(--border, #334155)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '13px',
             }}
           >
@@ -320,9 +321,9 @@ export function ReportingHubPage() {
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              background: 'var(--bg-secondary, #0f172a)',
-              color: 'var(--text-primary, #f8fafc)',
-              border: '1px solid var(--border, #334155)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '13px',
             }}
           />
@@ -340,9 +341,9 @@ export function ReportingHubPage() {
               width: '100%',
               padding: '8px 12px',
               borderRadius: '6px',
-              background: 'var(--bg-secondary, #0f172a)',
-              color: 'var(--text-primary, #f8fafc)',
-              border: '1px solid var(--border, #334155)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '13px',
             }}
           />
@@ -361,13 +362,13 @@ export function ReportingHubPage() {
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6366f1', marginBottom: '8px' }}>
             <DollarSign size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>Total Spend</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
             ₹{totals.ad_spend.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </div>
         </motion.div>
@@ -375,61 +376,61 @@ export function ReportingHubPage() {
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#3b82f6', marginBottom: '8px' }}>
             <BarChart3 size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>Impressions</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>{totals.impressions.toLocaleString()}</div>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totals.impressions.toLocaleString()}</div>
         </motion.div>
 
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#06b6d4', marginBottom: '8px' }}>
             <MousePointer size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>Clicks</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>{totals.clicks.toLocaleString()}</div>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totals.clicks.toLocaleString()}</div>
         </motion.div>
 
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', marginBottom: '8px' }}>
             <Users size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>Leads</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>{totals.leads.toLocaleString()}</div>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totals.leads.toLocaleString()}</div>
         </motion.div>
 
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', marginBottom: '8px' }}>
             <Target size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>Conversions</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>{totals.conversions.toLocaleString()}</div>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totals.conversions.toLocaleString()}</div>
         </motion.div>
 
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ec4899', marginBottom: '8px' }}>
             <TrendingUp size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>Cost Per Lead (CPL)</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
             {avgCpl != null ? `₹${avgCpl.toFixed(2)}` : 'N/A'}
           </div>
         </motion.div>
@@ -437,13 +438,13 @@ export function ReportingHubPage() {
         <motion.div
           className="panel"
           whileHover={{ y: -3, transition: { duration: 0.15 } }}
-          style={{ padding: '16px', borderRadius: '8px' }}
+          style={{ padding: '16px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8b5cf6', marginBottom: '8px' }}>
             <Layers size={18} />
             <span style={{ fontSize: '12px', fontWeight: 600 }}>ROAS</span>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700 }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
             {avgRoas != null ? `${avgRoas.toFixed(2)}x` : 'N/A'}
           </div>
         </motion.div>
@@ -451,12 +452,12 @@ export function ReportingHubPage() {
 
       {/* Channel Breakdown Table */}
       {channelBreakdown && channelBreakdown.channels.length > 0 ? (
-        <div className="panel" style={{ padding: '20px', marginBottom: '24px', borderRadius: '8px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>Channel Breakdown</h2>
+        <div className="panel" style={{ padding: '20px', marginBottom: '24px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: 'var(--text)' }}>Channel Breakdown</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border, #334155)', textAlign: 'left' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                   <th style={{ padding: '10px' }}>Channel</th>
                   <th style={{ padding: '10px' }}>Spend</th>
                   <th style={{ padding: '10px' }}>Impressions</th>
@@ -469,7 +470,7 @@ export function ReportingHubPage() {
               </thead>
               <tbody>
                 {channelBreakdown.channels.map((ch) => (
-                  <tr key={ch.channel} style={{ borderBottom: '1px solid var(--border, #334155)' }}>
+                  <tr key={ch.channel} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px', fontWeight: 600 }}>{ch.channel}</td>
                     <td style={{ padding: '10px' }}>₹{ch.ad_spend.toLocaleString()}</td>
                     <td style={{ padding: '10px' }}>{ch.impressions.toLocaleString()}</td>
@@ -487,7 +488,7 @@ export function ReportingHubPage() {
       ) : null}
 
       {/* Campaign Results Data Table */}
-      <div className="panel" style={{ padding: '20px', marginBottom: '24px', borderRadius: '8px' }}>
+      <div className="panel" style={{ padding: '20px', marginBottom: '24px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}>
         <div
           style={{
             display: 'flex',
@@ -498,7 +499,7 @@ export function ReportingHubPage() {
             gap: '12px',
           }}
         >
-          <h2 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>Logged Campaign Results</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>Logged Campaign Results</h2>
           <div style={{ position: 'relative', width: '240px' }}>
             <Search
               size={14}
@@ -513,9 +514,9 @@ export function ReportingHubPage() {
                 width: '100%',
                 padding: '6px 12px 6px 32px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -534,7 +535,7 @@ export function ReportingHubPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border, #334155)', textAlign: 'left' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                   <th style={{ padding: '10px' }}>Client</th>
                   <th style={{ padding: '10px' }}>Campaign Name</th>
                   <th style={{ padding: '10px' }}>Channel</th>
@@ -548,7 +549,7 @@ export function ReportingHubPage() {
               </thead>
               <tbody>
                 {filteredCampaigns.map((c) => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border, #334155)' }}>
+                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px', fontWeight: 600 }}>{c.client?.name || 'Client'}</td>
                     <td style={{ padding: '10px' }}>{c.campaign_name}</td>
                     <td style={{ padding: '10px' }}>
@@ -597,9 +598,9 @@ export function ReportingHubPage() {
       </div>
 
       {/* Content Performance Section */}
-      <div className="panel" style={{ padding: '20px', borderRadius: '8px' }}>
+      <div className="panel" style={{ padding: '20px', borderRadius: '8px', background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>Content Performance</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>Content Performance</h2>
           <button
             className="ghost-button"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
@@ -619,7 +620,7 @@ export function ReportingHubPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border, #334155)', textAlign: 'left' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                   <th style={{ padding: '10px' }}>Title</th>
                   <th style={{ padding: '10px' }}>Type</th>
                   <th style={{ padding: '10px' }}>Channel</th>
@@ -631,7 +632,7 @@ export function ReportingHubPage() {
               </thead>
               <tbody>
                 {safeContentItems.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid var(--border, #334155)' }}>
+                  <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px', fontWeight: 600 }}>{item.title}</td>
                     <td style={{ padding: '10px' }}>{item.content_type}</td>
                     <td style={{ padding: '10px' }}>{item.channel || '—'}</td>
@@ -743,17 +744,17 @@ function CampaignResultModal({
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.18 }}
         style={{
-          background: 'var(--panel-bg, #1e293b)',
+          background: 'var(--card)',
           borderRadius: '12px',
           width: '100%',
           maxWidth: '540px',
           padding: '24px',
-          border: '1px solid var(--border, #334155)',
-          color: 'var(--text-primary, #f8fafc)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>
             {editingCampaign ? 'Edit Campaign Result' : 'Log Campaign Result'}
           </h2>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -780,9 +781,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             >
@@ -809,9 +810,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -828,9 +829,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             >
@@ -856,9 +857,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -877,9 +878,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -898,9 +899,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -919,9 +920,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -940,9 +941,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -961,9 +962,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -982,9 +983,9 @@ function CampaignResultModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -998,7 +999,7 @@ function CampaignResultModal({
               type="submit"
               disabled={isSubmitting}
               style={{
-                background: 'var(--accent, #6366f1)',
+                background: 'var(--accent, #3b6dd6)',
                 color: '#fff',
                 border: 'none',
                 padding: '8px 16px',
@@ -1063,17 +1064,17 @@ function ContentPerformanceModal({
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.18 }}
         style={{
-          background: 'var(--panel-bg, #1e293b)',
+          background: 'var(--card)',
           borderRadius: '12px',
           width: '100%',
           maxWidth: '480px',
           padding: '24px',
-          border: '1px solid var(--border, #334155)',
-          color: 'var(--text-primary, #f8fafc)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>Log Content Performance</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: 'var(--text)' }}>Log Content Performance</h2>
           <button type="button" className="ghost-button" onClick={onClose}>
             <X size={18} />
           </button>
@@ -1098,9 +1099,9 @@ function ContentPerformanceModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             >
@@ -1127,9 +1128,9 @@ function ContentPerformanceModal({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary, #0f172a)',
-                color: 'var(--text-primary, #f8fafc)',
-                border: '1px solid var(--border, #334155)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
                 fontSize: '13px',
               }}
             />
@@ -1147,9 +1148,9 @@ function ContentPerformanceModal({
                   width: '100%',
                   padding: '8px 12px',
                   borderRadius: '6px',
-                  background: 'var(--bg-secondary, #0f172a)',
-                  color: 'var(--text-primary, #f8fafc)',
-                  border: '1px solid var(--border, #334155)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
                   fontSize: '13px',
                 }}
               >
@@ -1172,9 +1173,9 @@ function ContentPerformanceModal({
                   width: '100%',
                   padding: '8px 12px',
                   borderRadius: '6px',
-                  background: 'var(--bg-secondary, #0f172a)',
-                  color: 'var(--text-primary, #f8fafc)',
-                  border: '1px solid var(--border, #334155)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
                   fontSize: '13px',
                 }}
               />
@@ -1189,7 +1190,7 @@ function ContentPerformanceModal({
               type="submit"
               disabled={isSubmitting}
               style={{
-                background: 'var(--accent, #6366f1)',
+                background: 'var(--accent, #3b6dd6)',
                 color: '#fff',
                 border: 'none',
                 padding: '8px 16px',
