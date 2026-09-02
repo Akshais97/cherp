@@ -17,6 +17,12 @@ import { DashboardService } from './dashboard.service'
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
+  @Get('overview')
+  @ApiOkResponse({ description: 'Consolidated dashboard payload including recent activity.' })
+  getOverview(@CurrentUser() user: RequestUser, @Query() query: DashboardQueryDto) {
+    return this.dashboardService.getOverview(user, query)
+  }
+
   @Get('summary')
   @ApiOkResponse({ description: 'Derived internal dashboard summary.' })
   getSummary(@CurrentUser() user: RequestUser, @Query() query: DashboardQueryDto) {

@@ -1,3 +1,4 @@
+import compression from 'compression'
 import { ValidationPipe } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
@@ -7,6 +8,7 @@ import { ApiExceptionFilter } from './common/filters/api-exception.filter'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
+  app.use(compression())
   const configuredOrigins = process.env.FRONTEND_ORIGIN
     ? process.env.FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
     : []

@@ -83,24 +83,47 @@ export type DashboardPayload = {
   clientHealth: ClientHealthRow[]
   upcomingDeadlines: DashboardDeadline[]
   openBlockers: DashboardOpenBlocker[]
+  recentActivity: DashboardActivityPage
 }
 
-export async function getDashboard(filters?: DashboardFilters) {
+export async function getDashboard(filters?: DashboardFilters): Promise<DashboardPayload> {
   const params = cleanFilters(filters)
-  const [summary, clientHealth, upcomingDeadlines, openBlockers] =
-    await Promise.all([
-    apiClient.get<DashboardSummary>('/dashboard/summary', { params }),
-    apiClient.get<ClientHealthRow[]>('/dashboard/client-health', { params }),
-    apiClient.get<DashboardDeadline[]>('/dashboard/upcoming-deadlines', { params }),
-    apiClient.get<DashboardOpenBlocker[]>('/dashboard/open-blockers', { params }),
-  ])
+  try {
+    const res = await apiClient.get<DashboardPayload>('/dashboard/overview', { params })
+    return res.data
+  } catch (error) {
+    if (!isMissingOverviewEndpoint(error)) {
+      throw error
+    }
 
-  return {
-    summary: summary.data,
-    clientHealth: clientHealth.data,
-    upcomingDeadlines: upcomingDeadlines.data,
-    openBlockers: openBlockers.data,
+    const [summary, clientHealth, upcomingDeadlines, openBlockers, recentActivity] =
+      await Promise.all([
+        apiClient.get<DashboardSummary>('/dashboard/summary', { params }),
+        apiClient.get<ClientHealthRow[]>('/dashboard/client-health', { params }),
+        apiClient.get<DashboardDeadline[]>('/dashboard/upcoming-deadlines', { params }),
+        apiClient.get<DashboardOpenBlocker[]>('/dashboard/open-blockers', { params }),
+        apiClient.get<DashboardActivityPage | DashboardActivity[]>('/dashboard/recent-activity', {
+          params,
+        }),
+      ])
+
+    return {
+      summary: summary.data,
+      clientHealth: clientHealth.data,
+      upcomingDeadlines: upcomingDeadlines.data,
+      openBlockers: openBlockers.data,
+      recentActivity: normalizeActivityPage(recentActivity.data),
+    }
   }
+}
+
+function isMissingOverviewEndpoint(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    (error as { response?: { status?: number } }).response?.status === 404
+  )
 }
 
 export function getRecentActivity(

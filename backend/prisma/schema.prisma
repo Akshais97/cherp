@@ -275,6 +275,8 @@ model Task {
   @@index([tenant_id, workflow_id])
   @@index([tenant_id, assigned_to])
   @@index([tenant_id, status, due_date])
+  @@index([tenant_id, client_id])
+  @@index([tenant_id, parent_task_id])
   @@map("tasks")
   @@schema("erp")
 }
@@ -330,6 +332,7 @@ model ActivityLog {
   user   User?  @relation(fields: [user_id], references: [id])
 
   @@index([tenant_id, created_at])
+  @@index([tenant_id, user_id, created_at])
   @@map("activity_logs")
   @@schema("erp")
 }
@@ -372,6 +375,7 @@ model TaskAttachment {
   task     Task   @relation(fields: [task_id], references: [id])
   uploader User   @relation(fields: [uploaded_by], references: [id])
 
+  @@index([tenant_id, task_id])
   @@map("task_attachments")
   @@schema("erp")
 }
@@ -392,6 +396,8 @@ model TimeEntry {
   task   Task   @relation(fields: [task_id], references: [id])
   user   User   @relation(fields: [user_id], references: [id])
 
+  @@index([tenant_id, user_id, date])
+  @@index([tenant_id, task_id])
   @@map("time_entries")
   @@schema("erp")
 }
@@ -412,6 +418,8 @@ model Notification {
   tenant Tenant @relation(fields: [tenant_id], references: [id])
   user   User   @relation(fields: [user_id], references: [id])
 
+  @@index([tenant_id, user_id, is_read])
+  @@index([tenant_id, user_id, created_at])
   @@map("notifications")
   @@schema("erp")
 }

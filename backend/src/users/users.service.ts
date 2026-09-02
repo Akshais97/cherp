@@ -275,31 +275,22 @@ export class UsersService {
   }
 
   async getWorkloadSummary(actor: RequestUser) {
-    const users = await this.usersRepository.findTeamMembersByTenant(actor.tenantId)
+    const users = await this.usersRepository.findTeamWorkloadSummaries(actor.tenantId)
 
-    const summaryList = await Promise.all(
-      users.map(async (u) => {
-        const clientUsers = await this.usersRepository.findClientUsersForUser(actor.tenantId, u.id)
-        const assignedClients = clientUsers.map((cu: any) => cu.client.name)
+    return users.map((user) => {
+      const openTasksCount = user._count.assigned_tasks
 
-        const openTasksCount = await this.usersRepository.countOpenTasksForUser(actor.tenantId, u.id)
-
+      return {
+        id: user.id,
+        fullName: user.full_name,
+        email: user.email,
+        designation: user.designation || 'Team Member',
+        availability: user.availability || 'Full-time',
+        assignedClients: user.client_users.map(({ client }) => client.name),
+        openTasksCount,
         // Workload calculation: 8 open tasks = 100% capacity (12.5% per task)
-        const computedWorkload = Math.min(100, openTasksCount * 12.5)
-
-        return {
-          id: u.id,
-          fullName: u.full_name,
-          email: u.email,
-          designation: u.designation || 'Team Member',
-          availability: u.availability || 'Full-time',
-          assignedClients,
-          openTasksCount,
-          workloadPercentage: computedWorkload,
-        }
-      })
-    )
-
-    return summaryList
+        workloadPercentage: Math.min(100, openTasksCount * 12.5),
+      }
+    })
   }
 }
