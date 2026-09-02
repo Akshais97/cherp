@@ -27,14 +27,11 @@ import {
   Users
 } from 'reicon-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useAuth } from '../../app/providers/useAuth'
 import { useTheme } from '../../app/providers/ThemeContext'
 import { NotificationsBell } from '../../features/notifications/NotificationsBell'
 import { AiChatWidget } from '../../features/ai-chat/AiChatWidget'
-import { AnalyticsPage } from '../../features/analytics/AnalyticsPage'
-import { BrandsPage } from '../../features/brands/BrandsPage'
-import { BlockersPage } from '../../features/blockers/BlockersPage'
 import {
   canManageClients,
   canManageUsers,
@@ -42,25 +39,36 @@ import {
   roleLabels,
 } from '../../lib/permissions/roles'
 import { DashboardPage } from '../../features/dashboard/DashboardPage'
-import { ClientDirectoryPage } from '../../features/clients/ClientDirectoryPage'
-import { ClientsPage } from '../../features/clients/ClientsPage'
-import { TeamMembersPage } from '../../features/users/TeamMembersPage'
-import { TasksOverviewPage } from '../../features/tasks/TasksOverviewPage'
-import { EmployeeProfilesPage } from '../../features/profiles/EmployeeProfilesPage'
-import { UserManagementPage } from '../../features/users/UserManagementPage'
-import { WorkflowsPage } from '../../features/workflows/WorkflowsPage'
-import { CalendarPage } from '../../features/calendar/CalendarPage'
 import { searchWorkspace, type SearchResult } from '../../features/dashboard/api'
-import { ClientDashboardPage } from '../../features/dashboard/ClientDashboardPage'
-import { ScopeTemplatesPage } from '../../features/clients/ScopeTemplatesPage'
-import { DailyTaskReportPage } from '../../features/tasks/DailyTaskReportPage'
-import { IntegrationsPage } from '../../features/integrations/IntegrationsPage'
-import { AuditLogPage } from '../../features/activity-logs/AuditLogPage'
-import { TimeTrackingPage } from '../../features/time-entries/TimeTrackingPage'
-import { NotificationPreferencesPage } from '../../features/notifications/NotificationPreferencesPage'
-import { ReportingHubPage } from '../../features/reporting/ReportingHubPage'
-import { AdIntegrationsPage } from '../../features/integrations/AdIntegrationsPage'
 import { type NotificationRow } from '../../features/notifications/api'
+
+const AnalyticsPage = lazyPage(() => import('../../features/analytics/AnalyticsPage'), 'AnalyticsPage')
+const BrandsPage = lazyPage(() => import('../../features/brands/BrandsPage'), 'BrandsPage')
+const BlockersPage = lazyPage(() => import('../../features/blockers/BlockersPage'), 'BlockersPage')
+const ClientDirectoryPage = lazyPage(() => import('../../features/clients/ClientDirectoryPage'), 'ClientDirectoryPage')
+const ClientsPage = lazyPage(() => import('../../features/clients/ClientsPage'), 'ClientsPage')
+const TeamMembersPage = lazyPage(() => import('../../features/users/TeamMembersPage'), 'TeamMembersPage')
+const TasksOverviewPage = lazyPage(() => import('../../features/tasks/TasksOverviewPage'), 'TasksOverviewPage')
+const EmployeeProfilesPage = lazyPage(() => import('../../features/profiles/EmployeeProfilesPage'), 'EmployeeProfilesPage')
+const UserManagementPage = lazyPage(() => import('../../features/users/UserManagementPage'), 'UserManagementPage')
+const WorkflowsPage = lazyPage(() => import('../../features/workflows/WorkflowsPage'), 'WorkflowsPage')
+const CalendarPage = lazyPage(() => import('../../features/calendar/CalendarPage'), 'CalendarPage')
+const ClientDashboardPage = lazyPage(() => import('../../features/dashboard/ClientDashboardPage'), 'ClientDashboardPage')
+const ScopeTemplatesPage = lazyPage(() => import('../../features/clients/ScopeTemplatesPage'), 'ScopeTemplatesPage')
+const DailyTaskReportPage = lazyPage(() => import('../../features/tasks/DailyTaskReportPage'), 'DailyTaskReportPage')
+const IntegrationsPage = lazyPage(() => import('../../features/integrations/IntegrationsPage'), 'IntegrationsPage')
+const AuditLogPage = lazyPage(() => import('../../features/activity-logs/AuditLogPage'), 'AuditLogPage')
+const TimeTrackingPage = lazyPage(() => import('../../features/time-entries/TimeTrackingPage'), 'TimeTrackingPage')
+const NotificationPreferencesPage = lazyPage(() => import('../../features/notifications/NotificationPreferencesPage'), 'NotificationPreferencesPage')
+const ReportingHubPage = lazyPage(() => import('../../features/reporting/ReportingHubPage'), 'ReportingHubPage')
+const AdIntegrationsPage = lazyPage(() => import('../../features/integrations/AdIntegrationsPage'), 'AdIntegrationsPage')
+
+function lazyPage<TModule, TKey extends keyof TModule>(
+  loader: () => Promise<TModule>,
+  exportName: TKey,
+) {
+  return lazy(async () => ({ default: (await loader())[exportName] as React.ComponentType<any> }))
+}
 
 type AppRoute =
   | 'dashboard'
@@ -652,8 +660,9 @@ export function AppShell() {
         </header>
 
         <div className="content-area">
-          <AnimatePresence mode="wait">
-            <motion.div
+          <Suspense fallback={<div className="boot-screen">Loading page...</div>}>
+            <AnimatePresence mode="wait">
+              <motion.div
               key={activeRoute}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -688,8 +697,9 @@ export function AppShell() {
           {activeRoute === 'audit-logs' ? <AuditLogPage /> : null}
           {activeRoute === 'time-tracking' ? <TimeTrackingPage /> : null}
           {activeRoute === 'notification-preferences' ? <NotificationPreferencesPage /> : null}
-            </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </Suspense>
         </div>
       </main>
       <AiChatWidget />

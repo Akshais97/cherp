@@ -34,14 +34,34 @@ function getSessionUser(session: Session | null) {
   return session?.user ? getCurrentUser(session.user) : null
 }
 
+const profileIdRequests = new Map<string, Promise<string>>()
+
+function getProfileId(authUserId: string) {
+  const existing = profileIdRequests.get(authUserId)
+  if (existing) return existing
+
+  const request = apiClient
+    .get<{ id: string }>('/users/me')
+    .then((response) => response.data.id)
+    .catch((error) => {
+      profileIdRequests.delete(authUserId)
+      throw error
+    })
+
+  profileIdRequests.set(authUserId, request)
+  return request
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
+    let authGeneration = 0
 
     const syncUserDbProfile = async (session: Session | null) => {
+      const generation = ++authGeneration
       const sbUser = getSessionUser(session)
       if (!sbUser) {
         if (mounted) {
@@ -51,32 +71,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      if (mounted) {
-        setCurrentUser(prev => {
-          if (prev && prev.email === sbUser.email && prev.id !== sbUser.id) {
-            return prev
-          }
+      if (mounted && generation === authGeneration) {
+        setCurrentUser(sbUser)
+      }
 
-          apiClient.get('/users/me')
-            .then(res => {
-              if (mounted) {
-                setCurrentUser({
-                  ...sbUser,
-                  id: res.data.id
-                })
-                setIsLoading(false)
-              }
-            })
-            .catch(err => {
-              console.error('Failed to sync DB user profile', err)
-              if (mounted) {
-                setCurrentUser(sbUser)
-                setIsLoading(false)
-              }
-            })
-
-          return sbUser
-        })
+      try {
+        const profileId = await getProfileId(session!.user.id)
+        if (mounted && generation === authGeneration) {
+          setCurrentUser({ ...sbUser, id: profileId })
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.error('Failed to sync DB user profile', error)
+        if (mounted && generation === authGeneration) {
+          setCurrentUser(sbUser)
+          setIsLoading(false)
+        }
       }
     }
 
@@ -126,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       signOut: async () => {
         await supabase.auth.signOut()
+        profileIdRequests.clear()
         localStorage.clear()
         sessionStorage.clear()
         setCurrentUser(null)

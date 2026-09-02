@@ -19,7 +19,7 @@ export function NotificationsBell({ onNotificationClick }: NotificationsBellProp
   const { data: notifications = [], error: notificationsQueryError, isLoading: isNotificationsLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => getNotifications(),
-    refetchInterval: 5000,
+    refetchInterval: 60000,
   })
 
   useEffect(() => {

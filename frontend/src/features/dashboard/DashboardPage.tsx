@@ -15,7 +15,6 @@ import { normalizeApiError } from '../../lib/api/errors'
 import { getUsers, getTeamWorkloadSummary } from '../workflows/api'
 import {
   getDashboard,
-  getRecentActivity,
   type ClientHealthRow,
   type DashboardActivity,
   type DashboardDeadline,
@@ -72,23 +71,12 @@ export function DashboardPage({
     queryFn: getTeamWorkloadSummary,
     enabled: currentUser?.role === 'super_admin' || currentUser?.role === 'project_manager',
   })
-  const {
-    data: activityData,
-    error: activityQueryError,
-    isLoading: isActivityLoading,
-  } = useQuery({
-    queryKey: ['dashboard-activity', filters],
-    queryFn: () => getRecentActivity(filters),
-  })
   const apiError = error ? normalizeApiError(error) : null
-  const activityError = activityQueryError
-    ? normalizeApiError(activityQueryError).message
-    : null
   const summary = data?.summary
   const clientHealth = data?.clientHealth ?? []
   const upcomingDeadlines = data?.upcomingDeadlines ?? []
   const openBlockers = data?.openBlockers ?? []
-  const recentActivity = activityData?.items.filter(Boolean) ?? []
+  const recentActivity = data?.recentActivity.items.filter(Boolean) ?? []
   const projectManagers =
     usersData?.filter((user) =>
       ['super_admin', 'project_manager'].includes(user.role.name),
@@ -165,7 +153,6 @@ export function DashboardPage({
       </div>
 
       {apiError ? <div className="notice error">{apiError.message}</div> : null}
-      {activityError ? <div className="notice error">{activityError}</div> : null}
 
       <section className="panel dashboard-filter-panel" data-testid="dashboard-quick-filters">
         <div className="panel-header compact-header">
@@ -319,7 +306,7 @@ export function DashboardPage({
             {paginatedActivity.map((entry) => (
               <ActivityItem entry={entry} key={entry.id} />
             ))}
-            {!isActivityLoading && recentActivity.length === 0 ? <div className="muted-card">No recent activity yet.</div> : null}
+            {!isLoading && recentActivity.length === 0 ? <div className="muted-card">No recent activity yet.</div> : null}
           </div>
           <PaginationControls
             currentPage={activityPage}

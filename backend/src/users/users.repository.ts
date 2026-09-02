@@ -46,6 +46,44 @@ export class UsersRepository {
     })
   }
 
+  findTeamWorkloadSummaries(tenantId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        tenant_id: tenantId,
+        role: { name: 'team_member' },
+      },
+      orderBy: [{ full_name: 'asc' }],
+      take: 100,
+      select: {
+        id: true,
+        full_name: true,
+        email: true,
+        designation: true,
+        availability: true,
+        client_users: {
+          where: { tenant_id: tenantId },
+          select: { client: { select: { name: true } } },
+        },
+        _count: {
+          select: {
+            assigned_tasks: {
+              where: {
+                tenant_id: tenantId,
+                status: {
+                  notIn: [
+                    'completed',
+                    'task_approved_by_manager',
+                    'task_approved_by_client',
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+  }
+
   findById(tenantId: string, id: string) {
     return this.prisma.user.findFirst({
       where: { id, tenant_id: tenantId },
@@ -406,22 +444,4 @@ export class UsersRepository {
     } satisfies Prisma.UserSelect
   }
 
-  findClientUsersForUser(tenantId: string, userId: string) {
-    return this.prisma.clientUser.findMany({
-      where: { tenant_id: tenantId, user_id: userId },
-      select: {
-        client: { select: { name: true } },
-      },
-    })
-  }
-
-  countOpenTasksForUser(tenantId: string, userId: string) {
-    return this.prisma.task.count({
-      where: {
-        tenant_id: tenantId,
-        assigned_to: userId,
-        status: { notIn: ['completed', 'task_approved_by_manager', 'task_approved_by_client'] },
-      },
-    })
-  }
 }

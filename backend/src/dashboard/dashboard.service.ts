@@ -17,6 +17,25 @@ const severityRank: Record<BlockerSeverity, number> = {
 export class DashboardService {
   constructor(private readonly repository: DashboardRepository) {}
 
+  async getOverview(user: RequestUser, query: DashboardQueryDto) {
+    const [summary, clientHealth, upcomingDeadlines, openBlockers, recentActivity] =
+      await Promise.all([
+        this.getSummary(user, query),
+        this.getClientHealth(user, query),
+        this.getUpcomingDeadlines(user, query),
+        this.getOpenBlockers(user, query),
+        this.getRecentActivity(user, query),
+      ])
+
+    return {
+      summary,
+      clientHealth,
+      upcomingDeadlines,
+      openBlockers,
+      recentActivity,
+    }
+  }
+
   async getSummary(user: RequestUser, query: DashboardQueryDto) {
     const filters = this.toFilters(query, user)
     const [
